@@ -1,0 +1,35 @@
+{
+  "jobs": [
+    {
+      "id": 4019309,
+      "title": "Site Reliability Engineer",
+      "absolute_url": "https://job-boards.greenhouse.io/drweng/jobs/4019309",
+      "updated_at": "2026-09-20T15:04:05Z",
+      "first_published": "2026-09-01T12:00:00Z",
+      "content": "&lt;p&gt;We are looking for an &lt;strong&gt;SRE&lt;/strong&gt; in Chicago.&amp;nbsp;You will run Linux.&amp;nbsp;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Linux&lt;/li&gt;&lt;li&gt;Kubernetes&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;We do not sponsor visas.&lt;/p&gt;",
+      "location": { "name": "Chicago, IL, United States" },
+      "departments": [{ "name": "Technology" }, { "name": "Engineering" }]
+    },
+    {
+      "id": 4019310,
+      "title": "Software Engineer Intern",
+      "absolute_url": "https://job-boards.greenhouse.io/drweng/jobs/4019310",
+      "updated_at": "2026-09-22T10:00:00Z",
+      "first_published": "2026-09-05T09:30:00Z",
+      "content": "&lt;p&gt;Join our &lt;em&gt;summer&lt;/em&gt; internship program &amp;amp; have fun.&lt;/p&gt;",
+      "location": { "name": "New York, NY" },
+      "departments": []
+    },
+    {
+      "id": 4019311,
+      "title": "Trade Systems Engineer",
+      "absolute_url": "https://job-boards.greenhouse.io/drweng/jobs/4019311",
+      "updated_at": "2026-09-23T08:00:00-05:00",
+      "first_published": "2026-09-10T08:00:00-05:00",
+      "content": "&lt;p&gt;Support trading systems.&lt;/p&gt;",
+      "location": { "name": "Remote - US" },
+      "departments": [{ "name": "Trading" }]
+    }
+  ],
+  "meta": { "total": 3 }
+}

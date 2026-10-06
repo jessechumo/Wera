@@ -47,7 +47,10 @@ func main() {
 	case "migrate":
 		err = runMigrate(ctx)
 
-	case "companies", "discover", "fetch", "score", "pipeline",
+	case "fetch":
+		err = runFetch(ctx, args)
+
+	case "companies", "discover", "score", "pipeline",
 		"worker", "serve", "bench", "rescore", "refilter", "deep":
 		err = fmt.Errorf("command %q is not implemented yet (milestone pending): %v", cmd, args)
 
