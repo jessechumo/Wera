@@ -1,0 +1,37 @@
+# WHO to watch. Tokens marked "verified" were confirmed to return a valid
+# job list. The rest must be checked with `wera discover` before enabling.
+# Adding a company here requires no code change.
+
+companies:
+  # ---------- AI inference / AI infrastructure ----------
+  - { name: Baseten,        ats: ashby,      token: baseten,          group: ai_infra, enabled: true }   # verified
+  - { name: Modal,          ats: ashby,      token: modal,            group: ai_infra, enabled: true }   # verified
+  - { name: Lambda,         ats: ashby,      token: lambda,           group: ai_infra, enabled: true }   # verified
+  - { name: Together AI,    ats: greenhouse, token: togetherai,       group: ai_infra, enabled: true }   # verified
+  - { name: CoreWeave,      ats: greenhouse, token: coreweave,        group: ai_infra, enabled: true }   # verified
+  - { name: Fireworks AI,   ats: greenhouse, token: fireworksai,      group: ai_infra, enabled: false, notes: "404 on greenhouse; try ashby/lever" }
+  - { name: Groq,           ats: greenhouse, token: groq,             group: ai_infra, enabled: false, notes: "404 on greenhouse; try others" }
+  - { name: Anyscale,       ats: greenhouse, token: anyscale,         group: ai_infra, enabled: false }
+  - { name: Replicate,      ats: ashby,      token: replicate,        group: ai_infra, enabled: false }
+  - { name: Cerebras,       ats: greenhouse, token: cerebrassystems,  group: ai_infra, enabled: false }
+  - { name: Crusoe,         ats: ashby,      token: crusoe,           group: ai_infra, enabled: false }
+  - { name: Nebius,         ats: greenhouse, token: nebius,           group: ai_infra, enabled: false }
+  - { name: RunPod,         ats: ashby,      token: runpod,          group: ai_infra, enabled: false }
+
+  # ---------- Trading firms / exchanges ----------
+  - { name: DRW,                 ats: greenhouse, token: drweng,           group: trading, enabled: true }  # verified
+  - { name: Akuna Capital,       ats: greenhouse, token: akunacapital,     group: trading, enabled: true }  # verified
+  - { name: Hudson River Trading,ats: greenhouse, token: wehrtyou,         group: trading, enabled: true }  # verified
+  - { name: Optiver,             ats: greenhouse, token: optiverus,        group: trading, enabled: true }  # verified
+  - { name: IMC Trading,         ats: greenhouse, token: imc,              group: trading, enabled: true }  # verified
+  - { name: Belvedere Trading,   ats: lever,      token: belvederetrading, group: trading, enabled: true }  # verified
+  - { name: Wolverine Trading,   ats: greenhouse, token: wolverinetrading, group: trading, enabled: false, notes: "404; find real board" }
+  - { name: PEAK6,               ats: greenhouse, token: peak6,            group: trading, enabled: false }
+  - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      group: trading, enabled: false }
+  - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   group: trading, enabled: false }
+  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,group: trading, enabled: false }
+  - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, group: trading, enabled: false }
+  - { name: Two Sigma,           ats: greenhouse, token: twosigma,         group: trading, enabled: false }
+
+# Companies on custom career sites (Citadel, Jane Street, CME, Cboe, etc.)
+# are out of scope until a public API is found. Do not scrape them.

@@ -1,0 +1,64 @@
+# WHAT counts as a match. All matching logic lives here.
+# Matching is case-insensitive. Patterns are Go regular expressions (RE2):
+# no lookahead/lookbehind.
+
+title_overrides:            # checked FIRST; a match skips exclude_title (still subject to location/sponsorship)
+  # AI startups use "Member of Technical Staff" as a generic title; "staff" here is not seniority.
+  mts_infra: ['\bmember of technical staff\b.*\b(systems|infrastructure|infra|inference|platform|reliability|sre|devops|cloud|gpu)\b']
+
+role_categories:            # a job must match at least one include pattern
+  sre:            ['\bsite reliability\b', '\bSRE\b', '\breliability engineer']
+  platform:       ['\bplatform engineer', '\bcloud platform\b', '\binfrastructure platform']
+  devops:         ['\bdevops\b', '\bbuild (and|&) release\b', '\brelease engineer']
+  infrastructure: ['\binfrastructure engineer', '\binfrastructure software engineer', '\bcloud engineer', '\bsystems? engineer', '\blinux\b']
+  production:     ['\bproduction engineer', '\bproduction support\b']
+  trading_ops:    ['\btrad(e|ing) (operations|ops|support|systems)', '\btrade systems engineer', '\bapplication support engineer']
+  ml_infra:       ['\bml infrastructure\b', '\bmlops\b', '\bai infrastructure\b', '\binference\b', '\bml platform\b', '\bgpu (infrastructure|platform|cloud)\b']
+  swe_infra:      ['\bsoftware engineer\b.*\b(infra|infrastructure|platform|reliability|systems|cloud|devops|observability)\b',
+                   '\b(infra|infrastructure|platform|observability)\b.*\bsoftware engineer\b']
+  early_career:   ['\bnew grad', '\bearly career\b', '\buniversity grad', '\bgraduate (software|systems|infrastructure)']
+
+exclude_title:              # drop immediately
+  - '\bsenior\b'
+  - '\bsr\.?\b'
+  - '\bstaff\b'
+  - '\bprincipal\b'
+  - '\blead\b'
+  - '\bmanager\b'
+  - '\bdirector\b'
+  - '\bhead of\b'
+  - '\bvp\b'
+  - '\bintern(ship)?\b'
+  - '\bco-?op\b'
+  - '\bIII\b'
+  - '\bIV\b'
+
+seniority:
+  max_years_required: 3     # LLM-extracted; jobs requiring more are excluded
+
+location:
+  allow_countries: ['US']
+  allow_remote_us: true
+  # rule layer keeps a job if location text contains a US state/city/"United States"/"Remote - US"/"USA",
+  # or is ambiguous ("Remote"); the LLM then confirms. Clearly non-US (London, Bangalore, Singapore...) is dropped.
+
+sponsorship:
+  # Explicit refusal = hard exclude. Matched against the full plain-text description.
+  # These were tested against real posting sentences (see the test table in PLAN.md).
+  # Note the YAML single-quote escaping: an apostrophe inside a pattern is written as ''.
+  exclude_patterns:
+    - '\b(will|do|does|can) ?not (be )?(provid|offer|sponsor)\w*[^.]{0,60}(sponsor|visa)'
+    - '\b(won''t|cannot|can''t|unable to|not able to) (be )?(provid|offer|sponsor)\w*[^.]{0,60}(sponsor|visa)'
+    - '\b(do|does|will|can) ?not sponsor\b'
+    - '\bno (visa |employment )?sponsorship\b'
+    - '\bsponsorship (is |will )?not (be )?(available|provided|offered)'
+    - '\bwithout (a |the |any )?(need for |requirement for |the need for )?(current or future |current |future |present or future )?(visa |employment |immigration )?sponsorship'
+    - '\bnot (be )?(able|eligible) to sponsor'
+    - '\bU\.?S\.? citizens? only\b'
+    - '\bmust be a U\.?S\.? citizen'
+    - '\bactive (security )?clearance (is )?required'
+  # ITAR "U.S. person" requirements are flagged (not auto-excluded) and surfaced for manual review.
+  flag_patterns:
+    - 'ITAR'
+    - 'U\.?S\.? persons?'
+    - 'export control'

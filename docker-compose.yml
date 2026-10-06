@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wera-postgres
+    environment:
+      POSTGRES_USER: wera
+      POSTGRES_PASSWORD: wera
+      POSTGRES_DB: wera
+    ports:
+      - "5433:5432"   # 5432 on the host is taken by a native PostgreSQL install
+    volumes:
+      - wera-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wera -d wera"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  wera-pgdata:

@@ -1,0 +1,16 @@
+# secrets
+.env
+
+# my profile (never commit)
+profile/*.md
+!profile/profile.example.md
+
+# builds
+bin/
+dist/
+
+# local overrides
+*.local.yaml
+
+# misc
+.DS_Store
