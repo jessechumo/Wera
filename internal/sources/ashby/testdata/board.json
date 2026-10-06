@@ -1,0 +1,48 @@
+{
+  "jobs": [
+    {
+      "id": "f7e6d5c4-0001",
+      "title": "Infrastructure Engineer",
+      "department": "EPD",
+      "team": "Platform",
+      "location": "San Francisco",
+      "secondaryLocations": [
+        { "location": "New York", "address": { "postalAddress": { "addressCountry": "United States", "addressLocality": "New York" } } },
+        { "location": "Austin", "address": null }
+      ],
+      "isListed": true,
+      "isRemote": false,
+      "workplaceType": "Hybrid",
+      "publishedAt": "2026-09-05T09:30:00.000Z",
+      "jobUrl": "https://jobs.ashbyhq.com/baseten/f7e6d5c4-0001",
+      "descriptionHtml": "<p>Own our Kubernetes fleet.</p>",
+      "descriptionPlain": "Own our Kubernetes fleet.",
+      "applyUrl": null
+    },
+    {
+      "id": "f7e6d5c4-0002",
+      "title": "Hidden Internal Role",
+      "location": "Remote",
+      "team": "Ops",
+      "isListed": false,
+      "isRemote": true,
+      "workplaceType": "remote",
+      "publishedAt": "2026-09-06T09:30:00.000Z",
+      "jobUrl": "https://jobs.ashbyhq.com/baseten/f7e6d5c4-0002",
+      "descriptionPlain": "Should never appear."
+    },
+    {
+      "id": "f7e6d5c4-0003",
+      "title": "ML Platform Engineer",
+      "location": "Remote (US)",
+      "secondaryLocations": [],
+      "team": "ML Infra",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "remote",
+      "publishedAt": "2026-09-10T14:00:00.000Z",
+      "jobUrl": "https://jobs.ashbyhq.com/baseten/f7e6d5c4-0003",
+      "descriptionPlain": "Build the training platform.\n\nWe sponsor visas."
+    }
+  ]
+}

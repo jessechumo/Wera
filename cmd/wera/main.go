@@ -50,7 +50,13 @@ func main() {
 	case "fetch":
 		err = runFetch(ctx, args)
 
-	case "companies", "discover", "score", "pipeline",
+	case "discover":
+		err = runDiscover(ctx, args)
+
+	case "companies":
+		err = runCompanies(ctx, args)
+
+	case "score", "pipeline",
 		"worker", "serve", "bench", "rescore", "refilter", "deep":
 		err = fmt.Errorf("command %q is not implemented yet (milestone pending): %v", cmd, args)
 

@@ -3,7 +3,9 @@ package pipeline
 import (
 	"wera/internal/config"
 	"wera/internal/sources"
+	"wera/internal/sources/ashby"
 	"wera/internal/sources/greenhouse"
+	"wera/internal/sources/lever"
 )
 
 // NewSourceRegistry builds the source registry with the shared polite HTTP
@@ -14,5 +16,7 @@ func NewSourceRegistry(env *config.Env) map[string]sources.Source {
 	h := sources.NewHTTP(env.UserAgent)
 	return map[string]sources.Source{
 		"greenhouse": greenhouse.New(h),
+		"lever":      lever.New(h),
+		"ashby":      ashby.New(h),
 	}
 }

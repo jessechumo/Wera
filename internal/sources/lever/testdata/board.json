@@ -1,0 +1,53 @@
+[
+  {
+    "id": "a1b2c3d4-0001",
+    "text": "Trading Systems Engineer",
+    "categories": {
+      "team": "Technology",
+      "location": "Chicago, IL (Hybrid)",
+      "commitment": "Full-time"
+    },
+    "workplaceType": "hybrid",
+    "hostedUrl": "https://jobs.lever.co/belvederetrading/a1b2c3d4-0001",
+    "createdAt": 1757083800000,
+    "description": "<p>Support our trading infrastructure. We do not sponsor visas.</p>",
+    "descriptionPlain": "Support our trading infrastructure. We do not sponsor visas.",
+    "lists": [
+      {
+        "text": "What you'll do",
+        "content": "<ul><li>Run Linux</li><li>Automate deployments</li></ul>"
+      },
+      {
+        "text": "Requirements",
+        "content": "<ul><li>2+ years of experience</li></ul>"
+      }
+    ],
+    "additionalPlain": "Belvedere is an equal opportunity employer."
+  },
+  {
+    "id": "a1b2c3d4-0002",
+    "text": "Quantitative Researcher",
+    "categories": {
+      "team": "Research",
+      "location": "London, UK"
+    },
+    "workplaceType": "onsite",
+    "hostedUrl": "https://jobs.lever.co/belvederetrading/a1b2c3d4-0002",
+    "createdAt": 1757170200000,
+    "descriptionPlain": "Research strategies.",
+    "lists": []
+  },
+  {
+    "id": "a1b2c3d4-0003",
+    "text": "Platform Engineer (Remote)",
+    "categories": {
+      "team": "Cloud",
+      "location": "Remote - US"
+    },
+    "workplaceType": "remote",
+    "hostedUrl": "https://jobs.lever.co/belvederetrading/a1b2c3d4-0003",
+    "createdAt": 1757256600000,
+    "descriptionPlain": "Build internal tooling.",
+    "lists": []
+  }
+]
