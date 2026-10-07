@@ -150,5 +150,17 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, job)
+	// PLAN.md section 9: the detail view carries the latest score
+	// analysis (inside JobView), the application row, and the deep
+	// analysis when one exists.
+	deep, err := store.GetDeepAnalysis(r.Context(), s.Pool, id)
+	if err != nil {
+		s.Log.Error("get deep analysis failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, struct {
+		store.JobView
+		Deep *store.DeepView `json:"deep"`
+	}{JobView: *job, Deep: deep})
 }

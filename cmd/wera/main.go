@@ -78,7 +78,7 @@ func main() {
 		err = runRefilter(ctx, args)
 
 	case "deep":
-		err = fmt.Errorf("command %q is not implemented yet (Milestone 7, optional): %v", cmd, args)
+		err = runDeep(ctx, args)
 
 	case "help", "-h", "--help":
 		fmt.Print(usage)

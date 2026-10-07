@@ -645,6 +645,7 @@ go run ./cmd/wera serve           # http://localhost:8080/api/today
 - ✅ Prints throughput, cache %, cost per job, and the parallel-vs-serial speedup. Save the output for the showcase post.
 
 **M7 (optional): Deep review with background mode.**
+- ✅ `wera deep --top 3` queues three background Responses (glm-5.3-fast), polls them to completion in ~13s wall (server-side parallel), and stores kind='deep' rows at 97-99% prompt cache, $0.037 total. GET /api/jobs/{id} serves the deep analysis alongside the score.
 
 ---
 
