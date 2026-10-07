@@ -59,8 +59,13 @@ func main() {
 	case "score":
 		err = runScore(ctx, args)
 
-	case "pipeline",
-		"worker", "serve", "bench", "rescore", "refilter", "deep":
+	case "pipeline":
+		err = runPipeline(ctx, args)
+
+	case "worker":
+		err = runWorker(ctx, args)
+
+	case "serve", "bench", "rescore", "refilter", "deep":
 		err = fmt.Errorf("command %q is not implemented yet (milestone pending): %v", cmd, args)
 
 	case "help", "-h", "--help":
