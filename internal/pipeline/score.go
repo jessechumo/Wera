@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/config"
+	"wera/internal/metrics"
 	"wera/internal/scoring"
 	"wera/internal/store"
 )
@@ -28,7 +29,7 @@ type ScoreStats struct {
 // ScorePending scores up to limit jobs in stage 'pending_score' (0 = all)
 // and stores their analyses. It returns (nil, nil) when CORAL_API_KEY is
 // not set, so the pipeline simply skips the LLM stage.
-func ScorePending(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, profilePath string, limit int) (*ScoreStats, error) {
+func ScorePending(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, profilePath string, limit int, m *metrics.Registry) (*ScoreStats, error) {
 	if env.CoralAPIKey == "" {
 		log.Info("CORAL_API_KEY not set; skipping scoring stage")
 		return nil, nil
@@ -77,6 +78,18 @@ func ScorePending(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log 
 
 	st := &ScoreStats{CostUSD: scorer.Spent()}
 	for _, out := range outcomes {
+		if m != nil {
+			m.LLMTokens.WithLabelValues("prompt").Add(float64(out.Usage.PromptTokens))
+			m.LLMTokens.WithLabelValues("cached").Add(float64(out.Usage.CachedTokens))
+			m.LLMTokens.WithLabelValues("completion").Add(float64(out.Usage.CompletionTokens))
+			m.LLMCost.Add(out.CostUSD)
+			m.LLMLatency.Observe(float64(out.LatencyMS) / 1000)
+			result := out.Stage
+			if result == "" {
+				result = "skipped"
+			}
+			m.LLMRequests.WithLabelValues(env.CoralModel, result).Inc()
+		}
 		if out.Stage != "" {
 			if err := store.SaveAnalysis(ctx, pool, out.JobID, env.CoralModel, profileHash, out); err != nil {
 				log.Error("saving analysis failed", "job_id", out.JobID, "err", err)

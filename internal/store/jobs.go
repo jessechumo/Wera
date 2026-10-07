@@ -106,16 +106,17 @@ func CloseMissingJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, 
 
 // ApplyFilters runs the rule engine over every open job in stage 'new',
 // moving them to 'excluded' or 'pending_score' in one batch. It returns
-// the excluded and pending counts. (This is also what `wera refilter
-// --all` reuses later; requeueing happens by resetting stage in SQL.)
-func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (excluded, pending int, err error) {
+// the excluded and pending counts plus a per-reason breakdown (for
+// metrics). (This is also what `wera refilter --all` reuses later;
+// requeueing happens by resetting stage in SQL.)
+func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (excluded, pending int, byReason map[string]int, err error) {
 	rows, err := pool.Query(ctx, `
 		SELECT id, title, COALESCE(location_raw, ''), COALESCE(description, '')
 		FROM jobs
 		WHERE stage = 'new'
 		ORDER BY id`)
 	if err != nil {
-		return 0, 0, fmt.Errorf("load stage=new jobs: %w", err)
+		return 0, 0, nil, fmt.Errorf("load stage=new jobs: %w", err)
 	}
 	type pendingJob struct {
 		id                      int64
@@ -126,18 +127,19 @@ func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (
 		var j pendingJob
 		if err := rows.Scan(&j.id, &j.title, &j.loc, &j.description); err != nil {
 			rows.Close()
-			return 0, 0, err
+			return 0, 0, nil, err
 		}
 		jobs = append(jobs, j)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 	if len(jobs) == 0 {
-		return 0, 0, nil
+		return 0, 0, map[string]int{}, nil
 	}
 
+	byReason = map[string]int{}
 	b := &pgx.Batch{}
 	for _, j := range jobs {
 		res := eng.Apply(j.title, j.loc, j.description)
@@ -148,6 +150,7 @@ func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (
 			         WHERE id = $1`,
 				j.id, res.Stage, res.Reason, res.Evidence, res.Categories, res.Flags)
 			excluded++
+			byReason[res.Reason]++
 		} else {
 			b.Queue(`UPDATE jobs
 			         SET stage = $2, matched_categories = $3, flags = $4
@@ -160,11 +163,11 @@ func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (
 	for range jobs {
 		if _, err := br.Exec(); err != nil {
 			br.Close()
-			return 0, 0, fmt.Errorf("apply filter: %w", err)
+			return 0, 0, nil, fmt.Errorf("apply filter: %w", err)
 		}
 	}
 	if err := br.Close(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
-	return excluded, pending, nil
+	return excluded, pending, byReason, nil
 }

@@ -43,7 +43,7 @@ func runScore(ctx context.Context, args []string) error {
 	}
 	defer pool.Close()
 
-	st, err := pipeline.ScorePending(ctx, pool, env, log, *profilePath, *limit)
+	st, err := pipeline.ScorePending(ctx, pool, env, log, *profilePath, *limit, nil)
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,7 @@ import (
 
 	"wera/internal/config"
 	"wera/internal/filter"
+	"wera/internal/metrics"
 	"wera/internal/normalize"
 	"wera/internal/sources"
 	"wera/internal/store"
@@ -37,6 +38,7 @@ type Fetcher struct {
 	Env     *config.Env
 	Log     *slog.Logger
 	Sources map[string]sources.Source
+	Metrics *metrics.Registry // optional
 }
 
 // Run fetches every company in the list (all enabled ones when only is
@@ -81,12 +83,18 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, eng *filt
 		return stats, err
 	}
 
-	excluded, pending, err := store.ApplyFilters(ctx, f.Pool, eng)
+	excluded, pending, byReason, err := store.ApplyFilters(ctx, f.Pool, eng)
 	if err != nil {
 		return stats, fmt.Errorf("apply filters: %w", err)
 	}
 	stats.JobsExcluded = excluded
 	stats.JobsPending = pending
+	if f.Metrics != nil {
+		f.Metrics.JobsNewTotal.Add(float64(stats.JobsNew))
+		for reason, n := range byReason {
+			f.Metrics.JobsExcluded.WithLabelValues(reason).Add(float64(n))
+		}
+	}
 	return stats, nil
 }
 
@@ -95,15 +103,21 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 	src, err := sources.Get(f.Sources, c.ATS)
 	if err == nil {
 		var raw []sources.RawJob
+		var seen, newly int
 		start := time.Now()
 		raw, err = src.Fetch(ctx, c.Token)
-		var seen, newly int
+		if f.Metrics != nil {
+			f.Metrics.FetchDuration.Observe(time.Since(start).Seconds())
+		}
 		if err == nil {
 			seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw)
 		}
 		if err == nil {
 			f.Log.Info("company fetched", "company", c.Name, "ats", c.ATS,
 				"jobs", len(raw), "new", newly, "ms", time.Since(start).Milliseconds())
+			if f.Metrics != nil {
+				f.Metrics.FetchTotal.WithLabelValues(c.Name, "ok").Inc()
+			}
 			mu.Lock()
 			stats.CompaniesOK++
 			stats.JobsSeen += seen
@@ -115,6 +129,9 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 
 	// Any failure here is recorded and never fails the run.
 	f.Log.Warn("fetch failed", "company", c.Name, "ats", c.ATS, "err", err.Error())
+	if f.Metrics != nil {
+		f.Metrics.FetchTotal.WithLabelValues(c.Name, "error").Inc()
+	}
 	if uerr := store.UpdateFetchStatus(ctx, f.Pool, companyID, false, err.Error()); uerr != nil {
 		f.Log.Error("recording fetch failure failed", "company", c.Name, "err", uerr.Error())
 	}

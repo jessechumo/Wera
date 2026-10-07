@@ -37,7 +37,7 @@ func LoadEnv() (*Env, error) {
 		ScoringConcurrency: 12,
 		FetchConcurrency:   6,
 		RunInterval:        30 * time.Minute,
-		HTTPAddr:           ":8080",
+		HTTPAddr:           "127.0.0.1:8080",
 		LogFormat:          "text",
 		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
 		MaxCostPerRunUSD:   0.50,

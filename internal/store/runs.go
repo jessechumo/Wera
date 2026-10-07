@@ -7,6 +7,33 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TryAdvisoryLock attempts the run lock (PLAN.md section 7, key 4242) on a
+// dedicated pool connection. When acquired, the returned release function
+// must be called (with a live context) to unlock and return the
+// connection. Advisory locks are session-scoped, so the connection is
+// held between the two calls.
+func TryAdvisoryLock(ctx context.Context, pool *pgxpool.Pool, key int64) (acquired bool, release func(context.Context), err error) {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return false, nil, fmt.Errorf("acquire lock connection: %w", err)
+	}
+	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", key).Scan(&acquired); err != nil {
+		conn.Release()
+		return false, nil, fmt.Errorf("try advisory lock: %w", err)
+	}
+	if !acquired {
+		conn.Release()
+		return false, nil, nil
+	}
+	return true, func(releaseCtx context.Context) {
+		defer conn.Release()
+		if _, uerr := conn.Exec(releaseCtx, "SELECT pg_advisory_unlock($1)", key); uerr != nil {
+			// The connection may be dead; Postgres frees the lock with it.
+			_ = uerr
+		}
+	}, nil
+}
+
 // RunTotals is the summary written to a run row when it finishes.
 type RunTotals struct {
 	Status           string // ok | partial | failed

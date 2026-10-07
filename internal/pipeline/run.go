@@ -10,6 +10,7 @@ import (
 
 	"wera/internal/config"
 	"wera/internal/filter"
+	"wera/internal/metrics"
 	"wera/internal/store"
 )
 
@@ -26,34 +27,28 @@ type Pipeline struct {
 	Companies   []config.Company
 	Engine      *filter.Engine
 	ProfilePath string
+	Metrics     *metrics.Registry // optional
 }
 
 // RunOnce executes a single pipeline run under the Postgres advisory
 // lock. It returns ran=false (with a log line, no error) when another
 // process already holds the lock, so overlapping runs never happen.
 func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
-	// The advisory lock is session-scoped, so it must live on one held
+	// The advisory lock is session-scoped, so it lives on one held
 	// connection for the whole run.
-	conn, err := p.Pool.Acquire(ctx)
+	gotLock, release, err := store.TryAdvisoryLock(ctx, p.Pool, advisoryLockKey)
 	if err != nil {
-		return false, fmt.Errorf("acquire lock connection: %w", err)
-	}
-	defer conn.Release()
-
-	var gotLock bool
-	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", advisoryLockKey).Scan(&gotLock); err != nil {
-		return false, fmt.Errorf("try advisory lock: %w", err)
+		return false, err
 	}
 	if !gotLock {
 		p.Log.Warn("another pipeline run is in progress; skipping this run")
 		return false, nil
 	}
 	defer func() {
+		// Use a fresh context so a canceled worker still unlocks.
 		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if _, uerr := conn.Exec(unlockCtx, "SELECT pg_advisory_unlock($1)", advisoryLockKey); uerr != nil {
-			p.Log.Error("releasing advisory lock failed", "err", uerr)
-		}
+		release(unlockCtx)
 	}()
 
 	runID, err := store.StartRun(ctx, p.Pool)
@@ -70,13 +65,13 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		}
 	}
 
-	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env)}
+	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
 	fstats, fetchErr := fetcher.Run(ctx, p.Companies, p.Engine, "")
 
 	var sstats *ScoreStats
 	var scoreErr error
 	if fetchErr == nil {
-		sstats, scoreErr = ScorePending(ctx, p.Pool, p.Env, p.Log, p.ProfilePath, 0)
+		sstats, scoreErr = ScorePending(ctx, p.Pool, p.Env, p.Log, p.ProfilePath, 0, p.Metrics)
 	}
 
 	totals := store.RunTotals{Status: "ok"}
@@ -105,6 +100,9 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		totals.Error = scoreErr.Error()
 	} else if totals.CompaniesFailed > 0 {
 		totals.Status = "partial"
+	}
+	if p.Metrics != nil && totals.Status != "failed" {
+		p.Metrics.RunLastSuccess.SetToCurrentTime()
 	}
 	finalize(totals)
 
