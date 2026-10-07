@@ -19,6 +19,7 @@ go run ./cmd/wera fetch               # fetch + rule filter, no LLM spend
 go run ./cmd/wera score --limit 5     # tiny paid test
 go run ./cmd/wera pipeline            # one full run
 go run ./cmd/wera serve               # http://localhost:8080/api/today
+go run ./cmd/wera deep --top 3        # background-mode deep review of the top fits
 ```
 
 ## Layout
