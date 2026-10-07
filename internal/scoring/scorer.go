@@ -105,8 +105,12 @@ func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 	}
 	out.Usage = comp.Usage
 	out.LatencyMS = time.Since(start).Milliseconds()
-	prices, _ := PriceFor(s.Model)
-	out.CostUSD = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
+	if comp.CostUSD != nil && *comp.CostUSD > 0 {
+		out.CostUSD = *comp.CostUSD // authoritative, from the provider
+	} else {
+		prices, _ := PriceFor(s.Model)
+		out.CostUSD = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
+	}
 	s.addCost(out.CostUSD)
 
 	analysis, raw := s.parseWithRetry(ctx, messages, comp.Content)

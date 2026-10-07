@@ -7,9 +7,18 @@ import (
 	"strings"
 )
 
-// systemPrompt is the fixed scoring instruction from PLAN.md section 7.4.
-// It is byte-identical on every call so the prompt prefix stays cached.
-const systemPrompt = `You evaluate job postings for one candidate. Return ONLY a JSON object, no prose, no markdown fences, matching this schema exactly. Be strict and literal: base sponsorship, years_required, and us_eligible only on what the posting says. If the posting does not mention sponsorship, use "unknown". sponsorship_quote must be copied verbatim from the posting or be null. Score fit 0-100 for THIS candidate considering role type, seniority, required skills, and location. Entry/junior infrastructure, SRE, platform, DevOps, trading-operations, and ML-infrastructure roles that match the candidate's skills should score highest. Penalize roles requiring 4+ years, deep specialization the candidate lacks, or non-infrastructure work.`
+// systemPromptText is the fixed scoring instruction from PLAN.md
+// section 7.4. It is byte-identical on every call so the prompt prefix
+// stays cached.
+const systemPromptText = `You evaluate job postings for one candidate. Return ONLY a JSON object, no prose, no markdown fences, matching this schema exactly. Be strict and literal: base sponsorship, years_required, and us_eligible only on what the posting says. If the posting does not mention sponsorship, use "unknown". sponsorship_quote must be copied verbatim from the posting or be null. Score fit 0-100 for THIS candidate considering role type, seniority, required skills, and location. Entry/junior infrastructure, SRE, platform, DevOps, trading-operations, and ML-infrastructure roles that match the candidate's skills should score highest. Penalize roles requiring 4+ years, deep specialization the candidate lacks, or non-infrastructure work.`
+
+// systemPrompt is the full fixed instruction: the prose plus the exact
+// JSON schema the reply must match (field names and types matter).
+const systemPrompt = systemPromptText + `
+
+Your reply must be exactly this JSON shape (types matter: fit_score is an integer 0-100; years_required is an integer or null; us_eligible is a boolean or null; sponsorship_quote is a string copied verbatim from the posting or null; skills_matched and skills_missing are arrays of strings):
+
+` + schemaJSON
 
 // maxDescriptionChars is the plain-text description truncation limit.
 const maxDescriptionChars = 12000

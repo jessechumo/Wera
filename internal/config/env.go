@@ -32,7 +32,7 @@ func LoadEnv() (*Env, error) {
 	e := &Env{
 		DatabaseURL:        "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
 		CoralBaseURL:       "https://inference.coralbricks.ai/v1",
-		CoralModel:         "glm-5.3-flash-fast",
+		CoralModel:         "deepseek-v4.1-flash-fast",
 		CoralDeepModel:     "glm-5.3-fast",
 		ScoringConcurrency: 12,
 		FetchConcurrency:   6,

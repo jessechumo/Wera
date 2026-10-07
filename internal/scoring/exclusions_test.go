@@ -2,6 +2,7 @@ package scoring
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -97,6 +98,22 @@ func TestScorerBudgetGuard(t *testing.T) {
 	}
 	if n := script.requestCount(); n != 1 {
 		t.Errorf("want 1 request under budget, got %d", n)
+	}
+}
+
+func TestScorerUsesAPICostWhenPresent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		content, _ := json.Marshal(validReply)
+		w.Write([]byte(`{"choices":[{"message":{"content":` + string(content) + `}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}},"cost":0.00042}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "cb_test", Model: "glm-5.3-flash-fast"})
+	s := &Scorer{Client: client, Profile: []byte(testProfile),
+		ProfileHash: ProfileHash([]byte(testProfile)), Model: "glm-5.3-flash-fast", MaxYears: 3, Concurrency: 1}
+	outs := s.Score(context.Background(), testJobs(1))
+	if outs[0].CostUSD != 0.00042 {
+		t.Errorf("cost: got %.6f, want 0.00042 (API-reported)", outs[0].CostUSD)
 	}
 }
 
