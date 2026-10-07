@@ -1,4 +1,4 @@
-.PHONY: build test lint migrate fetch score pipeline serve worker bench clean
+.PHONY: build test lint migrate fetch score pipeline serve worker bench deep clean
 
 # All configuration comes from the environment or a local .env file,
 # which the binary loads itself. Nothing secret belongs in this Makefile.
@@ -32,6 +32,9 @@ worker:
 
 bench:
 	go run ./cmd/wera bench
+
+deep:
+	go run ./cmd/wera deep
 
 clean:
 	rm -rf bin

@@ -40,6 +40,35 @@ func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]sco
 	return jobs, rows.Err()
 }
 
+// BenchJobs returns jobs for the scoring benchmark: pending jobs first,
+// then the most recent scored postings, never excluded/closed ones. The
+// benchmark re-scores them without persisting, so nothing changes stage.
+func BenchJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]scoring.Job, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
+		       COALESCE(j.description, '')
+		FROM jobs j
+		JOIN companies c ON c.id = j.company_id
+		WHERE j.closed_at IS NULL
+		  AND j.stage IN ('pending_score', 'scored')
+		ORDER BY (j.stage = 'pending_score') DESC, j.posted_at DESC NULLS LAST, j.id
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("load bench jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []scoring.Job
+	for rows.Next() {
+		var j scoring.Job
+		if err := rows.Scan(&j.ID, &j.Company, &j.Title, &j.Location, &j.URL, &j.Description); err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
 // SaveAnalysis persists one scoring outcome: it upserts the analyses row
 // (by job, kind, profile hash) and moves the job to its resulting stage.
 // A score_failed outcome saves the raw model text in analyses.raw.
@@ -182,4 +211,34 @@ func nilIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+// RequeueScored resets all open scored jobs back to pending_score for
+// `wera rescore --all` (run after profile.md changes; the new profile
+// hash means fresh analyses rows while old ones are kept).
+func RequeueScored(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE jobs SET stage = 'pending_score'
+		WHERE stage = 'scored' AND closed_at IS NULL`)
+	if err != nil {
+		return 0, fmt.Errorf("requeue scored jobs: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// RequeueForRefilter resets open jobs (pending_score/scored/excluded) back
+// to 'new' for `wera refilter --all`, clearing rule outcomes. Post-LLM
+// exclusions are re-derived on the next scoring pass for jobs that pass
+// the rules again.
+func RequeueForRefilter(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE jobs
+		SET stage = 'new', exclude_reason = NULL, exclude_evidence = NULL,
+		    matched_categories = '{}', flags = '{}'
+		WHERE stage IN ('pending_score','scored','excluded')
+		  AND closed_at IS NULL`)
+	if err != nil {
+		return 0, fmt.Errorf("requeue jobs for refilter: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }

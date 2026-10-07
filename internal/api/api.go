@@ -1,0 +1,166 @@
+// Package api implements the REST API served by `wera serve`
+// (PLAN.md section 9): all JSON, chi router, CORS for the Vite dev
+// server, and a Prometheus /metrics endpoint.
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"wera/internal/metrics"
+	"wera/internal/store"
+)
+
+// AdvisoryLockKey mirrors pipeline.advisoryLockKey for the run trigger.
+const AdvisoryLockKey = 4242
+
+// Server bundles the API dependencies.
+type Server struct {
+	Pool    *pgxpool.Pool
+	Log     *slog.Logger
+	Metrics *metrics.Registry
+
+	// RunPipeline is set by `wera serve` to pipeline.RunOnce; nil
+	// disables POST /api/runs.
+	RunPipeline func(ctx context.Context) (bool, error)
+}
+
+// Handler builds the router with all routes.
+func (s *Server) Handler() http.Handler {
+	r := chi.NewRouter()
+	r.Use(middleware.Recoverer)
+	r.Use(s.cors)
+
+	r.Get("/healthz", s.healthz)
+	if s.Metrics != nil {
+		r.Handle("/metrics", s.Metrics.HTTPHandler())
+	}
+
+	r.Get("/api/jobs", s.listJobs)
+	r.Get("/api/jobs/{id}", s.getJob)
+	r.Put("/api/jobs/{id}/application", s.putApplication)
+	r.Get("/api/today", s.today)
+	r.Get("/api/stats", s.stats)
+	r.Get("/api/runs", s.runs)
+	r.Post("/api/runs", s.triggerRun)
+	r.Get("/api/companies", s.companies)
+	r.Get("/api/usage", s.usage)
+	r.Get("/api/excluded", s.excluded)
+	return r
+}
+
+// allowedOrigins covers the Vite dev server (PLAN.md section 9).
+var allowedOrigins = map[string]bool{
+	"http://localhost:5173": true,
+	"http://127.0.0.1:5173": true,
+}
+
+func (s *Server) cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if origin := r.Header.Get("Origin"); allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// writeJSON renders v as JSON.
+func (s *Server) writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		s.Log.Error("encoding response failed", "err", err)
+	}
+}
+
+func (s *Server) writeError(w http.ResponseWriter, status int, msg string) {
+	s.writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
+	if err := s.Pool.Ping(r.Context()); err != nil {
+		s.writeError(w, http.StatusServiceUnavailable, "database unreachable")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	since, _ := time.Parse("2006-01-02", q.Get("since"))
+	minScore, _ := strconv.Atoi(q.Get("min_score"))
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	jobs, err := store.ListJobs(r.Context(), s.Pool, store.JobQuery{
+		Group:           q.Get("group"),
+		Category:        q.Get("category"),
+		MinScore:        minScore,
+		Sponsorship:     q.Get("sponsorship"),
+		WorkMode:        q.Get("work_mode"),
+		Status:          q.Get("status"),
+		Q:               q.Get("q"),
+		Since:           since,
+		IncludeExcluded: q.Get("include_excluded") == "true",
+		Sort:            q.Get("sort"),
+		Limit:           limit,
+		Offset:          offset,
+	})
+	if err != nil {
+		s.Log.Error("list jobs failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if jobs == nil {
+		jobs = []store.JobView{}
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs, "count": len(jobs)})
+}
+
+func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeError(w, http.StatusBadRequest, "bad job id")
+		return
+	}
+	job, err := store.GetJob(r.Context(), s.Pool, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		s.writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	if err != nil {
+		s.Log.Error("get job failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	// PLAN.md section 9: the detail view carries the latest score
+	// analysis (inside JobView), the application row, and the deep
+	// analysis when one exists.
+	deep, err := store.GetDeepAnalysis(r.Context(), s.Pool, id)
+	if err != nil {
+		s.Log.Error("get deep analysis failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, struct {
+		store.JobView
+		Deep *store.DeepView `json:"deep"`
+	}{JobView: *job, Deep: deep})
+}

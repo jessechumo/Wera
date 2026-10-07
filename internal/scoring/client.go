@@ -40,12 +40,17 @@ type response struct {
 		} `json:"message"`
 	} `json:"choices"`
 	Usage completionUsage `json:"usage"`
+	// Cost is Coral's own authoritative per-call cost in USD; used when
+	// present, otherwise we compute from the price table.
+	Cost *float64 `json:"cost"`
 }
 
 // Completion is one successful model reply.
 type Completion struct {
 	Content string
 	Usage   UsageStats
+	// CostUSD is the API-reported cost when the provider supplies one.
+	CostUSD *float64
 }
 
 // UsageStats carries the token accounting for one call.
@@ -219,6 +224,7 @@ func (c *Client) decode(raw []byte) (*Completion, error) {
 			CachedTokens:     int64(u.PromptTokensDetails.CachedTokens),
 			CompletionTokens: int64(u.CompletionTokens),
 		},
+		CostUSD: resp.Cost,
 	}, nil
 }
 
