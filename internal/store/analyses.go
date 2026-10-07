@@ -212,3 +212,33 @@ func nilIfEmpty(s string) any {
 	}
 	return s
 }
+
+// RequeueScored resets all open scored jobs back to pending_score for
+// `wera rescore --all` (run after profile.md changes; the new profile
+// hash means fresh analyses rows while old ones are kept).
+func RequeueScored(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE jobs SET stage = 'pending_score'
+		WHERE stage = 'scored' AND closed_at IS NULL`)
+	if err != nil {
+		return 0, fmt.Errorf("requeue scored jobs: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// RequeueForRefilter resets open jobs (pending_score/scored/excluded) back
+// to 'new' for `wera refilter --all`, clearing rule outcomes. Post-LLM
+// exclusions are re-derived on the next scoring pass for jobs that pass
+// the rules again.
+func RequeueForRefilter(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE jobs
+		SET stage = 'new', exclude_reason = NULL, exclude_evidence = NULL,
+		    matched_categories = '{}', flags = '{}'
+		WHERE stage IN ('pending_score','scored','excluded')
+		  AND closed_at IS NULL`)
+	if err != nil {
+		return 0, fmt.Errorf("requeue jobs for refilter: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

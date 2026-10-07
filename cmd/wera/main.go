@@ -71,8 +71,14 @@ func main() {
 	case "bench":
 		err = runBench(ctx, args)
 
-	case "rescore", "refilter", "deep":
-		err = fmt.Errorf("command %q is not implemented yet (milestone pending): %v", cmd, args)
+	case "rescore":
+		err = runRescore(ctx, args)
+
+	case "refilter":
+		err = runRefilter(ctx, args)
+
+	case "deep":
+		err = fmt.Errorf("command %q is not implemented yet (Milestone 7, optional): %v", cmd, args)
 
 	case "help", "-h", "--help":
 		fmt.Print(usage)
