@@ -17,5 +17,58 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Backend containers per PLAN.md section 13. `docker compose up -d postgres`
+  # only starts the database; run these explicitly on the server:
+  #   docker compose up -d --build wera-api wera-worker
+  wera-api:
+    build: .
+    container_name: wera-api
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://wera:wera@postgres:5432/wera?sslmode=disable
+      HTTP_ADDR: ":8080"
+      LOG_FORMAT: json
+    volumes:
+      - ./config:/app/config:ro
+      - ./profile:/app/profile:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/wera", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  wera-worker:
+    build: .
+    container_name: wera-worker
+    command: ["worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://wera:wera@postgres:5432/wera?sslmode=disable
+      LOG_FORMAT: json
+    volumes:
+      - ./config:/app/config:ro
+      - ./profile:/app/profile:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/wera", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
   wera-pgdata:

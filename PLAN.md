@@ -580,6 +580,7 @@ wera bench [--n 200]         # scoring benchmark for the showcase
 wera rescore --all           # requeue after profile change
 wera refilter --all          # reapply roles.yaml rules to all open jobs (no LLM cost)
 wera deep [--top N]          # Milestone 7
+wera healthcheck              # exit 0 if DB reachable (container healthchecks)
 ```
 
 `discover` derives candidate slugs from the name (`"Fireworks AI"` → `fireworksai`, `fireworks-ai`, `fireworks`) and probes all three ATS endpoints.
@@ -611,6 +612,12 @@ go run ./cmd/wera serve           # http://localhost:8080/api/today
 - Mount `config/` and `profile/` read-only; secrets via `.env` on the server only.
 - Access via **Tailscale**; nothing exposed publicly.
 - Nightly `pg_dump` to a local backup folder (cron).
+
+Status: the `Dockerfile` (multi-stage, distroless/static, nonroot) and the
+`wera-api` / `wera-worker` compose services (read-only `config/` + `profile/`
+mounts, `wera healthcheck` healthchecks, `restart: unless-stopped`) are
+implemented and `docker compose config` validates. Image build and the
+server-side steps (Tailscale, pg_dump cron) happen at deployment time.
 
 ---
 
@@ -672,6 +679,17 @@ go run ./cmd/wera serve           # http://localhost:8080/api/today
 10. Leave `wera worker` running for 2 cycles; `runs` shows two new rows and no overlap.
 
 When all ten pass, the backend is done.
+
+**Acceptance (2026-10-06, branch `dev`):** all ten passed against a freshly
+rebuilt database. Item 2 used the native PostgreSQL 18 install on :5433
+(`DROP DATABASE wera WITH (FORCE)` + recreate + `make migrate`) instead of the
+compose container; item 10 used `RUN_INTERVAL=1m` for a fast two-cycle check
+(runs 3 and 4: status `ok`, 0 new jobs, $0, no overlap, graceful SIGTERM).
+Fresh pipeline: 2,517 jobs, 2,404 rule-excluded, 113 scored (71 scored +
+42 post-LLM excluded), $0.054 at 88.7% cache; spot-checked exclusions were
+all genuine (verbatim sponsorship quotes, literal "5+ years" requirements);
+`wera deep --top 3` re-verified on the fresh DB ($0.051, 97–99% cache). **The
+backend is done.**
 
 ---
 
