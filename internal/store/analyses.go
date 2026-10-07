@@ -40,6 +40,35 @@ func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]sco
 	return jobs, rows.Err()
 }
 
+// BenchJobs returns jobs for the scoring benchmark: pending jobs first,
+// then the most recent scored postings, never excluded/closed ones. The
+// benchmark re-scores them without persisting, so nothing changes stage.
+func BenchJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]scoring.Job, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
+		       COALESCE(j.description, '')
+		FROM jobs j
+		JOIN companies c ON c.id = j.company_id
+		WHERE j.closed_at IS NULL
+		  AND j.stage IN ('pending_score', 'scored')
+		ORDER BY (j.stage = 'pending_score') DESC, j.posted_at DESC NULLS LAST, j.id
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("load bench jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []scoring.Job
+	for rows.Next() {
+		var j scoring.Job
+		if err := rows.Scan(&j.ID, &j.Company, &j.Title, &j.Location, &j.URL, &j.Description); err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
 // SaveAnalysis persists one scoring outcome: it upserts the analyses row
 // (by job, kind, profile hash) and moves the job to its resulting stage.
 // A score_failed outcome saves the raw model text in analyses.raw.

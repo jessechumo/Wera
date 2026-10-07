@@ -68,7 +68,10 @@ func main() {
 	case "serve":
 		err = runServe(ctx, args)
 
-	case "bench", "rescore", "refilter", "deep":
+	case "bench":
+		err = runBench(ctx, args)
+
+	case "rescore", "refilter", "deep":
 		err = fmt.Errorf("command %q is not implemented yet (milestone pending): %v", cmd, args)
 
 	case "help", "-h", "--help":
