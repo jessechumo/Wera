@@ -34,6 +34,22 @@ go run ./cmd/wera pipeline                         # one full run
 go run ./cmd/wera serve                            # API at http://localhost:8080/api/today
 ```
 
+## Run as a server
+
+To run everything in Docker, with the frontend cloned next to this repo as `../wera-frontend`:
+
+```bash
+cp .env.example .env            # set CORAL_API_KEY and a random POSTGRES_PASSWORD
+cp profile/profile.example.md profile/profile.md
+docker compose up -d --build    # postgres, migrations, API, worker, dashboard
+```
+
+The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations run automatically before the API and worker start. Postgres (`5433`) and the API (`8080`) bind to `127.0.0.1` only, so the dashboard is the only service other machines can reach. Docker-published ports bypass `ufw`, so to limit the dashboard to your LAN, add a rule to the `DOCKER-USER` chain:
+
+```bash
+iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
+```
+
 ## Commands
 
 | Command | Purpose |
