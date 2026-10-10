@@ -49,7 +49,7 @@ services:
       LOG_FORMAT: json
     volumes:
       - ./config:/app/config:ro
-      - ./profile:/app/profile:ro
+      - ./profile:/app/profile:ro   # only for `wera users import-profile`
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -78,7 +78,7 @@ services:
       LOG_FORMAT: json
     volumes:
       - ./config:/app/config:ro
-      - ./profile:/app/profile:ro
+      - ./profile:/app/profile:ro   # only for `wera users import-profile`
     depends_on:
       postgres:
         condition: service_healthy

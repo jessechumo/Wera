@@ -25,14 +25,21 @@ Requirements: Go 1.23+, Docker, and a Coral Bricks API key.
 
 ```bash
 cp .env.example .env                               # add CORAL_API_KEY
-cp profile/profile.example.md profile/profile.md   # add your resume and preferences
 docker compose up -d postgres
 make migrate                                       # create tables
-go run ./cmd/wera fetch                            # fetch and filter, no LLM cost
-go run ./cmd/wera score --limit 5                  # small scoring test
-go run ./cmd/wera pipeline                         # one full run
-go run ./cmd/wera serve                            # API at http://localhost:8080/api/today
+go run ./cmd/wera serve                            # API on http://localhost:8080
 ```
+
+Then run the dashboard (`../wera-frontend`, `npm run dev`), sign up, and set up your profile; saving it matches and scores your jobs. `go run ./cmd/wera pipeline` runs one full fetch, filter, and score for every user.
+
+To use an existing `profile/profile.md` instead of the setup flow, create an account and import it:
+
+```bash
+go run ./cmd/wera users create --email you@example.com --admin
+go run ./cmd/wera users import-profile --email you@example.com --file profile/profile.md
+```
+
+The profile still needs role families and levels, which you pick on the dashboard's Profile page.
 
 ## Run as a server
 
@@ -40,7 +47,6 @@ To run everything in Docker, with the frontend cloned next to this repo as `../w
 
 ```bash
 cp .env.example .env            # set CORAL_API_KEY and a random POSTGRES_PASSWORD
-cp profile/profile.example.md profile/profile.md
 docker compose up -d --build    # postgres, migrations, API, worker, dashboard
 ```
 
@@ -49,6 +55,22 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 ```bash
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
+
+### Public access
+
+To let people outside your network use Wera, host the dashboard on Vercel (see the frontend README) and give the API a public HTTPS address without opening router ports, for example with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to `http://localhost:8080`. Then set `COOKIE_SECURE=true`, `TRUST_PROXY=true`, and `PUBLIC_ORIGINS=https://<your-app>.vercel.app` in `.env` and restart the API.
+
+### Upgrading from single-user Wera
+
+Migration 0004 moves existing jobs, scores, and tracker statuses to an admin account named `owner@wera.local` with no password. Claim it:
+
+```bash
+docker exec wera-api /app/wera users update --email owner@wera.local --new-email you@example.com --name You
+docker exec wera-api /app/wera users passwd --email you@example.com        # prints a password
+docker exec wera-api /app/wera users import-profile --email you@example.com --file /app/profile/profile.md
+```
+
+Importing the same `profile.md` keeps every existing score: scores are keyed by the profile text, so nothing is rescored.
 
 ### Accounts
 
@@ -93,8 +115,10 @@ internal/scoring    Coral Bricks client, prompt, cost accounting
 internal/store      Postgres repository (pgx)
 internal/pipeline   Fetch, filter, and score orchestration
 internal/api        REST handlers (chi)
-config/             Companies and roles (YAML)
-profile/            Your resume and preferences (gitignored)
+config/             Companies, industries, and the role catalog (YAML)
+internal/auth       Password hashing, session tokens, rate limiting
+internal/profile    Resume text extraction and the profile-drafting prompt
+profile/            Optional profile.md to import (gitignored)
 migrations/         Embedded SQL migrations (goose)
 ```
 
