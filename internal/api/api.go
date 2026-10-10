@@ -20,6 +20,7 @@ import (
 	"wera/internal/auth"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/moderation"
 	"wera/internal/store"
 )
 
@@ -55,14 +56,19 @@ type Server struct {
 	// PrepareUser filters and ranks a user's jobs (no LLM, a few seconds)
 	// so the dashboard has estimated matches the moment a save returns.
 	PrepareUser func(ctx context.Context, userID int64) error
+	// Moderator replaces the AI moderation call (tests).
+	Moderator func(ctx context.Context, kind moderation.Kind, title, body string) (moderation.Verdict, error)
+
 	// ScoreNow scores one unscored job immediately (set by `wera serve`).
 	ScoreNow func(ctx context.Context, userID, jobID int64) error
 
-	signupLimit *auth.Limiter
-	loginLimit  *auth.Limiter
-	draftLimit  *auth.Limiter
-	scoreLimit  *auth.Limiter
-	letterLimit *auth.Limiter
+	signupLimit  *auth.Limiter
+	loginLimit   *auth.Limiter
+	draftLimit   *auth.Limiter
+	scoreLimit   *auth.Limiter
+	letterLimit  *auth.Limiter
+	postLimit    *auth.Limiter
+	commentLimit *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -81,6 +87,8 @@ func (s *Server) Handler() http.Handler {
 	s.draftLimit = auth.NewLimiter(10, time.Hour)
 	s.scoreLimit = auth.NewLimiter(120, time.Hour)
 	s.letterLimit = auth.NewLimiter(20, time.Hour)
+	s.postLimit = auth.NewLimiter(5, time.Hour)
+	s.commentLimit = auth.NewLimiter(30, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -106,6 +114,15 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/jobs/{id}/cover-letter", s.getCoverLetter)
 			r.Post("/jobs/{id}/cover-letter", s.generateCoverLetter)
 			r.Put("/jobs/{id}/cover-letter", s.putCoverLetter)
+
+			r.Get("/posts", s.listPosts)
+			r.Post("/posts", s.createPost)
+			r.Get("/posts/{id}", s.getPost)
+			r.Delete("/posts/{id}", s.deletePost)
+			r.Post("/posts/{id}/comments", s.createComment)
+			r.Delete("/posts/{id}/comments/{commentID}", s.deleteComment)
+			r.Put("/posts/{id}/reactions/{kind}", s.react)
+			r.Delete("/posts/{id}/reactions/{kind}", s.react)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)

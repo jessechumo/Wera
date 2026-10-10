@@ -82,6 +82,7 @@ func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool
 		Roles:         roles,
 		Industries:    inds.Industries,
 		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
+		Moderator:     fakeModerator,
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
