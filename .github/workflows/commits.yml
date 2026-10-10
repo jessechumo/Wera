@@ -1,0 +1,20 @@
+name: Commits
+
+# Every commit in a pull request must be a Conventional Commit, which
+# release-please turns into version bumps and the CHANGELOG.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  conventional:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit subjects
+        run: ./scripts/check-commits.sh "origin/${GITHUB_BASE_REF}" "${{ github.event.pull_request.head.sha }}"
