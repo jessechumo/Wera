@@ -55,7 +55,7 @@ iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 300
 | Command | Purpose |
 |---|---|
 | `wera pipeline` | Fetch, filter, and score once |
-| `wera worker` | Run the pipeline on a schedule (`RUN_INTERVAL`) |
+| `wera worker` | Run the pipeline at the `RUN_SCHEDULE` times in `RUN_TIMEZONE` (or every `RUN_INTERVAL` when no schedule is set) |
 | `wera serve` | REST API, `/healthz`, and Prometheus `/metrics` |
 | `wera discover "Name"` | Find a company's job board on Greenhouse, Lever, or Ashby |
 | `wera companies validate` | Check `companies.yaml` |

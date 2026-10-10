@@ -21,6 +21,7 @@ type Env struct {
 	ScoringConcurrency int
 	FetchConcurrency   int
 	RunInterval        time.Duration
+	RunSchedule        *Schedule // nil: loop every RunInterval
 	HTTPAddr           string
 	LogFormat          string
 	UserAgent          string
@@ -88,6 +89,15 @@ func LoadEnv() (*Env, error) {
 	intVal("SCORING_CONCURRENCY", &e.ScoringConcurrency)
 	intVal("FETCH_CONCURRENCY", &e.FetchConcurrency)
 	durVal("RUN_INTERVAL", &e.RunInterval)
+	tzName := "America/Chicago"
+	str("RUN_TIMEZONE", &tzName)
+	if loc, err := time.LoadLocation(tzName); err != nil {
+		errs = append(errs, fmt.Sprintf("RUN_TIMEZONE: unknown time zone %q", tzName))
+	} else if sched, err := ParseSchedule(os.Getenv("RUN_SCHEDULE"), loc); err != nil {
+		errs = append(errs, "RUN_SCHEDULE: "+err.Error())
+	} else {
+		e.RunSchedule = sched
+	}
 	str("HTTP_ADDR", &e.HTTPAddr)
 	str("LOG_FORMAT", &e.LogFormat)
 	str("USER_AGENT", &e.UserAgent)

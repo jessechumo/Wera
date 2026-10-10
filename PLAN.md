@@ -351,7 +351,7 @@ CREATE TABLE runs (
 
 ## 7. Pipeline in detail
 
-`wera pipeline` runs once. `wera worker` loops it every `RUN_INTERVAL`. Each run:
+`wera pipeline` runs once. `wera worker` runs it at each `RUN_SCHEDULE` time (e.g. `09:00,11:00,...,19:00` in `RUN_TIMEZONE`), or loops it every `RUN_INTERVAL` when no schedule is set. Each run:
 
 1. **Acquire a Postgres advisory lock** (`pg_try_advisory_lock(4242)`). If held, log and exit: no overlapping runs.
 2. **Insert a `runs` row.** Sync `companies.yaml` into the `companies` table (upsert by name).
