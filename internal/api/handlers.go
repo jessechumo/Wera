@@ -34,7 +34,8 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 			"status must be saved, applied, interviewing, offer, rejected or not_interested")
 		return
 	}
-	err = store.PutApplication(r.Context(), s.Pool, id, store.ApplicationInput{
+	user := currentUser(r)
+	err = store.PutApplication(r.Context(), s.Pool, user.ID, id, store.ApplicationInput{
 		Status: body.Status, Notes: body.Notes,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -46,7 +47,7 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "update failed")
 		return
 	}
-	job, err := store.GetJob(r.Context(), s.Pool, id)
+	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if err != nil {
 		s.writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
 		return
@@ -56,7 +57,7 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	jobs, err := store.TodayJobs(r.Context(), s.Pool, limit)
+	jobs, err := store.TodayJobs(r.Context(), s.Pool, currentUser(r).ID, limit)
 	if err != nil {
 		s.Log.Error("today failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -69,7 +70,7 @@ func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
-	st, err := store.Stats(r.Context(), s.Pool)
+	st, err := store.Stats(r.Context(), s.Pool, currentUser(r).ID)
 	if err != nil {
 		s.Log.Error("stats failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -123,7 +124,7 @@ func (s *Server) triggerRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) companies(w http.ResponseWriter, r *http.Request) {
-	list, err := store.ListCompanies(r.Context(), s.Pool)
+	list, err := store.ListCompanies(r.Context(), s.Pool, currentUser(r).ID)
 	if err != nil {
 		s.Log.Error("companies failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -148,7 +149,7 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) excluded(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	jobs, err := store.ExcludedJobs(r.Context(), s.Pool, q.Get("reason"), limit)
+	jobs, err := store.ExcludedJobs(r.Context(), s.Pool, currentUser(r).ID, q.Get("reason"), limit)
 	if err != nil {
 		s.Log.Error("excluded failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -168,7 +169,7 @@ type industryView struct {
 }
 
 func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
-	counts, err := store.CountByIndustry(r.Context(), s.Pool)
+	counts, err := store.CountByIndustry(r.Context(), s.Pool, currentUser(r).ID)
 	if err != nil {
 		s.Log.Error("industries failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")

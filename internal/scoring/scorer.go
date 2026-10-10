@@ -43,9 +43,9 @@ type Scorer struct {
 	Profile     []byte // profile.md, verbatim
 	ProfileHash string
 	Model       string
-	MaxYears    int     // roles.yaml seniority.max_years_required
-	MaxCostUSD  float64 // budget guard; 0 disables
-	Concurrency int     // SCORING_CONCURRENCY
+	Rules       Exclusions // the user's post-LLM exclusion rules
+	MaxCostUSD  float64    // budget guard; 0 disables
+	Concurrency int        // SCORING_CONCURRENCY
 	Log         *slog.Logger
 
 	// Mutable run state.
@@ -121,7 +121,7 @@ func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 	}
 	out.Analysis = analysis
 
-	reason, evidence := PostLLMExclusion(analysis, s.MaxYears)
+	reason, evidence := PostLLMExclusion(analysis, s.Rules)
 	if reason != "" {
 		out.Stage = StageExcluded
 		out.ExcludeReason = reason
@@ -155,19 +155,28 @@ func (s *Scorer) parseWithRetry(ctx context.Context, messages []Message, content
 	return a, StripFences(comp.Content)
 }
 
+// Exclusions are one user's post-LLM exclusion rules, derived from their
+// preferences.
+type Exclusions struct {
+	MaxYears           int  // drop jobs requiring more years; 0 disables
+	RequireSponsorship bool // drop explicit refusals (with a quote)
+	USOnly             bool // drop jobs the model says are not US-eligible
+	AllowSenior        bool // keep jobs the model calls senior
+}
+
 // PostLLMExclusion applies the post-LLM exclusion rules from PLAN.md
-// section 7.4, returning the exclude reason and evidence, or "" when the
-// job should stay scored. Rules in order: sponsorship refusal, years
-// ceiling, US ineligibility, senior seniority.
-func PostLLMExclusion(a *Analysis, maxYears int) (reason, evidence string) {
+// section 7.4 for one user, returning the exclude reason and evidence, or
+// "" when the job should stay scored. Rules in order: sponsorship refusal,
+// years ceiling, US ineligibility, senior seniority.
+func PostLLMExclusion(a *Analysis, r Exclusions) (reason, evidence string) {
 	switch {
-	case a.Sponsorship == "no" && a.SponsorshipQuote != nil && *a.SponsorshipQuote != "":
+	case r.RequireSponsorship && a.Sponsorship == "no" && a.SponsorshipQuote != nil && *a.SponsorshipQuote != "":
 		return "llm:sponsorship_no", *a.SponsorshipQuote
-	case a.YearsRequired != nil && *a.YearsRequired > maxYears:
-		return "llm:years>" + strconv.Itoa(maxYears), a.Reason
-	case a.USEligible != nil && !*a.USEligible:
+	case r.MaxYears > 0 && a.YearsRequired != nil && *a.YearsRequired > r.MaxYears:
+		return "llm:years>" + strconv.Itoa(r.MaxYears), a.Reason
+	case r.USOnly && a.USEligible != nil && !*a.USEligible:
 		return "llm:non_us", a.LocationSummary
-	case a.Seniority == "senior":
+	case !r.AllowSenior && a.Seniority == "senior":
 		return "llm:senior", a.Reason
 	}
 	return "", ""

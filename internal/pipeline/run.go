@@ -21,13 +21,12 @@ const advisoryLockKey = 4242
 // Pipeline is one full fetch + filter + score run, shared by
 // `wera pipeline` and `wera worker`.
 type Pipeline struct {
-	Pool        *pgxpool.Pool
-	Env         *config.Env
-	Log         *slog.Logger
-	Companies   []config.Company
-	Engine      *filter.Engine
-	ProfilePath string
-	Metrics     *metrics.Registry // optional
+	Pool      *pgxpool.Pool
+	Env       *config.Env
+	Log       *slog.Logger
+	Companies []config.Company
+	Engine    *filter.Engine
+	Metrics   *metrics.Registry // optional
 }
 
 // RunOnce executes a single pipeline run under the Postgres advisory
@@ -66,21 +65,21 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 	}
 
 	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
-	fstats, fetchErr := fetcher.Run(ctx, p.Companies, p.Engine, "")
+	fstats, fetchErr := fetcher.Run(ctx, p.Companies, "")
 
+	var excluded int
 	var sstats *ScoreStats
 	var scoreErr error
 	if fetchErr == nil {
-		sstats, scoreErr = ScorePending(ctx, p.Pool, p.Env, p.Log, p.ProfilePath, 0, p.Metrics)
+		excluded, sstats, scoreErr = p.matchAll(ctx)
 	}
 
-	totals := store.RunTotals{Status: "ok"}
+	totals := store.RunTotals{Status: "ok", JobsExcluded: excluded}
 	if fstats != nil {
 		totals.CompaniesOK = fstats.CompaniesOK
 		totals.CompaniesFailed = fstats.CompaniesFailed
 		totals.JobsSeen = fstats.JobsSeen
 		totals.JobsNew = fstats.JobsNew
-		totals.JobsExcluded = fstats.JobsExcluded
 	}
 	if sstats != nil {
 		totals.JobsScored = sstats.Scored + sstats.Excluded + sstats.Failed
@@ -117,4 +116,44 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		return true, ctx.Err()
 	}
 	return true, fetchErr
+}
+
+// matchAll filters and scores new jobs for every user with a ready
+// profile. The per-run cost guard is shared across users. One user's
+// failure is logged and does not stop the others; the first error is
+// returned so the run is marked failed.
+func (p *Pipeline) matchAll(ctx context.Context) (excluded int, total *ScoreStats, firstErr error) {
+	profiles, err := store.ReadyProfiles(ctx, p.Pool)
+	if err != nil {
+		return 0, nil, fmt.Errorf("load profiles: %w", err)
+	}
+	total = &ScoreStats{}
+	for _, prof := range profiles {
+		if ctx.Err() != nil {
+			return excluded, total, ctx.Err()
+		}
+		fst, err := FilterUser(ctx, p.Pool, p.Engine, prof, p.Metrics)
+		if err != nil {
+			p.Log.Error("filtering failed", "user_id", prof.UserID, "err", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		excluded += fst.Excluded
+		remaining := p.Env.MaxCostPerRunUSD - total.CostUSD
+		if remaining <= 0 {
+			p.Log.Warn("per-run cost guard reached; remaining users are scored next run", "user_id", prof.UserID)
+			continue
+		}
+		sst, err := ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, remaining, p.Metrics)
+		total.Add(sst)
+		if err != nil {
+			p.Log.Error("scoring failed", "user_id", prof.UserID, "err", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return excluded, total, firstErr
 }

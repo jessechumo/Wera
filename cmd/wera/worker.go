@@ -42,12 +42,11 @@ func buildPipeline(ctx context.Context) (*pipeline.Pipeline, error) {
 	}
 
 	return &pipeline.Pipeline{
-		Pool:        pool,
-		Env:         env,
-		Log:         log,
-		Companies:   comps.Companies,
-		Engine:      eng,
-		ProfilePath: config.DefaultProfilePath,
+		Pool:      pool,
+		Env:       env,
+		Log:       log,
+		Companies: comps.Companies,
+		Engine:    eng,
 	}, nil
 }
 

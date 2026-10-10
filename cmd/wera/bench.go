@@ -7,10 +7,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"wera/internal/config"
+	"wera/internal/pipeline"
 	"wera/internal/scoring"
 	"wera/internal/store"
 )
@@ -23,7 +23,7 @@ func runBench(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
 	n := fs.Int("n", 200, "number of jobs for the parallel batch")
 	serialN := fs.Int("serial-n", 20, "number of jobs re-run serially for the speedup")
-	profilePath := fs.String("profile", config.DefaultProfilePath, "path to the candidate profile markdown")
+	email := fs.String("user", "", "benchmark with this user's profile and jobs (email; optional with one user)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -37,24 +37,21 @@ func runBench(ctx context.Context, args []string) error {
 	}
 	log := config.NewLogger(env)
 
-	profile, err := os.ReadFile(*profilePath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", *profilePath, err)
-	}
-	roles, err := config.LoadRoles(config.DefaultRolesPath)
-	if err != nil {
-		return err
-	}
 	pool, err := store.Open(ctx, env.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
+	prof, err := onlyProfile(ctx, pool, *email)
+	if err != nil {
+		return err
+	}
+	profile := []byte(prof.Markdown)
 
 	if *serialN > *n {
 		*serialN = *n
 	}
-	jobs, err := store.BenchJobs(ctx, pool, *n)
+	jobs, err := store.BenchJobs(ctx, pool, prof.UserID, *n)
 	if err != nil {
 		return err
 	}
@@ -69,7 +66,7 @@ func runBench(ctx context.Context, args []string) error {
 		"parallel_jobs", nParallel, "serial_jobs", *serialN,
 		"concurrency", env.ScoringConcurrency, "model", env.CoralModel)
 
-	profileHash := scoring.ProfileHash(profile)
+	profileHash := prof.ProfileHash
 	newScorer := func(concurrency int) *scoring.Scorer {
 		return &scoring.Scorer{
 			Client: scoring.NewClient(scoring.ClientOptions{
@@ -81,7 +78,7 @@ func runBench(ctx context.Context, args []string) error {
 			Profile:     profile,
 			ProfileHash: profileHash,
 			Model:       env.CoralModel,
-			MaxYears:    roles.Seniority.MaxYearsRequired,
+			Rules:       pipeline.ExclusionsFor(&prof.Preferences),
 			Concurrency: concurrency,
 			Log:         log,
 		}

@@ -12,14 +12,14 @@ import (
 // that have no application status yet (or are only saved), ordered by fit
 // score descending. Jobs stay until they are applied to, dismissed, or close,
 // regardless of when they were first seen.
-func TodayJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]JobView, error) {
+func TodayJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, limit int) ([]JobView, error) {
 	sqlText := jobViewSelect + `
-	WHERE j.closed_at IS NULL
-	  AND j.stage = 'scored'
+	  AND j.closed_at IS NULL
+	  AND uj.stage = 'scored'
 	  AND (ap.status IS NULL OR ap.status = 'saved')
 	ORDER BY a.fit_score DESC NULLS LAST, j.first_seen_at DESC
-	LIMIT $1`
-	rows, err := pool.Query(ctx, sqlText, normalizeLimit(limit, 100, 200))
+	LIMIT $2`
+	rows, err := pool.Query(ctx, sqlText, userID, normalizeLimit(limit, 100, 200))
 	if err != nil {
 		return nil, err
 	}
@@ -47,21 +47,22 @@ var ValidApplicationStatuses = map[string]bool{
 	"offer": true, "rejected": true, "not_interested": true,
 }
 
-// PutApplication upserts the application row; applied_at is set the first
-// time the status becomes 'applied' and never overwritten. An unknown
-// job id is an error.
-func PutApplication(ctx context.Context, pool *pgxpool.Pool, jobID int64, in ApplicationInput) error {
+// PutApplication upserts the user's application row; applied_at is set
+// the first time the status becomes 'applied' and never overwritten. A
+// job the user has no match row for is pgx.ErrNoRows.
+func PutApplication(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64, in ApplicationInput) error {
 	tag, err := pool.Exec(ctx, `
-		INSERT INTO applications (job_id, status, notes, applied_at, updated_at)
-		VALUES ($1, $2, $3, CASE WHEN $2 = 'applied' THEN now() END, now())
-		ON CONFLICT (job_id) DO UPDATE
+		INSERT INTO applications (user_id, job_id, status, notes, applied_at, updated_at)
+		SELECT $4, $1, $2, $3, CASE WHEN $2 = 'applied' THEN now() END, now()
+		WHERE EXISTS (SELECT 1 FROM user_jobs WHERE user_id = $4 AND job_id = $1)
+		ON CONFLICT (user_id, job_id) DO UPDATE
 		SET status     = EXCLUDED.status,
 		    notes      = EXCLUDED.notes,
 		    applied_at = CASE WHEN applications.status <> 'applied'
 		                       AND EXCLUDED.status = 'applied'
 		                      THEN now() ELSE applications.applied_at END,
 		    updated_at = now()`,
-		jobID, in.Status, in.Notes)
+		jobID, in.Status, in.Notes, userID)
 	if err != nil {
 		return fmt.Errorf("put application for job %d: %w", jobID, err)
 	}
@@ -71,17 +72,17 @@ func PutApplication(ctx context.Context, pool *pgxpool.Pool, jobID int64, in App
 	return nil
 }
 
-// ExcludedJobs returns the audit view: excluded jobs with reason and
-// evidence, optionally narrowed to one reason (GET /api/excluded).
-func ExcludedJobs(ctx context.Context, pool *pgxpool.Pool, reason string, limit int) ([]JobView, error) {
-	where := "j.stage = 'excluded' AND j.closed_at IS NULL"
-	args := []any{}
+// ExcludedJobs returns the user's audit view: excluded jobs with reason
+// and evidence, optionally narrowed to one reason (GET /api/excluded).
+func ExcludedJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, reason string, limit int) ([]JobView, error) {
+	where := "uj.stage = 'excluded' AND j.closed_at IS NULL"
+	args := []any{userID}
 	if reason != "" {
 		args = append(args, reason)
-		where += fmt.Sprintf(" AND j.exclude_reason = $%d", len(args))
+		where += fmt.Sprintf(" AND uj.exclude_reason = $%d", len(args))
 	}
 	args = append(args, normalizeLimit(limit, 50, 200))
-	sqlText := jobViewSelect + "\nWHERE " + where +
+	sqlText := jobViewSelect + "\nAND " + where +
 		fmt.Sprintf("\nORDER BY j.first_seen_at DESC LIMIT $%d", len(args))
 	rows, err := pool.Query(ctx, sqlText, args...)
 	if err != nil {

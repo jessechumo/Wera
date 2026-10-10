@@ -63,20 +63,22 @@ type CompanyView struct {
 	LastFetchOK    *bool      `json:"last_fetch_ok"`
 	LastFetchError *string    `json:"last_fetch_error"`
 	JobsOpen       int64      `json:"jobs_open"`
-	JobsScored     int64      `json:"jobs_scored"`
+	JobsScored     int64      `json:"jobs_scored"` // the user's open, scored matches
 }
 
-// ListCompanies returns companies with fetch status and job counts.
-func ListCompanies(ctx context.Context, pool *pgxpool.Pool) ([]CompanyView, error) {
+// ListCompanies returns companies with fetch status, open job counts, and
+// the user's match counts.
+func ListCompanies(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]CompanyView, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT c.id, c.name, c.ats, c.token, c.industry, c.enabled,
 		       c.last_fetch_at, c.last_fetch_ok, c.last_fetch_error,
-		       count(*) FILTER (WHERE j.closed_at IS NULL),
-		       count(*) FILTER (WHERE j.stage = 'scored' AND j.closed_at IS NULL)
+		       count(j.id) FILTER (WHERE j.closed_at IS NULL),
+		       count(j.id) FILTER (WHERE uj.stage = 'scored' AND j.closed_at IS NULL)
 		FROM companies c
 		LEFT JOIN jobs j ON j.company_id = c.id
+		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
 		GROUP BY c.id
-		ORDER BY c.industry, c.name`)
+		ORDER BY c.industry, c.name`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +176,9 @@ type DayCount struct {
 	Count int64  `json:"count"`
 }
 
-// Stats builds the /api/stats summary.
-func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
+// Stats builds the /api/stats summary for one user. new_per_day counts the
+// user's scored matches by the day the job was first seen.
+func Stats(ctx context.Context, pool *pgxpool.Pool, userID int64) (*StatsView, error) {
 	out := &StatsView{
 		ByStage:    map[string]int64{},
 		ByIndustry: map[string]int64{},
@@ -185,7 +188,7 @@ func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 	}
 
 	countTo := func(q string, m map[string]int64) error {
-		rows, err := pool.Query(ctx, q)
+		rows, err := pool.Query(ctx, q, userID)
 		if err != nil {
 			return err
 		}
@@ -201,23 +204,31 @@ func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 		return rows.Err()
 	}
 
-	if err := countTo(`SELECT stage, count(*) FROM jobs GROUP BY 1`, out.ByStage); err != nil {
+	if err := countTo(`SELECT stage, count(*) FROM user_jobs WHERE user_id = $1 GROUP BY 1`, out.ByStage); err != nil {
 		return nil, err
 	}
-	if err := countTo(`SELECT c.industry, count(*) FROM jobs j JOIN companies c ON c.id = j.company_id GROUP BY 1`, out.ByIndustry); err != nil {
+	if err := countTo(`
+		SELECT c.industry, count(*)
+		FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id JOIN companies c ON c.id = j.company_id
+		WHERE uj.user_id = $1 AND j.closed_at IS NULL AND uj.stage NOT IN ('excluded','score_failed')
+		GROUP BY 1`, out.ByIndustry); err != nil {
 		return nil, err
 	}
 	if err := countTo(`
 		SELECT cat, count(*) FROM (
-			SELECT unnest(matched_categories) AS cat FROM jobs
-			WHERE closed_at IS NULL AND stage NOT IN ('excluded','score_failed')
+			SELECT unnest(uj.matched_categories) AS cat
+			FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+			WHERE uj.user_id = $1 AND j.closed_at IS NULL AND uj.stage NOT IN ('excluded','score_failed')
 		) s GROUP BY 1`, out.ByCategory); err != nil {
 		return nil, err
 	}
 	if err := countTo(`
 		SELECT COALESCE(a.status, 'none'), count(*)
-		FROM jobs j LEFT JOIN applications a ON a.job_id = j.id
-		WHERE j.closed_at IS NULL GROUP BY 1`, out.ByStatus); err != nil {
+		FROM user_jobs uj
+		JOIN jobs j ON j.id = uj.job_id
+		LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = uj.user_id
+		WHERE uj.user_id = $1 AND j.closed_at IS NULL AND uj.stage NOT IN ('excluded','score_failed')
+		GROUP BY 1`, out.ByStatus); err != nil {
 		return nil, err
 	}
 
@@ -225,10 +236,12 @@ func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 		SELECT to_char(d.day, 'YYYY-MM-DD'), COALESCE(c.n, 0)
 		FROM generate_series(current_date - interval '13 days', current_date, interval '1 day') AS d(day)
 		LEFT JOIN (
-			SELECT date_trunc('day', first_seen_at) AS day, count(*) AS n
-			FROM jobs GROUP BY 1
+			SELECT date_trunc('day', j.first_seen_at) AS day, count(*) AS n
+			FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+			WHERE uj.user_id = $1 AND uj.stage = 'scored'
+			GROUP BY 1
 		) c ON c.day = d.day
-		ORDER BY d.day`)
+		ORDER BY d.day`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +259,7 @@ func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 
 	if err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM applications
-		WHERE updated_at >= now() - interval '7 days'`).Scan(&out.ApplicationsWeek); err != nil {
+		WHERE user_id = $1 AND updated_at >= now() - interval '7 days'`, userID).Scan(&out.ApplicationsWeek); err != nil {
 		return nil, err
 	}
 	return out, nil

@@ -59,30 +59,24 @@ type JobView struct {
 	AppNotes        *string    `json:"application_notes"`
 }
 
-// latestAnalysisJoin selects the most recent 'score' analysis per job.
-const latestAnalysisJoin = `
-	LEFT JOIN LATERAL (
-		SELECT fit_score, verdict, seniority, years_required, sponsorship,
-		       work_mode, location_summary, skills_matched, skills_missing, reason
-		FROM analyses a
-		WHERE a.job_id = j.id AND a.kind = 'score'
-		ORDER BY a.created_at DESC, a.id DESC
-		LIMIT 1
-	) a ON true
-	LEFT JOIN applications ap ON ap.job_id = j.id`
-
+// jobViewSelect selects one user's view of jobs: their rule outcome,
+// the analysis linked to it, and their application. $1 is the user id;
+// callers append conditions starting at $2.
 const jobViewSelect = `
 	SELECT j.id, j.company_id, c.name, c.industry, j.source, j.ext_id, j.title,
 	       j.location_raw, j.is_remote, j.url, j.department, j.posted_at,
-	       j.first_seen_at, j.stage, j.matched_categories,
-	       j.exclude_reason, j.exclude_evidence,
+	       j.first_seen_at, uj.stage, uj.matched_categories,
+	       uj.exclude_reason, uj.exclude_evidence,
 	       a.fit_score, a.verdict, a.seniority, a.years_required,
 	       a.sponsorship, a.work_mode, a.location_summary,
 	       a.skills_matched, a.skills_missing, a.reason,
 	       ap.status, ap.notes
-	FROM jobs j
-	JOIN companies c ON c.id = j.company_id` +
-	latestAnalysisJoin
+	FROM user_jobs uj
+	JOIN jobs j ON j.id = uj.job_id
+	JOIN companies c ON c.id = j.company_id
+	LEFT JOIN analyses a ON a.id = uj.analysis_id
+	LEFT JOIN applications ap ON ap.job_id = j.id AND ap.user_id = uj.user_id
+	WHERE uj.user_id = $1`
 
 // jobViewScan lists the scan targets shared by every JobView query.
 func jobViewScan(v *JobView) []any {
@@ -107,15 +101,15 @@ func normalizeLimit(limit, def, max int) int {
 	return limit
 }
 
-// ListJobs runs the /api/jobs query. By default it hides excluded,
-// score_failed and closed jobs; IncludeExcluded reveals them (closed jobs
-// stay hidden).
-func ListJobs(ctx context.Context, pool *pgxpool.Pool, q JobQuery) ([]JobView, error) {
+// ListJobs runs the /api/jobs query for one user. By default it hides
+// excluded, score_failed and closed jobs; IncludeExcluded reveals them
+// (closed jobs stay hidden).
+func ListJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, q JobQuery) ([]JobView, error) {
 	where := []string{"j.closed_at IS NULL"}
-	args := []any{}
+	args := []any{userID}
 
 	if !q.IncludeExcluded {
-		where = append(where, "j.stage NOT IN ('excluded','score_failed')")
+		where = append(where, "uj.stage NOT IN ('excluded','score_failed')")
 	}
 	if q.Industry != "" {
 		args = append(args, q.Industry)
@@ -123,7 +117,7 @@ func ListJobs(ctx context.Context, pool *pgxpool.Pool, q JobQuery) ([]JobView, e
 	}
 	if q.Category != "" {
 		args = append(args, q.Category)
-		where = append(where, fmt.Sprintf("j.matched_categories @> ARRAY[$%d::text]", len(args)))
+		where = append(where, fmt.Sprintf("uj.matched_categories @> ARRAY[$%d::text]", len(args)))
 	}
 	if q.MinScore > 0 {
 		args = append(args, q.MinScore)
@@ -161,7 +155,7 @@ func ListJobs(ctx context.Context, pool *pgxpool.Pool, q JobQuery) ([]JobView, e
 	}
 	args = append(args, normalizeLimit(q.Limit, 50, 200), offset)
 
-	sqlText := jobViewSelect + "\nWHERE " + strings.Join(where, " AND ") +
+	sqlText := jobViewSelect + "\nAND " + strings.Join(where, " AND ") +
 		fmt.Sprintf("\nORDER BY %s LIMIT $%d OFFSET $%d", orderBy, len(args)-1, len(args))
 
 	rows, err := pool.Query(ctx, sqlText, args...)
@@ -180,11 +174,11 @@ func ListJobs(ctx context.Context, pool *pgxpool.Pool, q JobQuery) ([]JobView, e
 	return out, rows.Err()
 }
 
-// GetJob returns one JobView by id, regardless of stage (the detail view
-// is always reachable; excluded jobs keep their evidence).
-func GetJob(ctx context.Context, pool *pgxpool.Pool, id int64) (*JobView, error) {
+// GetJob returns one of the user's jobs by id, regardless of stage (the
+// detail view is always reachable; excluded jobs keep their evidence).
+func GetJob(ctx context.Context, pool *pgxpool.Pool, userID, id int64) (*JobView, error) {
 	var v JobView
-	err := pool.QueryRow(ctx, jobViewSelect+"\nWHERE j.id = $1", id).
+	err := pool.QueryRow(ctx, jobViewSelect+"\nAND j.id = $2", userID, id).
 		Scan(jobViewScan(&v)...)
 	if err != nil {
 		return nil, err

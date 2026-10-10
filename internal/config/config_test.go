@@ -118,13 +118,18 @@ func TestLoadRoles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(r.TitleOverrides) == 0 || len(r.RoleCategories) == 0 {
-		t.Error("expected overrides and categories to parse")
+	if len(r.RoleFamilies) == 0 || len(r.Levels) == 0 || len(r.TitleOverrides) == 0 {
+		t.Error("expected families, levels and overrides to parse")
 	}
-	if len(r.ExcludeTitle) == 0 || len(r.Sponsorship.ExcludePatterns) == 0 {
-		t.Error("expected exclude patterns to parse")
+	if len(r.Sponsorship.ExcludePatterns) == 0 {
+		t.Error("expected sponsorship patterns to parse")
 	}
-	if r.Seniority.MaxYearsRequired != 3 {
-		t.Errorf("max_years_required: want 3, got %d", r.Seniority.MaxYearsRequired)
+	good := Preferences{RoleFamilies: []string{"data_science"}, Levels: []string{"entry"}, MaxYearsRequired: 3}
+	if err := good.Validate(r); err != nil {
+		t.Errorf("valid preferences rejected: %v", err)
+	}
+	bad := Preferences{RoleFamilies: []string{"astrology"}, Levels: nil}
+	if err := bad.Validate(r); err == nil {
+		t.Error("invalid preferences accepted")
 	}
 }

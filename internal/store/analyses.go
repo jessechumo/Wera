@@ -9,50 +9,100 @@ import (
 	"wera/internal/scoring"
 )
 
-// PendingScoreJobs loads up to limit jobs in stage 'pending_score' (oldest
-// postings first), with the company name needed for the prompt. limit <= 0
-// means no limit.
-func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]scoring.Job, error) {
+// PendingJob is a job waiting to be scored for one user. Cached is set
+// when an analysis for the user's exact profile text already exists (the
+// user, or someone with an identical profile, paid for it): it can be
+// reused without an LLM call.
+type PendingJob struct {
+	Job    scoring.Job
+	Cached *CachedAnalysis
+}
+
+// CachedAnalysis is a reusable score analysis.
+type CachedAnalysis struct {
+	ID       int64
+	Analysis *scoring.Analysis // nil when the stored reply was unparseable
+}
+
+// PendingScoreJobs loads up to limit of the user's jobs in stage
+// 'pending_score' (newest postings first, so a new user sees fresh jobs
+// scored first), with the company name needed for the prompt and any
+// reusable analysis for profileHash. limit <= 0 means no limit.
+func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int) ([]PendingJob, error) {
 	q := `
 		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
-		       COALESCE(j.description, '')
-		FROM jobs j
+		       COALESCE(j.description, ''),
+		       a.id, a.fit_score, a.verdict, a.seniority, a.years_required,
+		       a.sponsorship, a.sponsorship_quote, a.work_mode, a.us_eligible,
+		       a.location_summary, a.skills_matched, a.skills_missing, a.reason
+		FROM user_jobs uj
+		JOIN jobs j ON j.id = uj.job_id
 		JOIN companies c ON c.id = j.company_id
-		WHERE j.stage = 'pending_score' AND j.closed_at IS NULL
-		ORDER BY j.posted_at ASC NULLS LAST, j.id`
+		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
+		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL
+		ORDER BY j.posted_at DESC NULLS LAST, j.id DESC`
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
-	rows, err := pool.Query(ctx, q)
+	rows, err := pool.Query(ctx, q, userID, profileHash)
 	if err != nil {
 		return nil, fmt.Errorf("load pending jobs: %w", err)
 	}
 	defer rows.Close()
 
-	var jobs []scoring.Job
+	var jobs []PendingJob
 	for rows.Next() {
-		var j scoring.Job
-		if err := rows.Scan(&j.ID, &j.Company, &j.Title, &j.Location, &j.URL, &j.Description); err != nil {
+		var pj PendingJob
+		var aid *int64
+		var fit, years *int
+		var verdict, seniority, sponsorship, quote, workMode, locSummary, reason *string
+		var usEligible *bool
+		var matched, missing []string
+		if err := rows.Scan(&pj.Job.ID, &pj.Job.Company, &pj.Job.Title, &pj.Job.Location,
+			&pj.Job.URL, &pj.Job.Description,
+			&aid, &fit, &verdict, &seniority, &years, &sponsorship, &quote, &workMode,
+			&usEligible, &locSummary, &matched, &missing, &reason); err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, j)
+		if aid != nil {
+			pj.Cached = &CachedAnalysis{ID: *aid}
+			if fit != nil {
+				pj.Cached.Analysis = &scoring.Analysis{
+					FitScore: *fit, Verdict: deref(verdict), Seniority: deref(seniority),
+					YearsRequired: years, Sponsorship: deref(sponsorship), SponsorshipQuote: quote,
+					USEligible: usEligible, WorkMode: deref(workMode), LocationSummary: deref(locSummary),
+					SkillsMatched: matched, SkillsMissing: missing, Reason: deref(reason),
+				}
+			}
+		}
+		jobs = append(jobs, pj)
 	}
 	return jobs, rows.Err()
 }
 
-// BenchJobs returns jobs for the scoring benchmark: pending jobs first,
-// then the most recent scored postings, never excluded/closed ones. The
-// benchmark re-scores them without persisting, so nothing changes stage.
-func BenchJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]scoring.Job, error) {
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// BenchJobs returns jobs for the scoring benchmark from one user's
+// matches: pending jobs first, then the most recent scored postings, never
+// excluded/closed ones. The benchmark re-scores them without persisting,
+// so nothing changes stage.
+func BenchJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, limit int) ([]scoring.Job, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
 		       COALESCE(j.description, '')
-		FROM jobs j
+		FROM user_jobs uj
+		JOIN jobs j ON j.id = uj.job_id
 		JOIN companies c ON c.id = j.company_id
-		WHERE j.closed_at IS NULL
-		  AND j.stage IN ('pending_score', 'scored')
-		ORDER BY (j.stage = 'pending_score') DESC, j.posted_at DESC NULLS LAST, j.id
-		LIMIT $1`, limit)
+		WHERE uj.user_id = $1
+		  AND j.closed_at IS NULL
+		  AND uj.stage IN ('pending_score', 'scored')
+		ORDER BY (uj.stage = 'pending_score') DESC, j.posted_at DESC NULLS LAST, j.id
+		LIMIT $2`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("load bench jobs: %w", err)
 	}
@@ -69,10 +119,24 @@ func BenchJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]scoring.Jo
 	return jobs, rows.Err()
 }
 
-// SaveAnalysis persists one scoring outcome: it upserts the analyses row
-// (by job, kind, profile hash) and moves the job to its resulting stage.
-// A score_failed outcome saves the raw model text in analyses.raw.
-func SaveAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, model, profileHash string, out scoring.Outcome) error {
+// LinkAnalysis points a user's job at an existing analysis and sets the
+// stage the user's rules give it (no LLM call, no cost).
+func LinkAnalysis(ctx context.Context, pool *pgxpool.Pool, userID, jobID, analysisID int64, stage, reason, evidence string) error {
+	if _, err := pool.Exec(ctx, `
+		UPDATE user_jobs
+		SET analysis_id = $3, stage = $4, exclude_reason = $5, exclude_evidence = $6, updated_at = now()
+		WHERE user_id = $1 AND job_id = $2`,
+		userID, jobID, analysisID, stage, nilIfEmpty(reason), nilIfEmpty(evidence)); err != nil {
+		return fmt.Errorf("link analysis for job %d: %w", jobID, err)
+	}
+	return nil
+}
+
+// SaveAnalysis persists one scoring outcome for a user: it upserts the
+// analyses row (by job, kind, profile hash; userID is recorded as the
+// payer) and moves the user's job to its resulting stage. A score_failed
+// outcome saves the raw model text in analyses.raw.
+func SaveAnalysis(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64, model, profileHash string, out scoring.Outcome) error {
 	a := out.Analysis
 	rawText := out.Raw
 	if rawText == "" {
@@ -87,13 +151,13 @@ func SaveAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, model, p
 		                      sponsorship, sponsorship_quote, work_mode, us_eligible,
 		                      location_summary, skills_matched, skills_missing, reason,
 		                      raw, prompt_tokens, cached_tokens, completion_tokens,
-		                      cost_usd, latency_ms)
+		                      cost_usd, latency_ms, user_id)
 		VALUES ($1, 'score', $2, $3,
 		        $4, $5, $6, $7,
 		        $8, $9, $10, $11,
 		        $12, $13, $14, $15,
 		        to_jsonb($16::text), $17, $18, $19,
-		        $20, $21)
+		        $20, $21, $22)
 		ON CONFLICT (job_id, kind, profile_hash) DO UPDATE
 		SET fit_score          = EXCLUDED.fit_score,
 		    verdict            = EXCLUDED.verdict,
@@ -112,8 +176,11 @@ func SaveAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, model, p
 		    cached_tokens      = EXCLUDED.cached_tokens,
 		    completion_tokens  = EXCLUDED.completion_tokens,
 		    cost_usd           = EXCLUDED.cost_usd,
-		    latency_ms         = EXCLUDED.latency_ms`
-	if _, err := pool.Exec(ctx, q,
+		    latency_ms         = EXCLUDED.latency_ms,
+		    user_id            = EXCLUDED.user_id
+		RETURNING id`
+	var analysisID int64
+	if err := pool.QueryRow(ctx, q,
 		jobID, model, profileHash,
 		scoreOf(a),
 		strOrNil(a, func(x *scoring.Analysis) string { return x.Verdict }),
@@ -128,26 +195,16 @@ func SaveAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, model, p
 		strOrNil(a, func(x *scoring.Analysis) string { return x.Reason }),
 		rawText,
 		out.Usage.PromptTokens, out.Usage.CachedTokens, out.Usage.CompletionTokens,
-		out.CostUSD, out.LatencyMS,
-	); err != nil {
+		out.CostUSD, out.LatencyMS, userID,
+	).Scan(&analysisID); err != nil {
 		return fmt.Errorf("save analysis for job %d: %w", jobID, err)
 	}
 
-	// Move the job to its stage; skipped outcomes leave it pending_score.
+	// Move the user's job to its stage; skipped outcomes leave it pending.
 	if out.Stage == "" {
 		return nil
 	}
-	const uq = `
-		UPDATE jobs
-		SET stage = $2,
-		    exclude_reason = $3,
-		    exclude_evidence = $4
-		WHERE id = $1`
-	if _, err := pool.Exec(ctx, uq, jobID, out.Stage,
-		nilIfEmpty(out.ExcludeReason), nilIfEmpty(out.ExcludeEvidence)); err != nil {
-		return fmt.Errorf("set job %d stage %s: %w", jobID, out.Stage, err)
-	}
-	return nil
+	return LinkAnalysis(ctx, pool, userID, jobID, analysisID, out.Stage, out.ExcludeReason, out.ExcludeEvidence)
 }
 
 // --- helpers to safely project a possibly-nil analysis ---
@@ -213,30 +270,30 @@ func nilIfEmpty(s string) any {
 	return s
 }
 
-// RequeueScored resets all open scored jobs back to pending_score for
-// `wera rescore --all` (run after profile.md changes; the new profile
-// hash means fresh analyses rows while old ones are kept).
-func RequeueScored(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+// RequeueScored resets open scored jobs back to pending_score for
+// `wera rescore --all` (userID 0 = every user). Jobs are scored again on
+// the next run unless an analysis for the user's current profile text
+// already exists.
+func RequeueScored(ctx context.Context, pool *pgxpool.Pool, userID int64) (int64, error) {
 	tag, err := pool.Exec(ctx, `
-		UPDATE jobs SET stage = 'pending_score'
-		WHERE stage = 'scored' AND closed_at IS NULL`)
+		UPDATE user_jobs uj SET stage = 'pending_score', updated_at = now()
+		FROM jobs j
+		WHERE j.id = uj.job_id AND j.closed_at IS NULL
+		  AND uj.stage IN ('scored','score_failed')
+		  AND ($1 = 0 OR uj.user_id = $1)`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("requeue scored jobs: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }
 
-// RequeueForRefilter resets open jobs (pending_score/scored/excluded) back
-// to 'new' for `wera refilter --all`, clearing rule outcomes. Post-LLM
-// exclusions are re-derived on the next scoring pass for jobs that pass
-// the rules again.
-func RequeueForRefilter(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+// RequeueForRefilter marks every rule outcome stale (userID 0 = every
+// user) so the next filter pass re-applies roles.yaml, for `wera refilter
+// --all`. No LLM cost: jobs that pass again reuse their scores.
+func RequeueForRefilter(ctx context.Context, pool *pgxpool.Pool, userID int64) (int64, error) {
 	tag, err := pool.Exec(ctx, `
-		UPDATE jobs
-		SET stage = 'new', exclude_reason = NULL, exclude_evidence = NULL,
-		    matched_categories = '{}', flags = '{}'
-		WHERE stage IN ('pending_score','scored','excluded')
-		  AND closed_at IS NULL`)
+		UPDATE user_jobs SET content_hash = ''
+		WHERE ($1 = 0 OR user_id = $1)`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("requeue jobs for refilter: %w", err)
 	}

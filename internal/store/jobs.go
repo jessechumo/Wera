@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/config"
 	"wera/internal/filter"
 )
 
@@ -31,8 +32,9 @@ type JobInput struct {
 //
 // Reappearance: an upsert clears closed_at and refreshes last_seen_at, so
 // a reposted job is simply visible again (still deduped by content_hash).
-// A changed content_hash resets stage to 'new' (dropping the old exclude
-// reasons and flags) so the job is re-filtered and re-scored.
+// A changed content_hash makes every user's rule outcome for the job stale
+// (user_jobs.content_hash no longer matches), so the next filter pass
+// re-filters and re-scores it.
 func SaveJobs(ctx context.Context, pool *pgxpool.Pool, jobs []JobInput) (seen, newly int, err error) {
 	if len(jobs) == 0 {
 		return 0, 0, nil
@@ -46,23 +48,13 @@ func SaveJobs(ctx context.Context, pool *pgxpool.Pool, jobs []JobInput) (seen, n
 		SET title           = EXCLUDED.title,
 		    location_raw    = EXCLUDED.location_raw,
 		    is_remote       = EXCLUDED.is_remote,
-		    url            = EXCLUDED.url,
+		    url             = EXCLUDED.url,
 		    department      = EXCLUDED.department,
 		    description     = EXCLUDED.description,
 		    content_hash    = EXCLUDED.content_hash,
 		    posted_at       = EXCLUDED.posted_at,
 		    last_seen_at    = now(),
-		    closed_at       = NULL,
-		    stage           = CASE WHEN jobs.content_hash = EXCLUDED.content_hash
-		                           THEN jobs.stage ELSE 'new' END,
-		    matched_categories = CASE WHEN jobs.content_hash = EXCLUDED.content_hash
-		                              THEN jobs.matched_categories ELSE '{}' END,
-		    exclude_reason    = CASE WHEN jobs.content_hash = EXCLUDED.content_hash
-		                             THEN jobs.exclude_reason ELSE NULL END,
-		    exclude_evidence  = CASE WHEN jobs.content_hash = EXCLUDED.content_hash
-		                             THEN jobs.exclude_evidence ELSE NULL END,
-		    flags             = CASE WHEN jobs.content_hash = EXCLUDED.content_hash
-		                             THEN jobs.flags ELSE '{}' END
+		    closed_at       = NULL
 		RETURNING (xmax = 0) AS is_new`
 
 	b := &pgx.Batch{}
@@ -104,28 +96,34 @@ func CloseMissingJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, 
 	return tag.RowsAffected(), nil
 }
 
-// ApplyFilters runs the rule engine over every open job in stage 'new',
-// moving them to 'excluded' or 'pending_score' in one batch. It returns
-// the excluded and pending counts plus a per-reason breakdown (for
-// metrics). (This is also what `wera refilter --all` reuses later;
-// requeueing happens by resetting stage in SQL.)
-func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (excluded, pending int, byReason map[string]int, err error) {
+// filterChunk bounds how many rule outcomes are written per batch.
+const filterChunk = 2000
+
+// FilterForUser runs the rule engine over every open job the user has no
+// current outcome for (new jobs, jobs whose content changed, and all jobs
+// after a preference change) and upserts the outcomes into user_jobs. It
+// returns the excluded and pending counts plus a per-reason breakdown (for
+// metrics). A job that passes keeps its previous score link, so the user
+// still sees the old score until the job is rescored.
+func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, userID int64, prefs *config.Preferences) (excluded, pending int, byReason map[string]int, err error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, title, COALESCE(location_raw, ''), COALESCE(description, '')
-		FROM jobs
-		WHERE stage = 'new'
-		ORDER BY id`)
+		SELECT j.id, j.content_hash, j.title, COALESCE(j.location_raw, ''), COALESCE(j.description, '')
+		FROM jobs j
+		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
+		WHERE j.closed_at IS NULL
+		  AND (uj.job_id IS NULL OR uj.content_hash <> j.content_hash)
+		ORDER BY j.id`, userID)
 	if err != nil {
-		return 0, 0, nil, fmt.Errorf("load stage=new jobs: %w", err)
+		return 0, 0, nil, fmt.Errorf("load jobs to filter: %w", err)
 	}
 	type pendingJob struct {
-		id                      int64
-		title, loc, description string
+		id                            int64
+		hash, title, loc, description string
 	}
 	var jobs []pendingJob
 	for rows.Next() {
 		var j pendingJob
-		if err := rows.Scan(&j.id, &j.title, &j.loc, &j.description); err != nil {
+		if err := rows.Scan(&j.id, &j.hash, &j.title, &j.loc, &j.description); err != nil {
 			rows.Close()
 			return 0, 0, nil, err
 		}
@@ -135,39 +133,36 @@ func ApplyFilters(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine) (
 	if err := rows.Err(); err != nil {
 		return 0, 0, nil, err
 	}
-	if len(jobs) == 0 {
-		return 0, 0, map[string]int{}, nil
-	}
 
 	byReason = map[string]int{}
-	b := &pgx.Batch{}
-	for _, j := range jobs {
-		res := eng.Apply(j.title, j.loc, j.description)
-		if res.Stage == filter.StageExcluded {
-			b.Queue(`UPDATE jobs
-			         SET stage = $2, exclude_reason = $3, exclude_evidence = $4,
-			             matched_categories = $5, flags = $6
-			         WHERE id = $1`,
-				j.id, res.Stage, res.Reason, res.Evidence, res.Categories, res.Flags)
-			excluded++
-			byReason[res.Reason]++
-		} else {
-			b.Queue(`UPDATE jobs
-			         SET stage = $2, matched_categories = $3, flags = $4
-			         WHERE id = $1`,
-				j.id, res.Stage, res.Categories, res.Flags)
-			pending++
+	const upsert = `
+		INSERT INTO user_jobs (user_id, job_id, content_hash, stage, matched_categories,
+		                       exclude_reason, exclude_evidence, flags, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+		ON CONFLICT (user_id, job_id) DO UPDATE
+		SET content_hash = EXCLUDED.content_hash, stage = EXCLUDED.stage,
+		    matched_categories = EXCLUDED.matched_categories,
+		    exclude_reason = EXCLUDED.exclude_reason, exclude_evidence = EXCLUDED.exclude_evidence,
+		    flags = EXCLUDED.flags, updated_at = now()`
+	for start := 0; start < len(jobs); start += filterChunk {
+		end := min(start+filterChunk, len(jobs))
+		b := &pgx.Batch{}
+		for _, j := range jobs[start:end] {
+			res := eng.Apply(prefs, j.title, j.loc, j.description)
+			if res.Stage == filter.StageExcluded {
+				excluded++
+				byReason[res.Reason]++
+				b.Queue(upsert, userID, j.id, j.hash, res.Stage, res.Categories,
+					res.Reason, res.Evidence, res.Flags)
+			} else {
+				pending++
+				b.Queue(upsert, userID, j.id, j.hash, res.Stage, res.Categories,
+					nil, nil, res.Flags)
+			}
 		}
-	}
-	br := pool.SendBatch(ctx, b)
-	for range jobs {
-		if _, err := br.Exec(); err != nil {
-			br.Close()
-			return 0, 0, nil, fmt.Errorf("apply filter: %w", err)
+		if err := pool.SendBatch(ctx, b).Close(); err != nil {
+			return 0, 0, nil, fmt.Errorf("save rule outcomes: %w", err)
 		}
-	}
-	if err := br.Close(); err != nil {
-		return 0, 0, nil, err
 	}
 	return excluded, pending, byReason, nil
 }

@@ -19,22 +19,19 @@ type DeepCandidate struct {
 	FitScore int
 }
 
-// DeepJobs returns the top-N scored jobs whose latest score analysis has
-// fit_score >= minScore and that have no deep analysis for the current
-// profile hash yet (PLAN.md section 8: deep review of the top jobs).
-func DeepJobs(ctx context.Context, pool *pgxpool.Pool, top, minScore int, profileHash string) ([]DeepCandidate, error) {
+// DeepJobs returns the user's top-N scored jobs whose score has fit_score
+// >= minScore and that have no deep analysis for the current profile hash
+// yet (PLAN.md section 8: deep review of the top jobs).
+func DeepJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, top, minScore int, profileHash string) ([]DeepCandidate, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
 		       COALESCE(j.description, ''), a.fit_score
-		FROM jobs j
+		FROM user_jobs uj
+		JOIN jobs j ON j.id = uj.job_id
 		JOIN companies c ON c.id = j.company_id
-		JOIN LATERAL (
-			SELECT fit_score FROM analyses
-			WHERE job_id = j.id AND kind = 'score'
-			ORDER BY created_at DESC, id DESC
-			LIMIT 1
-		) a ON true
-		WHERE j.stage = 'scored'
+		JOIN analyses a ON a.id = uj.analysis_id
+		WHERE uj.user_id = $4
+		  AND uj.stage = 'scored'
 		  AND j.closed_at IS NULL
 		  AND a.fit_score >= $1
 		  AND NOT EXISTS (
@@ -42,7 +39,7 @@ func DeepJobs(ctx context.Context, pool *pgxpool.Pool, top, minScore int, profil
 			WHERE d.job_id = j.id AND d.kind = 'deep' AND d.profile_hash = $2
 		  )
 		ORDER BY a.fit_score DESC, j.id
-		LIMIT $3`, minScore, profileHash, top)
+		LIMIT $3`, minScore, profileHash, top, userID)
 	if err != nil {
 		return nil, fmt.Errorf("load deep-review candidates: %w", err)
 	}
@@ -65,7 +62,7 @@ func DeepJobs(ctx context.Context, pool *pgxpool.Pool, top, minScore int, profil
 // null except fit_score (copied from the score analysis so the row is
 // sortable) and reason (a one-line summary). The job's stage is
 // untouched: a deep review never changes pipeline state.
-func SaveDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, model, profileHash string, fitScore int, summary, rawText string, usage scoring.UsageStats, costUSD float64, latencyMS int64) error {
+func SaveDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64, model, profileHash string, fitScore int, summary, rawText string, usage scoring.UsageStats, costUSD float64, latencyMS int64) error {
 	if rawText == "" {
 		rawText = "null"
 	}
@@ -73,8 +70,8 @@ func SaveDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, mode
 		INSERT INTO analyses (job_id, kind, model, profile_hash,
 		                      fit_score, reason, raw,
 		                      prompt_tokens, cached_tokens, completion_tokens,
-		                      cost_usd, latency_ms)
-		VALUES ($1, 'deep', $2, $3, $4, $5, to_jsonb($6::text), $7, $8, $9, $10, $11)
+		                      cost_usd, latency_ms, user_id)
+		VALUES ($1, 'deep', $2, $3, $4, $5, to_jsonb($6::text), $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (job_id, kind, profile_hash) DO UPDATE
 		SET fit_score          = EXCLUDED.fit_score,
 		    reason             = EXCLUDED.reason,
@@ -87,7 +84,7 @@ func SaveDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, mode
 	if _, err := pool.Exec(ctx, q, jobID, model, profileHash, fitScore,
 		nilIfEmpty(summary), rawText,
 		usage.PromptTokens, usage.CachedTokens, usage.CompletionTokens,
-		costUSD, latencyMS); err != nil {
+		costUSD, latencyMS, userID); err != nil {
 		return fmt.Errorf("save deep analysis for job %d: %w", jobID, err)
 	}
 	return nil
@@ -110,18 +107,19 @@ type DeepView struct {
 	Raw              json.RawMessage `json:"raw"`
 }
 
-// GetDeepAnalysis returns the most recent deep analysis for a job, or
-// nil when there is none (pgx.ErrNoRows is not an error here).
-func GetDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64) (*DeepView, error) {
+// GetDeepAnalysis returns the most recent deep analysis of a job for the
+// given profile text, or nil when there is none (pgx.ErrNoRows is not an
+// error here).
+func GetDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, profileHash string) (*DeepView, error) {
 	var v DeepView
 	err := pool.QueryRow(ctx, `
 		SELECT kind, model, created_at, fit_score, reason,
 		       prompt_tokens, cached_tokens, completion_tokens,
 		       cost_usd, latency_ms, raw
 		FROM analyses
-		WHERE job_id = $1 AND kind = 'deep'
+		WHERE job_id = $1 AND kind = 'deep' AND profile_hash = $2
 		ORDER BY created_at DESC, id DESC
-		LIMIT 1`, jobID).
+		LIMIT 1`, jobID, profileHash).
 		Scan(&v.Kind, &v.Model, &v.CreatedAt, &v.FitScore, &v.Reason,
 			&v.PromptTokens, &v.CachedTokens, &v.CompletionTokens,
 			&v.CostUSD, &v.LatencyMS, &v.Raw)

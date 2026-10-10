@@ -4,20 +4,18 @@
 
 ## How it works
 
-1. **Fetch** jobs from each company's public job board.
-2. **Filter** with rules from `config/roles.yaml`: title, seniority, location, and explicit sponsorship refusals. No LLM cost.
-3. **Score** the remaining jobs in parallel against your profile: fit score, seniority, years required, sponsorship status with the exact quote, and skills matched and missing. Your profile is sent as a cached prefix, so repeated calls cost very little.
-4. **Serve** results, run history, and token and cost metrics over a REST API.
+1. **Fetch** jobs once from each company's public job board, for everyone.
+2. **Filter** per user with the rules in `config/roles.yaml` and that user's preferences: role families, seniority levels, US-only, and whether they need visa sponsorship. No LLM cost.
+3. **Score** each user's remaining jobs in parallel against their profile: fit score, seniority, years required, sponsorship status with the exact quote, and skills matched and missing. The profile is sent as a cached prefix, so repeated calls cost very little, and users with identical profile text share scores.
+4. **Serve** each user their own matches, tracker, run history, and metrics over a REST API.
 
 ## Make it yours
 
-Wera is driven entirely by configuration:
+Wera is driven by configuration and per-user profiles:
 
-- `profile/profile.md`: your resume and preferences
-- `config/companies.yaml`: the companies to watch
-- `config/roles.yaml`: the role types, exclusions, and filters
-
-Change these three files to point Wera at any role type, company list, or career stage. No code changes needed.
+- `config/companies.yaml`: the companies to watch, each tagged with an industry from `config/industries.yaml`
+- `config/roles.yaml`: the catalog of role families and seniority levels users pick from, plus location and sponsorship rules
+- Each user's profile (stored in the database): the text the LLM scores against and their filter preferences
 
 ## Quick start
 
@@ -69,16 +67,17 @@ Admins can trigger runs and see overall usage. Sessions are HTTP-only, `SameSite
 | `wera serve` | REST API, `/healthz`, and Prometheus `/metrics` |
 | `wera discover "Name"` | Find a company's job board on Greenhouse, Lever, or Ashby |
 | `wera companies validate` | Check `companies.yaml` |
-| `wera refilter --all` | Reapply `roles.yaml` rules to existing jobs (no LLM cost) |
-| `wera rescore --all` | Rescore after changing your profile |
-| `wera deep --top N` | Longer review of top matches using Coral background mode |
-| `wera bench` | Measure scoring throughput, cache hit rate, and cost per job |
-| `wera users list\|create\|passwd\|admin` | Manage accounts from the server shell |
+| `wera refilter --all [--user E]` | Reapply `roles.yaml` rules to existing jobs (no LLM cost) |
+| `wera rescore --all [--user E]` | Rescore after changing profiles |
+| `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
+| `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
+| `wera users list\|create\|passwd\|admin\|update\|import-profile` | Manage accounts and profiles from the server shell |
 
 ## Extending
 
 - **Add a company:** run `wera discover "Name"`, add it to `config/companies.yaml`, then run `wera companies validate` and `wera pipeline`.
-- **Add a role type:** add a category and patterns to `config/roles.yaml`, then run `wera refilter --all`.
+- **Add a role type:** add a family and patterns to `config/roles.yaml`; users can then pick it.
+- **Add an industry:** add it to `config/industries.yaml` and tag companies with it.
 - **Add a job board provider:** implement the `Source` interface in `internal/sources` and register it.
 
 ## Project layout

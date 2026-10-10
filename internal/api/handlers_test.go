@@ -16,13 +16,13 @@ import (
 func TestPutApplicationPersists(t *testing.T) {
 	ts, pool := testServer(t, nil)
 
-	jobs, err := store.ListJobs(context.Background(), pool, store.JobQuery{Limit: 1})
+	jobs, err := store.ListJobs(context.Background(), pool, testUserID, store.JobQuery{Limit: 1})
 	if err != nil || len(jobs) == 0 {
 		t.Skipf("no jobs available (err=%v)", err)
 	}
 	id := jobs[0].ID
 	t.Cleanup(func() {
-		pool.Exec(context.Background(), `DELETE FROM applications WHERE job_id = $1`, id)
+		pool.Exec(context.Background(), `DELETE FROM applications WHERE job_id = $1 AND user_id = $2`, id, testUserID)
 	})
 
 	put := func(payload string) int {
@@ -58,7 +58,7 @@ func TestPutApplicationPersists(t *testing.T) {
 	var appStatus string
 	var appliedAt *string
 	err = pool.QueryRow(context.Background(),
-		`SELECT status, applied_at::text FROM applications WHERE job_id = $1`, id).
+		`SELECT status, applied_at::text FROM applications WHERE job_id = $1 AND user_id = $2`, id, testUserID).
 		Scan(&appStatus, &appliedAt)
 	if err != nil {
 		t.Fatalf("application row missing: %v", err)

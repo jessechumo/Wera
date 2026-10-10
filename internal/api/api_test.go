@@ -44,6 +44,9 @@ func testPool(t *testing.T) *pgxpool.Pool {
 // client sends the test user's session cookie; testServer sets it up.
 var client = http.DefaultClient
 
+// testUserID is the throwaway user testServer logged client in as.
+var testUserID int64
+
 // cookieTransport adds a fixed session cookie to every request.
 type cookieTransport struct{ cookie string }
 
@@ -74,6 +77,14 @@ func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool
 		t.Fatalf("create test user: %v", err)
 	}
 	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+	testUserID = u.ID
+	// A few open jobs count as the user's matches, so job endpoints have data.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_jobs (user_id, job_id, content_hash, stage)
+		SELECT $1, id, content_hash, 'scored' FROM jobs
+		WHERE closed_at IS NULL ORDER BY id LIMIT 5`, u.ID); err != nil {
+		t.Fatalf("seed test matches: %v", err)
+	}
 	token, hash, err := auth.NewToken()
 	if err != nil {
 		t.Fatal(err)

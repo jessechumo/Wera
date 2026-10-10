@@ -30,7 +30,7 @@ func TestApplyLocationRules(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.location, func(t *testing.T) {
-			res := e.Apply(title, tc.location, desc)
+			res := e.Apply(infraPrefs, title, tc.location, desc)
 			if res.Stage == StageExcluded != tc.excluded {
 				t.Fatalf("location %q: excluded=%v, want %v (reason=%q)",
 					tc.location, res.Stage == StageExcluded, tc.excluded, res.Reason)
@@ -45,13 +45,13 @@ func TestApplyLocationRules(t *testing.T) {
 func TestApplyFlags(t *testing.T) {
 	e := newEngine(t)
 	// A hard sponsorship exclude in the same description still drops the job.
-	res := e.Apply("Site Reliability Engineer", "Chicago, IL",
+	res := e.Apply(infraPrefs, "Site Reliability Engineer", "Chicago, IL",
 		"This position requires access to ITAR-controlled technical data. Only U.S. persons may apply. We do not sponsor visas anyway.")
 	if res.Stage != StageExcluded {
 		t.Fatalf("expected exclude, got %s", res.Stage)
 	}
 
-	res = e.Apply("Site Reliability Engineer", "Chicago, IL",
+	res = e.Apply(infraPrefs, "Site Reliability Engineer", "Chicago, IL",
 		"This position requires access to ITAR-controlled technical data. Only U.S. persons may apply.")
 	if res.Stage != StagePendingScore {
 		t.Fatalf("expected keep, got %s (%s)", res.Stage, res.Reason)
@@ -69,7 +69,7 @@ func TestApplyFlags(t *testing.T) {
 func TestEvidenceIsTheMatchedSentence(t *testing.T) {
 	e := newEngine(t)
 	desc := "We offer visa sponsorship. IBM will not be providing visa sponsorship for this position now or in the future. Please apply today."
-	res := e.Apply("Site Reliability Engineer", "Chicago, IL", desc)
+	res := e.Apply(infraPrefs, "Site Reliability Engineer", "Chicago, IL", desc)
 	if res.Stage != StageExcluded {
 		t.Fatalf("expected exclude, got %s", res.Stage)
 	}

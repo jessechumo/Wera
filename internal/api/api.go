@@ -147,7 +147,7 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
-	jobs, err := store.ListJobs(r.Context(), s.Pool, store.JobQuery{
+	jobs, err := store.ListJobs(r.Context(), s.Pool, currentUser(r).ID, store.JobQuery{
 		Industry:        q.Get("industry"),
 		Category:        q.Get("category"),
 		MinScore:        minScore,
@@ -178,7 +178,8 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
-	job, err := store.GetJob(r.Context(), s.Pool, id)
+	user := currentUser(r)
+	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		s.writeError(w, http.StatusNotFound, "job not found")
 		return
@@ -191,7 +192,11 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	// PLAN.md section 9: the detail view carries the latest score
 	// analysis (inside JobView), the application row, and the deep
 	// analysis when one exists.
-	deep, err := store.GetDeepAnalysis(r.Context(), s.Pool, id)
+	var deep *store.DeepView
+	prof, err := store.GetProfile(r.Context(), s.Pool, user.ID)
+	if err == nil && prof != nil {
+		deep, err = store.GetDeepAnalysis(r.Context(), s.Pool, id, prof.ProfileHash)
+	}
 	if err != nil {
 		s.Log.Error("get deep analysis failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")

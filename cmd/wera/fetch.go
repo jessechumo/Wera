@@ -11,8 +11,9 @@ import (
 	"wera/internal/store"
 )
 
-// runFetch implements `wera fetch [--company X]`: fetch + normalize +
-// rule filter only (no LLM). Every run is recorded in the runs table.
+// runFetch implements `wera fetch [--company X]`: fetch + normalize, then
+// the rule filter for every user with a ready profile (no LLM). Every run
+// is recorded in the runs table.
 func runFetch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("fetch", flag.ContinueOnError)
 	company := fs.String("company", "", "fetch only this company (name or token)")
@@ -58,14 +59,30 @@ func runFetch(ctx context.Context, args []string) error {
 		Log:     log,
 		Sources: pipeline.NewSourceRegistry(env),
 	}
-	stats, err := fetcher.Run(ctx, comps.Companies, eng, *company)
+	stats, err := fetcher.Run(ctx, comps.Companies, *company)
+
+	var excluded, pending int
+	if err == nil {
+		var profiles []*store.Profile
+		if profiles, err = store.ReadyProfiles(ctx, pool); err == nil {
+			for _, prof := range profiles {
+				fst, ferr := pipeline.FilterUser(ctx, pool, eng, prof, nil)
+				if ferr != nil {
+					err = ferr
+					break
+				}
+				excluded += fst.Excluded
+				pending += fst.Pending
+			}
+		}
+	}
 
 	totals := store.RunTotals{
 		CompaniesOK:     stats.CompaniesOK,
 		CompaniesFailed: stats.CompaniesFailed,
 		JobsSeen:        stats.JobsSeen,
 		JobsNew:         stats.JobsNew,
-		JobsExcluded:    stats.JobsExcluded,
+		JobsExcluded:    excluded,
 	}
 	totals.Status = "ok"
 	if totals.CompaniesFailed > 0 {
@@ -88,6 +105,6 @@ func runFetch(ctx context.Context, args []string) error {
 	log.Info("fetch run finished", "run_id", runID, "status", totals.Status,
 		"companies_ok", totals.CompaniesOK, "companies_failed", totals.CompaniesFailed,
 		"jobs_seen", totals.JobsSeen, "jobs_new", totals.JobsNew,
-		"jobs_excluded", totals.JobsExcluded, "jobs_pending", stats.JobsPending)
+		"jobs_excluded", totals.JobsExcluded, "jobs_pending", pending)
 	return nil
 }
