@@ -201,6 +201,15 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "could not save the profile")
 		return
 	}
+	// Filter and rank now (seconds, no LLM) so Today is populated when
+	// this request returns; AI scoring then streams in the background.
+	if s.PrepareUser != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		if err := s.PrepareUser(ctx, user.ID); err != nil {
+			s.Log.Warn("preparing matches failed; the background match will retry", "user_id", user.ID, "err", err)
+		}
+		cancel()
+	}
 	if s.MatchUser != nil {
 		go s.MatchUser(context.Background(), user.ID)
 	}

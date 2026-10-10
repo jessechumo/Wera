@@ -52,6 +52,9 @@ type Server struct {
 	Roles     *config.Roles
 	Env       *config.Env
 	MatchUser func(ctx context.Context, userID int64)
+	// PrepareUser filters and ranks a user's jobs (no LLM, a few seconds)
+	// so the dashboard has estimated matches the moment a save returns.
+	PrepareUser func(ctx context.Context, userID int64) error
 	// ScoreNow scores one unscored job immediately (set by `wera serve`).
 	ScoreNow func(ctx context.Context, userID, jobID int64) error
 

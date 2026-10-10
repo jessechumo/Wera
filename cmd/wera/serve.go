@@ -14,6 +14,7 @@ import (
 	"wera/internal/api"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/pipeline"
 	"wera/internal/store"
 )
 
@@ -97,7 +98,15 @@ func runServe(ctx context.Context, args []string) error {
 		Roles:       roles,
 		Env:         env,
 		MatchUser:   matchUser,
-		ScoreNow:    p.ScoreNow,
+		PrepareUser: func(ctx context.Context, userID int64) error {
+			prof, err := store.GetProfile(ctx, pool, userID)
+			if err != nil || prof == nil || !prof.Ready() {
+				return err
+			}
+			_, err = pipeline.FilterUser(ctx, pool, p.Engine, prof, reg)
+			return err
+		},
+		ScoreNow: p.ScoreNow,
 
 		SignupEnabled: env.SignupEnabled,
 		UserBudgetUSD: env.UserBudgetUSD,
