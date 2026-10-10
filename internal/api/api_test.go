@@ -11,12 +11,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/auth"
+	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
 )
@@ -47,6 +49,9 @@ var client = http.DefaultClient
 // testUserID is the throwaway user testServer logged client in as.
 var testUserID int64
 
+// matchCalls counts background matches the server started.
+var matchCalls atomic.Int32
+
 // cookieTransport adds a fixed session cookie to every request.
 type cookieTransport struct{ cookie string }
 
@@ -61,11 +66,22 @@ func (c cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool.Pool) {
 	t.Helper()
 	pool := testPool(t)
+	roles, err := config.LoadRoles("../../config/roles.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inds, err := config.LoadIndustries("../../config/industries.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	srv := &Server{
 		Pool:          pool,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Metrics:       reg,
 		SignupEnabled: true,
+		Roles:         roles,
+		Industries:    inds.Industries,
+		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)

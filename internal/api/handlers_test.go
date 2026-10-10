@@ -1,10 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -222,5 +225,70 @@ func TestAuthFlow(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != 403 {
 		t.Errorf("cross-origin POST: want 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestProfileFlow(t *testing.T) {
+	ts, _ := testServer(t, nil)
+
+	code, body := getBody(t, ts.URL+"/api/profile/options")
+	if code != 200 || !strings.Contains(body, `"data_science"`) || !strings.Contains(body, `"aerospace"`) {
+		t.Fatalf("/api/profile/options: %d %.200s", code, body)
+	}
+	code, body = getBody(t, ts.URL+"/api/profile")
+	if code != 200 || !strings.Contains(body, `"ready":false`) {
+		t.Fatalf("empty profile: %d %s", code, body)
+	}
+
+	// Upload the sample resume PDF.
+	pdf, err := os.ReadFile("../profile/testdata/sample-resume.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("file", "resume.pdf")
+	fw.Write(pdf)
+	mw.Close()
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/profile/resume", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || !strings.Contains(string(b), "Example Airlines") {
+		t.Fatalf("resume upload: %d %s", resp.StatusCode, b)
+	}
+
+	put := func(payload string) (int, string) {
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/profile", strings.NewReader(payload))
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return resp.StatusCode, string(b)
+	}
+	if code, body := put(`{"markdown":"# P","preferences":{"role_families":["astrology"],"levels":["mid"]}}`); code != 400 {
+		t.Errorf("unknown family: want 400, got %d %s", code, body)
+	}
+	before := matchCalls.Load()
+	code, body = put(`{"markdown":"# Candidate Profile\nData scientist.","preferences":{"role_families":["data_science"],` +
+		`"levels":["entry","mid"],"max_years_required":5,"us_only":true},"answers":{"industries":["aerospace"],"work_modes":["remote"]}}`)
+	if code != 200 || !strings.Contains(body, `"ready":true`) || !strings.Contains(body, `"resume_chars"`) {
+		t.Fatalf("save profile: %d %s", code, body)
+	}
+	if !strings.Contains(body, `"aerospace"`) {
+		t.Errorf("answers not stored: %s", body)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for matchCalls.Load() == before && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if matchCalls.Load() == before {
+		t.Error("saving a profile did not start matching")
 	}
 }

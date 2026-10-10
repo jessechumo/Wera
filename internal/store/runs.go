@@ -34,6 +34,32 @@ func TryAdvisoryLock(ctx context.Context, pool *pgxpool.Pool, key int64) (acquir
 	}, nil
 }
 
+// TryUserLock takes the per-user matching lock (advisory lock pair
+// (userLockClass, userID)) so a background match after a profile save and
+// a scheduled run never score the same user at once. Same contract as
+// TryAdvisoryLock.
+func TryUserLock(ctx context.Context, pool *pgxpool.Pool, userID int64) (acquired bool, release func(context.Context), err error) {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return false, nil, fmt.Errorf("acquire lock connection: %w", err)
+	}
+	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1, $2)", userLockClass, int32(userID)).Scan(&acquired); err != nil {
+		conn.Release()
+		return false, nil, fmt.Errorf("try user lock: %w", err)
+	}
+	if !acquired {
+		conn.Release()
+		return false, nil, nil
+	}
+	return true, func(releaseCtx context.Context) {
+		defer conn.Release()
+		_, _ = conn.Exec(releaseCtx, "SELECT pg_advisory_unlock($1, $2)", userLockClass, int32(userID))
+	}, nil
+}
+
+// userLockClass is the first key of the per-user advisory locks.
+const userLockClass int32 = 4243
+
 // RunTotals is the summary written to a run row when it finishes.
 type RunTotals struct {
 	Status           string // ok | partial | failed

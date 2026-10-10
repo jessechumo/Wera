@@ -17,6 +17,8 @@ Wera is driven by configuration and per-user profiles:
 - `config/roles.yaml`: the catalog of role families and seniority levels users pick from, plus location and sponsorship rules
 - Each user's profile (stored in the database): the text the LLM scores against and their filter preferences
 
+New users build their profile in the dashboard: they upload a resume PDF (or paste the text), answer a short questionnaire (experience, work authorization, locations, work modes, industries, target roles) and pick role families and seniority levels. The LLM drafts the profile from the resume and answers, the user reviews and edits it, and saving it starts matching right away. Only the resume's extracted text is kept, not the file.
+
 ## Quick start
 
 Requirements: Go 1.23+, Docker, and a Coral Bricks API key.

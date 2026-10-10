@@ -170,11 +170,12 @@ func runUsers(ctx context.Context, args []string) error {
 			return err
 		}
 		var prefs config.Preferences
+		var answers []byte
 		if prof != nil {
-			prefs = prof.Preferences
+			prefs, answers = prof.Preferences, prof.Answers
 		}
 		hash := scoring.ProfileHash(md)
-		if err := store.SaveProfile(ctx, pool, u.ID, string(md), hash, prefs); err != nil {
+		if err := store.SaveProfile(ctx, pool, u.ID, string(md), hash, prefs, answers); err != nil {
 			return err
 		}
 		fmt.Printf("profile for %s set from %s (hash %s)\n", u.Email, *file, hash[:12])

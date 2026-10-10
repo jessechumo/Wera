@@ -47,8 +47,15 @@ type Server struct {
 	PublicOrigins []string
 	TrustProxy    bool
 
+	// Profiles: the role catalog the forms offer, Coral settings for AI
+	// drafts, and the background matcher run after a profile is saved.
+	Roles     *config.Roles
+	Env       *config.Env
+	MatchUser func(ctx context.Context, userID int64)
+
 	signupLimit *auth.Limiter
 	loginLimit  *auth.Limiter
+	draftLimit  *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -64,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 
 	s.signupLimit = auth.NewLimiter(5, time.Hour)
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
+	s.draftLimit = auth.NewLimiter(10, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -87,6 +95,12 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/excluded", s.excluded)
 			r.Get("/industries", s.industries)
 			r.Get("/usage/me", s.myUsage)
+
+			r.Get("/profile/options", s.profileOptions)
+			r.Get("/profile", s.getProfile)
+			r.Put("/profile", s.putProfile)
+			r.Post("/profile/resume", s.uploadResume)
+			r.Post("/profile/draft", s.draftProfile)
 
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireAdmin)

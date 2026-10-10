@@ -48,12 +48,39 @@ func runServe(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	roles, err := config.LoadRoles(config.DefaultRolesPath)
+	if err != nil {
+		return err
+	}
+	// After a profile save, match that user's jobs right away instead of
+	// waiting for the next scheduled run.
+	matchUser := func(ctx context.Context, userID int64) {
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+		defer cancel()
+		prof, err := store.GetProfile(ctx, pool, userID)
+		if err != nil || prof == nil || !prof.Ready() {
+			return
+		}
+		ex, st, err := p.MatchUser(ctx, prof)
+		if err != nil {
+			log.Error("matching after profile save failed", "user_id", userID, "err", err)
+			return
+		}
+		scored := 0
+		if st != nil {
+			scored = st.Scored + st.Reused
+		}
+		log.Info("matched after profile save", "user_id", userID, "excluded", ex, "scored", scored)
+	}
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
 		Metrics:     reg,
 		Industries:  inds.Industries,
 		RunPipeline: p.RunOnce,
+		Roles:       roles,
+		Env:         env,
+		MatchUser:   matchUser,
 
 		SignupEnabled: env.SignupEnabled,
 		UserBudgetUSD: env.UserBudgetUSD,
