@@ -4,10 +4,11 @@ services:
     container_name: wera-postgres
     environment:
       POSTGRES_USER: wera
-      POSTGRES_PASSWORD: wera
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wera}
       POSTGRES_DB: wera
     ports:
-      - "5433:5432"   # 5432 on the host is taken by a native PostgreSQL install
+      # Host-only: lets `go run ./cmd/wera ...` reach the DB, never the LAN.
+      - "127.0.0.1:5433:5432"   # 5432 on the host is taken by a native PostgreSQL install
     volumes:
       - wera-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,17 +18,33 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # Backend containers per PLAN.md section 13. `docker compose up -d postgres`
-  # only starts the database; run these explicitly on the server:
-  #   docker compose up -d --build wera-api wera-worker
+  # Full stack (database, migrations, API, worker, dashboard):
+  #   docker compose up -d --build
+  # `docker compose up -d postgres` still starts only the database.
+
+  # One-shot: applies embedded migrations, then exits. API and worker wait on it.
+  wera-migrate:
+    build: .
+    image: wera:local
+    container_name: wera-migrate
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
+      LOG_FORMAT: json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   wera-api:
     build: .
+    image: wera:local
     container_name: wera-api
     env_file:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: postgres://wera:wera@postgres:5432/wera?sslmode=disable
+      DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
       HTTP_ADDR: ":8080"
       LOG_FORMAT: json
     volumes:
@@ -38,6 +55,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      wera-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/app/wera", "healthcheck"]
       interval: 30s
@@ -48,13 +67,14 @@ services:
 
   wera-worker:
     build: .
+    image: wera:local
     container_name: wera-worker
     command: ["worker"]
     env_file:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: postgres://wera:wera@postgres:5432/wera?sslmode=disable
+      DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
       LOG_FORMAT: json
     volumes:
       - ./config:/app/config:ro
@@ -62,12 +82,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      wera-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/app/wera", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
+
+  # Dashboard (../wera-frontend): nginx serves the SPA and proxies /api to
+  # wera-api. Published on all interfaces so other machines on the LAN can use it.
+  wera-web:
+    build: ../wera-frontend
+    image: wera-web:local
+    container_name: wera-web
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      wera-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
 volumes:

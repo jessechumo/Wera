@@ -8,16 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TodayJobs returns scored, open jobs first seen in the last 24 hours,
-// ordered by fit score descending (GET /api/today).
+// TodayJobs returns the review queue for GET /api/today: scored, open jobs
+// that have no application status yet (or are only saved), ordered by fit
+// score descending. Jobs stay until they are applied to, dismissed, or close,
+// regardless of when they were first seen.
 func TodayJobs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]JobView, error) {
 	sqlText := jobViewSelect + `
 	WHERE j.closed_at IS NULL
 	  AND j.stage = 'scored'
-	  AND j.first_seen_at >= now() - interval '24 hours'
-	ORDER BY a.fit_score DESC NULLS LAST
+	  AND (ap.status IS NULL OR ap.status = 'saved')
+	ORDER BY a.fit_score DESC NULLS LAST, j.first_seen_at DESC
 	LIMIT $1`
-	rows, err := pool.Query(ctx, sqlText, normalizeLimit(limit, 50, 200))
+	rows, err := pool.Query(ctx, sqlText, normalizeLimit(limit, 100, 200))
 	if err != nil {
 		return nil, err
 	}
