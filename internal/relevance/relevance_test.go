@@ -2,6 +2,7 @@ package relevance
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -29,5 +30,24 @@ func TestRankOrdersByRelevance(t *testing.T) {
 	}
 	if len(Rank(profile, nil)) != 0 {
 		t.Error("no docs, no scores")
+	}
+}
+
+func TestRankKeepsTopMatchesApart(t *testing.T) {
+	profile := "go kubernetes terraform prometheus linux networking"
+	var docs []Doc
+	// 200 filler postings, then five whose overlap with the profile grows.
+	for i := 0; i < 200; i++ {
+		docs = append(docs, Doc{ID: int64(1000 + i), Title: "Sales", Body: "quota pipeline crm territory"})
+	}
+	words := []string{"go", "kubernetes", "terraform", "prometheus", "linux"}
+	for k := 1; k <= 5; k++ {
+		docs = append(docs, Doc{ID: int64(k), Title: "Engineer", Body: strings.Join(words[:k], " ") + " docs testing"})
+	}
+	got := Rank(profile, docs)
+	for k := 1; k < 5; k++ {
+		if got[int64(k)] >= got[int64(k+1)] {
+			t.Fatalf("more overlap must score higher: %d -> %d, %d -> %d", k, got[int64(k)], k+1, got[int64(k+1)])
+		}
 	}
 }

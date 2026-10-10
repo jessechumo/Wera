@@ -6,7 +6,6 @@ package relevance
 
 import (
 	"math"
-	"sort"
 	"strings"
 	"unicode"
 )
@@ -68,8 +67,10 @@ func termFreq(doc Doc) map[string]float64 {
 
 // Rank scores every doc against the profile and returns estimated scores
 // in 35..85: the cosine similarity of TF-IDF vectors (IDF over the docs),
-// mapped by rank so the best match gets 85 and the weakest 35. Estimates
-// only order jobs and preview them; the LLM score replaces them.
+// scaled so the best match gets 85 and the weakest 35. Scaling by
+// similarity (not rank) keeps close matches apart: with thousands of
+// candidates, rank put the top hundred all at 84 or 85. Estimates only
+// order jobs and preview them; the LLM score replaces them.
 func Rank(profile string, docs []Doc) map[int64]int {
 	out := make(map[int64]int, len(docs))
 	if len(docs) == 0 {
@@ -121,11 +122,14 @@ func Rank(profile string, docs []Doc) map[int64]int {
 		}
 		sims[i] = scored{d.ID, sim}
 	}
-	sort.SliceStable(sims, func(i, j int) bool { return sims[i].sim > sims[j].sim })
-	for rank, s := range sims {
+	lo, hi := sims[0].sim, sims[0].sim
+	for _, s := range sims {
+		lo, hi = math.Min(lo, s.sim), math.Max(hi, s.sim)
+	}
+	for _, s := range sims {
 		pct := 1.0
-		if len(sims) > 1 {
-			pct = 1 - float64(rank)/float64(len(sims)-1)
+		if hi > lo {
+			pct = (s.sim - lo) / (hi - lo)
 		}
 		out[s.id] = 35 + int(math.Round(50*pct))
 	}
