@@ -72,12 +72,28 @@ func runServe(ctx context.Context, args []string) error {
 		}
 		log.Info("matched after profile save", "user_id", userID, "excluded", ex, "scored", scored)
 	}
+	// "Run now" from the dashboard. If it deferred companies for job board
+	// maintenance, one catch-up run follows when the window ends (the
+	// advisory lock keeps it from overlapping a worker run).
+	runNow := func(ctx context.Context) (bool, error) {
+		ran, err := p.RunOnce(ctx)
+		if at := p.CatchUpAt; !at.IsZero() {
+			log.Info("catch-up run after job board maintenance", "at", at.Add(2*time.Minute).Format(time.RFC3339))
+			go func() {
+				time.Sleep(time.Until(at) + 2*time.Minute)
+				if _, err := p.RunOnce(context.Background()); err != nil {
+					log.Error("catch-up run failed", "err", err)
+				}
+			}()
+		}
+		return ran, err
+	}
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
 		Metrics:     reg,
 		Industries:  inds.Industries,
-		RunPipeline: p.RunOnce,
+		RunPipeline: runNow,
 		Roles:       roles,
 		Env:         env,
 		MatchUser:   matchUser,

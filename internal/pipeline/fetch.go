@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -22,10 +23,26 @@ import (
 
 // FetchStats summarizes one fetch pass.
 type FetchStats struct {
-	CompaniesOK     int
-	CompaniesFailed int
-	JobsSeen        int
-	JobsNew         int
+	CompaniesOK       int
+	CompaniesFailed   int
+	CompaniesDeferred int // board down for maintenance; retried later
+	JobsSeen          int
+	JobsNew           int
+	// RetryAt is when deferred companies can be fetched again (zero when
+	// nothing was deferred).
+	RetryAt time.Time
+}
+
+// unscheduledRetry is when to retry a board that redirected to a
+// maintenance page outside any known window.
+const unscheduledRetry = time.Hour
+
+// deferUntil records a company skipped for maintenance until retryAt.
+func (s *FetchStats) deferUntil(retryAt time.Time) {
+	s.CompaniesDeferred++
+	if s.RetryAt.IsZero() || retryAt.After(s.RetryAt) {
+		s.RetryAt = retryAt
+	}
 }
 
 // Fetcher coordinates fetching all enabled companies concurrently.
@@ -69,8 +86,18 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(f.Env.FetchConcurrency)
+	now := time.Now()
 	for _, c := range todo {
 		c := c
+		// Known maintenance window: skip without a request.
+		if ma, ok := f.Sources[c.ATS].(sources.MaintenanceAware); ok {
+			if end, in := ma.MaintenanceUntil(now); in {
+				mu.Lock()
+				stats.deferUntil(end)
+				mu.Unlock()
+				continue
+			}
+		}
 		g.Go(func() error {
 			f.fetchCompany(gctx, c, ids[c.Name], stats, &mu)
 			return nil
@@ -81,6 +108,10 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	}
 	if f.Metrics != nil {
 		f.Metrics.JobsNewTotal.Add(float64(stats.JobsNew))
+	}
+	if stats.CompaniesDeferred > 0 {
+		f.Log.Info("companies deferred for job board maintenance",
+			"companies", stats.CompaniesDeferred, "retry_at", stats.RetryAt.Format(time.RFC3339))
 	}
 	return stats, nil
 }
@@ -125,6 +156,15 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 			mu.Unlock()
 			return
 		}
+	}
+
+	// A board down for maintenance is retried later, not a failure.
+	if errors.Is(err, sources.ErrUnavailable) {
+		f.Log.Info("board down for maintenance; deferred", "company", c.Name, "ats", c.ATS)
+		mu.Lock()
+		stats.deferUntil(time.Now().Add(unscheduledRetry))
+		mu.Unlock()
+		return
 	}
 
 	// Any failure here is recorded and never fails the run.
