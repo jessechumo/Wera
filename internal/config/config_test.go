@@ -74,7 +74,7 @@ companies:
 `, []string{"duplicate board"}},
 		{"bad ats", `
 companies:
-  - { name: A, ats: workday, token: a1, industry: trading, enabled: true }
+  - { name: A, ats: taleo, token: a1, industry: trading, enabled: true }
 `, []string{"invalid ats"}},
 		{"bad industry", `
 companies:

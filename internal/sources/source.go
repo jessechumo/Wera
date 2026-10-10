@@ -31,6 +31,33 @@ type Source interface {
 	Fetch(ctx context.Context, token string) ([]RawJob, error)
 }
 
+// DetailSource is an ATS whose list endpoint has no job descriptions;
+// each posting needs its own request. The fetcher lists the board every
+// run but requests details only for postings it has not stored yet, so a
+// 2,000-job board costs a few dozen requests per run instead of 2,000.
+// Fetch still returns complete jobs (used by `wera discover`).
+type DetailSource interface {
+	Source
+	// List returns the open postings without descriptions.
+	List(ctx context.Context, token string) ([]RawJob, error)
+	// Detail completes one listed posting (description, dates, ...).
+	Detail(ctx context.Context, token string, j *RawJob) error
+}
+
+// FetchAll is Fetch for a DetailSource: list, then every detail.
+func FetchAll(ctx context.Context, s DetailSource, token string) ([]RawJob, error) {
+	jobs, err := s.List(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	for i := range jobs {
+		if err := s.Detail(ctx, token, &jobs[i]); err != nil {
+			return nil, err
+		}
+	}
+	return jobs, nil
+}
+
 // Get returns the source for an ATS name from a registry built by the
 // caller (see pipeline.NewSourceRegistry).
 func Get(registry map[string]Source, ats string) (Source, error) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -13,9 +14,13 @@ import (
 
 // KnownATS lists the supported applicant tracking systems.
 var KnownATS = map[string]bool{
-	"greenhouse": true,
-	"lever":      true,
-	"ashby":      true,
+	"greenhouse":      true,
+	"lever":           true,
+	"ashby":           true,
+	"workday":         true,
+	"smartrecruiters": true,
+	"eightfold":       true,
+	"amazon":          true,
 }
 
 // Default config paths, relative to the working directory.
@@ -87,7 +92,7 @@ func (c *Companies) Validate(industries map[string]bool) error {
 		}
 		seenName[comp.Name] = true
 		if !KnownATS[comp.ATS] {
-			errs = append(errs, fmt.Sprintf("%s: invalid ats %q (want greenhouse, lever or ashby)", where, comp.ATS))
+			errs = append(errs, fmt.Sprintf("%s: invalid ats %q (want one of %s)", where, comp.ATS, atsNames()))
 		}
 		if comp.Token == "" {
 			errs = append(errs, where+": missing token")
@@ -160,4 +165,14 @@ func LoadIndustries(path string) (*Industries, error) {
 		return nil, fmt.Errorf("industries.yaml validation failed:\n  - %s", strings.Join(errs, "\n  - "))
 	}
 	return &in, nil
+}
+
+// atsNames lists the known ATS names, sorted, for error messages.
+func atsNames() string {
+	names := make([]string, 0, len(KnownATS))
+	for n := range KnownATS {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }

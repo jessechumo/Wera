@@ -85,23 +85,36 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	return stats, nil
 }
 
+// maxDetailsPerRun bounds how many new postings of one company a
+// detail-per-job source fetches in a run; the rest follow next run.
+const maxDetailsPerRun = 250
+
+// detailConcurrency is the parallel detail requests per company.
+const detailConcurrency = 4
+
 // fetchCompany fetches one company end to end and updates stats/log lines.
 func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID int64, stats *FetchStats, mu *sync.Mutex) {
 	src, err := sources.Get(f.Sources, c.ATS)
 	if err == nil {
-		var raw []sources.RawJob
+		var listed int
 		var seen, newly int
 		start := time.Now()
-		raw, err = src.Fetch(ctx, c.Token)
+		if ds, ok := src.(sources.DetailSource); ok {
+			listed, seen, newly, err = f.fetchIncremental(ctx, c, ds, companyID)
+		} else {
+			var raw []sources.RawJob
+			raw, err = src.Fetch(ctx, c.Token)
+			listed = len(raw)
+			if err == nil {
+				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil)
+			}
+		}
 		if f.Metrics != nil {
 			f.Metrics.FetchDuration.Observe(time.Since(start).Seconds())
 		}
 		if err == nil {
-			seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw)
-		}
-		if err == nil {
 			f.Log.Info("company fetched", "company", c.Name, "ats", c.ATS,
-				"jobs", len(raw), "new", newly, "ms", time.Since(start).Milliseconds())
+				"jobs", listed, "new", newly, "ms", time.Since(start).Milliseconds())
 			if f.Metrics != nil {
 				f.Metrics.FetchTotal.WithLabelValues(c.Name, "ok").Inc()
 			}
@@ -127,14 +140,84 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 	mu.Unlock()
 }
 
+// fetchIncremental lists a detail-per-job board, fetches details for up to
+// maxDetailsPerRun postings it has not stored yet, saves those, and marks
+// the already-stored ones as still listed. A posting whose detail request
+// fails is skipped this run (and retried next run) without failing the
+// company.
+func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src sources.DetailSource, companyID int64) (listed, seen, newly int, err error) {
+	jobs, err := src.List(ctx, c.Token)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	known, err := store.KnownExtIDs(ctx, f.Pool, companyID)
+	if err != nil {
+		return len(jobs), 0, 0, err
+	}
+	limit := maxDetailsPerRun
+	if dl, ok := src.(sources.DetailLimiter); ok {
+		limit = dl.MaxDetailsPerRun()
+	}
+	var fresh []sources.RawJob
+	var stillListed, allIDs []string
+	for _, j := range jobs {
+		allIDs = append(allIDs, j.ExtID)
+		if known[j.ExtID] {
+			stillListed = append(stillListed, j.ExtID)
+		} else if len(fresh) < limit {
+			fresh = append(fresh, j)
+		}
+	}
+
+	var mu sync.Mutex
+	var detailed []sources.RawJob
+	failed := 0
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(detailConcurrency)
+	for i := range fresh {
+		j := fresh[i]
+		g.Go(func() error {
+			if derr := src.Detail(gctx, c.Token, &j); derr != nil {
+				mu.Lock()
+				failed++
+				mu.Unlock()
+				return nil
+			}
+			mu.Lock()
+			detailed = append(detailed, j)
+			mu.Unlock()
+			return nil
+		})
+	}
+	_ = g.Wait()
+	if ctx.Err() != nil {
+		return len(jobs), 0, 0, ctx.Err()
+	}
+	if failed > 0 {
+		f.Log.Warn("some job details failed; retrying next run", "company", c.Name, "failed", failed)
+	}
+	if len(fresh) > 0 && len(detailed) == 0 {
+		return len(jobs), 0, 0, fmt.Errorf("all %d job detail requests failed", len(fresh))
+	}
+
+	if err := store.TouchJobs(ctx, f.Pool, companyID, stillListed); err != nil {
+		return len(jobs), 0, 0, err
+	}
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs)
+	return len(jobs), seen + len(stillListed), newly, err
+}
+
 // saveCompanyJobs upserts the fetched postings, closes postings that
-// disappeared, and marks the fetch as successful. It returns the number
-// of jobs seen and newly inserted.
-func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob) (seen, newly int, err error) {
+// disappeared, and marks the fetch as successful. openIDs lists every
+// posting still on the board (nil = exactly the saved ones). It returns
+// the number of jobs seen and newly inserted.
+func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string) (seen, newly int, err error) {
 	inputs := make([]store.JobInput, 0, len(raw))
-	openIDs := make([]string, 0, len(raw))
+	collectIDs := openIDs == nil
 	for _, rj := range raw {
-		openIDs = append(openIDs, rj.ExtID)
+		if collectIDs {
+			openIDs = append(openIDs, rj.ExtID)
+		}
 		inputs = append(inputs, store.JobInput{
 			CompanyID:   companyID,
 			Source:      src.Name(),

@@ -38,7 +38,13 @@ func runDiscover(ctx context.Context, args []string) error {
 		src := registry[ats]
 		found := false
 		for _, slug := range slugs {
-			jobs, err := src.Fetch(ctx, slug)
+			var jobs []sources.RawJob
+			var err error
+			if ds, ok := src.(sources.DetailSource); ok {
+				jobs, err = ds.List(ctx, slug) // listing is enough to confirm a board
+			} else {
+				jobs, err = src.Fetch(ctx, slug)
+			}
 			if err != nil {
 				if errors.Is(err, sources.ErrBoardNotFound) {
 					continue // expected for wrong slugs

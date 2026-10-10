@@ -185,3 +185,15 @@ func GetJob(ctx context.Context, pool *pgxpool.Pool, userID, id int64) (*JobView
 	}
 	return &v, nil
 }
+
+// JobDescription returns a job's plain-text description ("" when none).
+func JobDescription(ctx context.Context, pool *pgxpool.Pool, id int64) (string, error) {
+	var d *string
+	if err := pool.QueryRow(ctx, `SELECT description FROM jobs WHERE id = $1`, id).Scan(&d); err != nil {
+		return "", err
+	}
+	if d == nil {
+		return "", nil
+	}
+	return *d, nil
+}

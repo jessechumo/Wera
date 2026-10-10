@@ -497,6 +497,181 @@ companies:
   - { name: Thorn,                         ats: greenhouse, token: thorn,               industry: nonprofit, enabled: true }
   - { name: Wikimedia Foundation,          ats: greenhouse, token: wikimedia,           industry: nonprofit, enabled: true }
 
-# Companies on custom career sites (Citadel, Jane Street, CME, Workday-hosted
-# airlines and hospitals, etc.) are out of scope until a public API is found.
-# Do not scrape them.
+  # =====================================================================
+  # Fortune 500 / S&P 500 / big tech on Workday, SmartRecruiters, Eightfold
+  # and amazon.jobs (sites verified 2026-10-10). Large boards keep their
+  # newest 1,000 postings.
+  # =====================================================================
+
+  # ---------- Big Tech ----------
+  - { name: Adobe,                        ats: workday,         token: adobe.wd5/external_experienced,                      industry: big_tech, enabled: true }
+  - { name: Amazon,                       ats: amazon,          token: USA,                                                 industry: big_tech, enabled: true }
+  - { name: Analog Devices,               ats: workday,         token: analogdevices.wd1/External,                          industry: big_tech, enabled: true }
+  - { name: Applied Materials,            ats: workday,         token: amat.wd1/External,                                   industry: big_tech, enabled: true }
+  - { name: Autodesk,                     ats: workday,         token: autodesk.wd1/Ext,                                    industry: big_tech, enabled: true }
+  - { name: Broadcom,                     ats: workday,         token: broadcom.wd1/External_Career,                        industry: big_tech, enabled: true }
+  - { name: Cisco,                        ats: workday,         token: cisco.wd5/Cisco_Careers,                             industry: big_tech, enabled: true }
+  - { name: CrowdStrike,                  ats: workday,         token: crowdstrike.wd5/crowdstrikecareers,                  industry: big_tech, enabled: true }
+  - { name: eBay,                         ats: workday,         token: ebay.wd5/apply,                                      industry: big_tech, enabled: true }
+  - { name: Hewlett Packard Enterprise,   ats: workday,         token: hpe.wd5/Jobsathpe,                                   industry: big_tech, enabled: true }
+  - { name: HP Inc.,                      ats: workday,         token: hp.wd5/ExternalCareerSite,                           industry: big_tech, enabled: true }
+  - { name: Intel,                        ats: workday,         token: intel.wd1/External,                                  industry: big_tech, enabled: true }
+  - { name: KLA,                          ats: workday,         token: kla.wd1/Search,                                      industry: big_tech, enabled: true }
+  - { name: Micron Technology,            ats: workday,         token: micron.wd1/External,                                 industry: big_tech, enabled: true }
+  - { name: Motorola Solutions,           ats: workday,         token: motorolasolutions.wd5/Careers,                       industry: big_tech, enabled: true }
+  - { name: Netflix,                      ats: eightfold,       token: explore.jobs.netflix.net/netflix.com,                industry: big_tech, enabled: true }
+  - { name: NVIDIA,                       ats: workday,         token: nvidia.wd5/NVIDIAExternalCareerSite,                 industry: big_tech, enabled: true }
+  - { name: PayPal,                       ats: workday,         token: paypal.wd1/jobs,                                     industry: big_tech, enabled: true }
+  - { name: Red Hat,                      ats: workday,         token: redhat.wd5/jobs,                                     industry: big_tech, enabled: true }
+  - { name: Salesforce,                   ats: workday,         token: salesforce.wd12/External_Career_Site,                industry: big_tech, enabled: true }
+  - { name: ServiceNow,                   ats: smartrecruiters, token: ServiceNow,                                          industry: big_tech, enabled: true }
+  - { name: Snap,                         ats: workday,         token: snapchat.wd1/snap,                                   industry: big_tech, enabled: true }
+  - { name: Workday,                      ats: workday,         token: workday.wd5/Workday,                                 industry: big_tech, enabled: true }
+  - { name: Zoom,                         ats: workday,         token: zoom.wd5/Zoom,                                       industry: big_tech, enabled: true }
+
+  # ---------- Cloud & Developer Tools ----------
+  - { name: Equinix,                      ats: workday,         token: equinix.wd1/External,                                industry: cloud, enabled: true }
+
+  # ---------- Banking & Financial Services ----------
+  - { name: Ally Financial,               ats: workday,         token: ally.wd1/Ally,                                       industry: banking, enabled: true }
+  - { name: Bank of America,              ats: workday,         token: ghr.wd1/Lateral-US,                                  industry: banking, enabled: true }
+  - { name: BlackRock,                    ats: workday,         token: blackrock.wd1/BlackRock_Professional,                industry: banking, enabled: true }
+  - { name: Capital One,                  ats: workday,         token: capitalone.wd12/Capital_One,                         industry: banking, enabled: true }
+  - { name: Citi,                         ats: workday,         token: citi.wd5/2,                                          industry: banking, enabled: true }
+  - { name: CME Group,                    ats: workday,         token: cmegroup.wd1/cme_careers,                            industry: banking, enabled: true }
+  - { name: Fidelity Investments,         ats: workday,         token: fmr.wd1/FidelityCareers,                             industry: banking, enabled: true }
+  - { name: Fifth Third,                  ats: workday,         token: fifththird.wd5/53careers,                            industry: banking, enabled: true }
+  - { name: FIS,                          ats: workday,         token: fis.wd5/SearchJobs,                                  industry: banking, enabled: true }
+  - { name: Fiserv,                       ats: workday,         token: fiserv.wd5/EXT,                                      industry: banking, enabled: true }
+  - { name: Global Payments,              ats: workday,         token: tsys.wd1/TSYS,                                       industry: banking, enabled: true }
+  - { name: "M&T Bank",                   ats: workday,         token: mtb.wd5/MTB,                                         industry: banking, enabled: true }
+  - { name: Mastercard,                   ats: workday,         token: mastercard.wd1/CorporateCareers,                     industry: banking, enabled: true }
+  - { name: Morgan Stanley,               ats: workday,         token: ms.wd5/External,                                     industry: banking, enabled: true }
+  - { name: Nasdaq,                       ats: workday,         token: nasdaq.wd1/Global_External_Site,                     industry: banking, enabled: true }
+  - { name: Northern Trust,               ats: workday,         token: ntrs.wd1/northerntrust,                              industry: banking, enabled: true }
+  - { name: PNC,                          ats: workday,         token: pnc.wd5/External,                                    industry: banking, enabled: true }
+  - { name: Raymond James,                ats: workday,         token: raymondjames.wd1/RaymondJamesCareers,                industry: banking, enabled: true }
+  - { name: Regions,                      ats: workday,         token: regions.wd5/Regions_Careers,                         industry: banking, enabled: true }
+  - { name: "S&P Global",                 ats: workday,         token: spgi.wd5/SPGI_Careers,                               industry: banking, enabled: true }
+  - { name: State Street,                 ats: workday,         token: statestreet.wd1/Global,                              industry: banking, enabled: true }
+  - { name: Synchrony,                    ats: workday,         token: synchronyfinancial.wd5/careers,                      industry: banking, enabled: true }
+  - { name: T. Rowe Price,                ats: workday,         token: troweprice.wd5/TRowePrice,                           industry: banking, enabled: true }
+  - { name: Truist,                       ats: workday,         token: truist.wd1/Careers,                                  industry: banking, enabled: true }
+  - { name: U.S. Bank,                    ats: workday,         token: usbank.wd1/US_Bank_Careers,                          industry: banking, enabled: true }
+  - { name: Visa,                         ats: workday,         token: visa.wd5/Visa,                                       industry: banking, enabled: true }
+  - { name: Wells Fargo,                  ats: workday,         token: wf.wd1/WellsFargoJobs,                               industry: banking, enabled: true }
+
+  # ---------- Insurance ----------
+  - { name: AIG,                          ats: workday,         token: aig.wd1/aig,                                         industry: insurance, enabled: true }
+  - { name: Allstate,                     ats: workday,         token: allstate.wd5/allstate_careers,                       industry: insurance, enabled: true }
+  - { name: Nationwide,                   ats: workday,         token: nationwide.wd1/Nationwide_Career,                    industry: insurance, enabled: true }
+  - { name: Prudential,                   ats: workday,         token: pru.wd5/Careers,                                     industry: insurance, enabled: true }
+  - { name: The Hartford,                 ats: workday,         token: thehartford.wd5/Careers_External,                    industry: insurance, enabled: true }
+  - { name: Travelers,                    ats: workday,         token: travelers.wd5/External,                              industry: insurance, enabled: true }
+
+  # ---------- Healthcare & Health Tech ----------
+  - { name: Cardinal Health,              ats: workday,         token: cardinalhealth.wd1/EXT,                              industry: healthcare, enabled: true }
+  - { name: Centene,                      ats: workday,         token: centene.wd5/Centene_External,                        industry: healthcare, enabled: true }
+  - { name: Cigna,                        ats: workday,         token: cigna.wd5/cignacareers,                              industry: healthcare, enabled: true }
+  - { name: CVS Health,                   ats: workday,         token: cvshealth.wd1/CVS_Health_Careers,                    industry: healthcare, enabled: true }
+  - { name: Elevance Health,              ats: workday,         token: elevancehealth.wd1/ANT,                              industry: healthcare, enabled: true }
+  - { name: GE HealthCare,                ats: workday,         token: gehc.wd5/GEHC_ExternalSite,                          industry: healthcare, enabled: true }
+  - { name: Humana,                       ats: workday,         token: humana.wd5/Humana_External_Career_Site,              industry: healthcare, enabled: true }
+  - { name: Labcorp,                      ats: workday,         token: labcorp.wd1/External,                                industry: healthcare, enabled: true }
+  - { name: McKesson,                     ats: workday,         token: mckesson.wd3/External_Careers,                       industry: healthcare, enabled: true }
+
+  # ---------- Biotech & Life Sciences ----------
+  - { name: Abbott,                       ats: workday,         token: abbott.wd5/abbottcareers,                            industry: biotech, enabled: true }
+  - { name: Amgen,                        ats: workday,         token: amgen.wd1/Careers,                                   industry: biotech, enabled: true }
+  - { name: Becton Dickinson,             ats: workday,         token: bdx.wd1/EXTERNAL_CAREER_SITE_USA,                    industry: biotech, enabled: true }
+  - { name: Bristol Myers Squibb,         ats: workday,         token: bristolmyerssquibb.wd5/BMS,                          industry: biotech, enabled: true }
+  - { name: Danaher,                      ats: workday,         token: danaher.wd1/DanaherJobs,                             industry: biotech, enabled: true }
+  - { name: Edwards Lifesciences,         ats: workday,         token: edwards.wd5/EdwardsCareers,                          industry: biotech, enabled: true }
+  - { name: Gilead Sciences,              ats: workday,         token: gilead.wd1/gileadcareers,                            industry: biotech, enabled: true }
+  - { name: Illumina,                     ats: workday,         token: illumina.wd1/illumina-careers,                       industry: biotech, enabled: true }
+  - { name: "Johnson & Johnson",          ats: workday,         token: jj.wd5/JJ,                                           industry: biotech, enabled: true }
+  - { name: Medtronic,                    ats: workday,         token: medtronic.wd1/MedtronicCareers,                      industry: biotech, enabled: true }
+  - { name: Merck,                        ats: workday,         token: msd.wd5/SearchJobs,                                  industry: biotech, enabled: true }
+  - { name: Moderna,                      ats: workday,         token: modernatx.wd1/M_tx,                                  industry: biotech, enabled: true }
+  - { name: Pfizer,                       ats: workday,         token: pfizer.wd1/PfizerCareers,                            industry: biotech, enabled: true }
+  - { name: Regeneron,                    ats: workday,         token: regeneron.wd1/Careers,                               industry: biotech, enabled: true }
+  - { name: Stryker,                      ats: workday,         token: stryker.wd1/StrykerCareers,                          industry: biotech, enabled: true }
+  - { name: Thermo Fisher Scientific,     ats: workday,         token: thermofisher.wd5/ThermoFisherCareers,                industry: biotech, enabled: true }
+  - { name: Vertex Pharmaceuticals,       ats: workday,         token: vrtx.wd501/Vertex_Careers,                           industry: biotech, enabled: true }
+  - { name: Zoetis,                       ats: workday,         token: zoetis.wd5/zoetis,                                   industry: biotech, enabled: true }
+
+  # ---------- Aviation & Aerospace ----------
+  - { name: Boeing,                       ats: workday,         token: boeing.wd1/EXTERNAL_CAREERS,                         industry: aerospace, enabled: true }
+  - { name: GE Aerospace,                 ats: workday,         token: geaerospace.wd5/GE_ExternalSite,                     industry: aerospace, enabled: true }
+  - { name: Southwest Airlines,           ats: workday,         token: swa.wd1/external,                                    industry: aerospace, enabled: true }
+
+  # ---------- Defense & Public Sector ----------
+  - { name: Booz Allen Hamilton,          ats: workday,         token: bah.wd1/BAH_Jobs,                                    industry: defense, enabled: true }
+  - { name: CACI,                         ats: workday,         token: caci.wd1/External,                                   industry: defense, enabled: true }
+  - { name: General Dynamics IT,          ats: workday,         token: gdit.wd5/External_Career_Site,                       industry: defense, enabled: true }
+  - { name: Leidos,                       ats: workday,         token: leidos.wd5/External,                                 industry: defense, enabled: true }
+  - { name: Northrop Grumman,             ats: workday,         token: ngc.wd1/Northrop_Grumman_External_Site,              industry: defense, enabled: true }
+  - { name: RTX,                          ats: workday,         token: globalhr.wd5/REC_RTX_Ext_Gateway,                    industry: defense, enabled: true }
+
+  # ---------- Automotive & Autonomy ----------
+  - { name: Aptiv,                        ats: workday,         token: aptiv.wd5/APTIV_CAREERS,                             industry: automotive, enabled: true }
+  - { name: General Motors,               ats: workday,         token: generalmotors.wd5/Careers_GM,                        industry: automotive, enabled: true }
+
+  # ---------- Manufacturing & Industrials ----------
+  - { name: 3M,                           ats: workday,         token: 3m.wd1/Search,                                       industry: manufacturing, enabled: true }
+  - { name: Carrier,                      ats: workday,         token: carrier.wd5/jobs,                                    industry: manufacturing, enabled: true }
+  - { name: Caterpillar,                  ats: workday,         token: cat.wd5/CaterpillarCareers,                          industry: manufacturing, enabled: true }
+  - { name: Dow,                          ats: workday,         token: dow.wd1/ExternalCareers,                             industry: manufacturing, enabled: true }
+  - { name: DuPont,                       ats: workday,         token: dupont.wd5/Jobs,                                     industry: manufacturing, enabled: true }
+  - { name: Illinois Tool Works,          ats: workday,         token: itw.wd5/External,                                    industry: manufacturing, enabled: true }
+  - { name: Johnson Controls,             ats: workday,         token: jci.wd5/JCI,                                         industry: manufacturing, enabled: true }
+  - { name: Rockwell Automation,          ats: workday,         token: rockwellautomation.wd1/External_Rockwell_Automation, industry: manufacturing, enabled: true }
+
+  # ---------- Energy & Climate ----------
+  - { name: Baker Hughes,                 ats: workday,         token: bakerhughes.wd5/BakerHughes,                         industry: energy, enabled: true }
+  - { name: Chevron,                      ats: workday,         token: chevron.wd5/jobs,                                    industry: energy, enabled: true }
+  - { name: ConocoPhillips,               ats: workday,         token: conocophillips.wd1/External,                         industry: energy, enabled: true }
+  - { name: Duke Energy,                  ats: workday,         token: dukeenergy.wd1/search,                               industry: energy, enabled: true }
+
+  # ---------- Logistics & Supply Chain ----------
+  - { name: C.H. Robinson,                ats: workday,         token: chrobinson.wd5/chrobinson,                           industry: logistics, enabled: true }
+  - { name: Ryder,                        ats: workday,         token: ryder.wd5/RyderCareers,                              industry: logistics, enabled: true }
+
+  # ---------- Retail & E-commerce ----------
+  - { name: Gap Inc.,                     ats: workday,         token: gapinc.wd1/GAPINC,                                   industry: ecommerce, enabled: true }
+  - { name: Home Depot,                   ats: workday,         token: homedepot.wd5/CareerDepot,                           industry: ecommerce, enabled: true }
+  - { name: "Lowe's",                     ats: workday,         token: lowes.wd5/LWS_External_CS,                           industry: ecommerce, enabled: true }
+  - { name: Nike,                         ats: workday,         token: nike.wd1/nke,                                        industry: ecommerce, enabled: true }
+  - { name: Nordstrom,                    ats: workday,         token: nordstrom.wd501/nordstrom_careers,                   industry: ecommerce, enabled: true }
+  - { name: Target,                       ats: workday,         token: target.wd5/TargetCareers,                            industry: ecommerce, enabled: true }
+  - { name: TJX,                          ats: workday,         token: tjx.wd1/TJX_EXTERNAL,                                industry: ecommerce, enabled: true }
+
+  # ---------- Consumer Tech & Social ----------
+  - { name: Chipotle,                     ats: workday,         token: chipotle.wd5/ChipotleCareers,                        industry: consumer, enabled: true }
+  - { name: Coca-Cola,                    ats: workday,         token: coke.wd1/coca-cola-careers,                          industry: consumer, enabled: true }
+  - { name: Kraft Heinz,                  ats: workday,         token: heinz.wd1/KraftHeinz_Careers,                        industry: consumer, enabled: true }
+  - { name: Mondelez,                     ats: workday,         token: mdlz.wd3/External,                                   industry: consumer, enabled: true }
+  - { name: "Procter & Gamble",           ats: workday,         token: pg.wd5/1000,                                         industry: consumer, enabled: true }
+  - { name: Unilever,                     ats: workday,         token: unilever.wd3/Unilever_Experienced_Professionals,     industry: consumer, enabled: true }
+
+  # ---------- Media & Entertainment ----------
+  - { name: Disney,                       ats: workday,         token: disney.wd5/disneycareer,                             industry: media, enabled: true }
+  - { name: Warner Bros. Discovery,       ats: workday,         token: warnerbros.wd5/global,                               industry: media, enabled: true }
+
+  # ---------- Consulting & Professional Services ----------
+  - { name: Accenture,                    ats: workday,         token: accenture.wd103/AccentureCareers,                    industry: consulting, enabled: true }
+  - { name: Gartner,                      ats: workday,         token: gartner.wd5/EXT,                                     industry: consulting, enabled: true }
+  - { name: PwC,                          ats: workday,         token: pwc.wd3/Global_Experienced_Careers,                  industry: consulting, enabled: true }
+
+  # ---------- Telecom & Networking ----------
+  - { name: "AT&T",                       ats: workday,         token: att.wd1/ATTGeneral,                                  industry: telecom, enabled: true }
+  - { name: T-Mobile,                     ats: workday,         token: tmobile.wd1/External,                                industry: telecom, enabled: true }
+  - { name: Verizon,                      ats: workday,         token: verizon.wd12/verizon-careers,                        industry: telecom, enabled: true }
+
+  # ---------- Real Estate & PropTech ----------
+  - { name: JLL,                          ats: workday,         token: jll.wd1/jllcareers,                                  industry: real_estate, enabled: true }
+  - { name: Zillow,                       ats: workday,         token: zillow.wd5/Zillow_Group_External,                    industry: real_estate, enabled: true }
+
+# Companies whose career sites have no public JSON feed (Google, Apple, Meta,
+# Microsoft, Citadel, Jane Street, ...) are out of scope until one is found.
+# Do not scrape HTML.

@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -43,17 +44,39 @@ func NewHTTP(ua string) *HTTP {
 
 // GetJSON performs GET url and unmarshals the JSON body into out.
 func (h *HTTP) GetJSON(ctx context.Context, url string, out any) error {
+	return h.doJSON(ctx, http.MethodGet, url, nil, out)
+}
+
+// PostJSON sends payload as a JSON POST body to url and unmarshals the
+// JSON reply into out (Workday's job search is a POST).
+func (h *HTTP) PostJSON(ctx context.Context, url string, payload, out any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("encode request: %w", err)
+	}
+	return h.doJSON(ctx, http.MethodPost, url, body, out)
+}
+
+// doJSON performs one request with the retry policy described on HTTP.
+func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, out any) error {
 	maxAttempts := h.MaxRetries + 1
 	delay := h.BaseDelay
 	var lastErr error
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		var reqBody io.Reader
+		if payload != nil {
+			reqBody = bytes.NewReader(payload)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 		if err != nil {
 			return fmt.Errorf("build request: %w", err)
 		}
 		req.Header.Set("User-Agent", h.UA)
 		req.Header.Set("Accept", "application/json")
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 
 		resp, err := h.Client.Do(req)
 		if err != nil {

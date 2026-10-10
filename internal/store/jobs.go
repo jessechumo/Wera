@@ -166,3 +166,38 @@ func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, 
 	}
 	return excluded, pending, byReason, nil
 }
+
+// KnownExtIDs returns the ext_ids already stored for a company (open or
+// closed), so detail-per-job sources only fetch new postings.
+func KnownExtIDs(ctx context.Context, pool *pgxpool.Pool, companyID int64) (map[string]bool, error) {
+	rows, err := pool.Query(ctx, `SELECT ext_id FROM jobs WHERE company_id = $1`, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("load known jobs for company %d: %w", companyID, err)
+	}
+	defer rows.Close()
+	known := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		known[id] = true
+	}
+	return known, rows.Err()
+}
+
+// TouchJobs marks already-stored postings as still listed: last_seen_at
+// moves to now and a closed posting that reappeared is reopened. Their
+// content is left as stored.
+func TouchJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, extIDs []string) error {
+	if len(extIDs) == 0 {
+		return nil
+	}
+	_, err := pool.Exec(ctx, `
+		UPDATE jobs SET last_seen_at = now(), closed_at = NULL
+		WHERE company_id = $1 AND ext_id = ANY($2::text[])`, companyID, extIDs)
+	if err != nil {
+		return fmt.Errorf("touch jobs for company %d: %w", companyID, err)
+	}
+	return nil
+}
