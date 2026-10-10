@@ -123,6 +123,10 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/posts/{id}/comments/{commentID}", s.deleteComment)
 			r.Put("/posts/{id}/reactions/{kind}", s.react)
 			r.Delete("/posts/{id}/reactions/{kind}", s.react)
+
+			r.Get("/interview/domains", s.interviewDomains)
+			r.Get("/interview/quiz", s.interviewQuiz)
+			r.Post("/interview/questions/{id}/answer", s.interviewAnswer)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)
