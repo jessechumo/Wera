@@ -154,13 +154,17 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	if err != nil {
 		return len(jobs), 0, 0, err
 	}
+	limit := maxDetailsPerRun
+	if dl, ok := src.(sources.DetailLimiter); ok {
+		limit = dl.MaxDetailsPerRun()
+	}
 	var fresh []sources.RawJob
 	var stillListed, allIDs []string
 	for _, j := range jobs {
 		allIDs = append(allIDs, j.ExtID)
 		if known[j.ExtID] {
 			stillListed = append(stillListed, j.ExtID)
-		} else if len(fresh) < maxDetailsPerRun {
+		} else if len(fresh) < limit {
 			fresh = append(fresh, j)
 		}
 	}

@@ -21,8 +21,16 @@ const (
 	pageSize = 20 // the most Workday returns per page
 	// maxListed bounds how many postings are listed per company per run
 	// (Workday sorts newest first; very large boards keep their newest).
-	maxListed = 1000
+	maxListed = 400
+	// maxDetails bounds new postings detailed per company per run, so a
+	// first fill spreads over a few runs.
+	maxDetails = 60
 )
+
+// throttle is shared by every Workday site: they sit behind the same
+// infrastructure, which starts answering 429/500 or a maintenance page
+// when a client bursts across many tenants at once.
+var throttle = sources.NewThrottle(4, 150*time.Millisecond)
 
 // Adapter fetches jobs from Workday career sites.
 type Adapter struct {
@@ -40,6 +48,9 @@ func NewWithBaseURL(h *sources.HTTP, baseURL string) *Adapter {
 
 // Name implements sources.Source.
 func (a *Adapter) Name() string { return name }
+
+// MaxDetailsPerRun implements sources.DetailLimiter.
+func (a *Adapter) MaxDetailsPerRun() int { return maxDetails }
 
 // site is a parsed token.
 type site struct {
@@ -94,7 +105,9 @@ func (a *Adapter) List(ctx context.Context, token string) ([]sources.RawJob, err
 	page := func(ctx context.Context, offset int) (searchResponse, error) {
 		var resp searchResponse
 		req := searchRequest{AppliedFacets: map[string]any{}, Limit: pageSize, Offset: offset}
-		err := a.http.PostJSON(ctx, a.apiBase(s)+"/jobs", req, &resp)
+		err := throttle.Do(ctx, func() error {
+			return a.http.PostJSON(ctx, a.apiBase(s)+"/jobs", req, &resp)
+		})
 		return resp, err
 	}
 	first, err := page(ctx, 0)
@@ -157,7 +170,7 @@ func (a *Adapter) Detail(ctx context.Context, token string, j *sources.RawJob) e
 		return err
 	}
 	var resp detailResponse
-	if err := a.http.GetJSON(ctx, a.apiBase(s)+j.ExtID, &resp); err != nil {
+	if err := throttle.Do(ctx, func() error { return a.http.GetJSON(ctx, a.apiBase(s)+j.ExtID, &resp) }); err != nil {
 		return err
 	}
 	info := resp.JobPostingInfo
