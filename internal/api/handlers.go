@@ -57,7 +57,7 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	jobs, err := store.TodayJobs(r.Context(), s.Pool, currentUser(r).ID, limit)
+	jobs, pending, err := store.TodayJobs(r.Context(), s.Pool, currentUser(r).ID, limit)
 	if err != nil {
 		s.Log.Error("today failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -66,7 +66,7 @@ func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 	if jobs == nil {
 		jobs = []store.JobView{}
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs, "count": len(jobs)})
+	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs, "count": len(jobs), "pending": pending})
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
@@ -209,4 +209,38 @@ func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
 		list = append(list, industryView{Industry: ind, IndustryCounts: counts[ind.ID]})
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"industries": list})
+}
+
+// scoreJob is POST /api/jobs/{id}/score: score one of the user's unscored
+// jobs now (they opened it before the queue got to it) and return it.
+func (s *Server) scoreJob(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeError(w, http.StatusBadRequest, "bad job id")
+		return
+	}
+	if s.ScoreNow == nil {
+		s.writeError(w, http.StatusNotImplemented, "scoring is not configured on this server")
+		return
+	}
+	user := currentUser(r)
+	if !s.scoreLimit.Allow(strconv.FormatInt(user.ID, 10)) {
+		s.writeError(w, http.StatusTooManyRequests, "too many scoring requests; try again soon")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	if err := s.ScoreNow(ctx, user.ID, id); err != nil {
+		s.Log.Warn("on-demand scoring failed", "user_id", user.ID, "job_id", id, "err", err)
+	}
+	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		s.writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, job)
 }

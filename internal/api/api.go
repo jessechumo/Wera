@@ -52,10 +52,13 @@ type Server struct {
 	Roles     *config.Roles
 	Env       *config.Env
 	MatchUser func(ctx context.Context, userID int64)
+	// ScoreNow scores one unscored job immediately (set by `wera serve`).
+	ScoreNow func(ctx context.Context, userID, jobID int64) error
 
 	signupLimit *auth.Limiter
 	loginLimit  *auth.Limiter
 	draftLimit  *auth.Limiter
+	scoreLimit  *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -72,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	s.signupLimit = auth.NewLimiter(5, time.Hour)
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.draftLimit = auth.NewLimiter(10, time.Hour)
+	s.scoreLimit = auth.NewLimiter(120, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -88,6 +92,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/jobs", s.listJobs)
 			r.Get("/jobs/{id}", s.getJob)
 			r.Put("/jobs/{id}/application", s.putApplication)
+			r.Post("/jobs/{id}/score", s.scoreJob)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)

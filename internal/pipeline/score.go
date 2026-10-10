@@ -95,7 +95,9 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 // have an analysis for the user's exact profile text reuse it for free.
 // It returns (nil, nil) when CORAL_API_KEY is not set, so the pipeline
 // simply skips the LLM stage.
-func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, prof *store.Profile, limit int, maxCostUSD float64, m *metrics.Registry) (*ScoreStats, error) {
+// onlyIDs, when not empty, scores just those jobs (on-demand scoring of
+// a job the user opened).
+func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, prof *store.Profile, limit int, onlyIDs []int64, maxCostUSD float64, m *metrics.Registry) (*ScoreStats, error) {
 	if env.CoralAPIKey == "" {
 		log.Info("CORAL_API_KEY not set; skipping scoring stage")
 		return nil, nil
@@ -103,7 +105,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	if prof.Markdown == "" {
 		return nil, scoring.ErrNoProfile
 	}
-	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, prof.ProfileHash, limit)
+	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, prof.ProfileHash, limit, onlyIDs)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,7 @@ func runScore(ctx context.Context, args []string) error {
 			log.Warn("not scoring: "+why, "user_id", prof.UserID)
 			continue
 		}
-		st, err := pipeline.ScoreUser(ctx, pool, env, log, prof, *limit, allowance, nil)
+		st, err := pipeline.ScoreUser(ctx, pool, env, log, prof, *limit, nil, allowance, nil)
 		if err != nil {
 			return err
 		}

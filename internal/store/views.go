@@ -11,15 +11,44 @@ import (
 // TodayJobs returns the review queue for GET /api/today: scored, open jobs
 // that have no application status yet (or are only saved), ordered by fit
 // score descending. Jobs stay until they are applied to, dismissed, or close,
-// regardless of when they were first seen.
-func TodayJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, limit int) ([]JobView, error) {
-	sqlText := jobViewSelect + `
+// regardless of when they were first seen. While fewer than limit are
+// scored (a new user's first minutes), the rest of the list is filled with
+// the best unscored matches by relevance estimate; pending is how many
+// matches still wait for a score.
+func TodayJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, limit int) (jobs []JobView, pending int, err error) {
+	limit = normalizeLimit(limit, 100, 200)
+	scored, err := queryJobViews(ctx, pool, jobViewSelect+`
 	  AND j.closed_at IS NULL
 	  AND uj.stage = 'scored'
 	  AND (ap.status IS NULL OR ap.status = 'saved')
 	ORDER BY a.fit_score DESC NULLS LAST, j.first_seen_at DESC
-	LIMIT $2`
-	rows, err := pool.Query(ctx, sqlText, userID, normalizeLimit(limit, 100, 200))
+	LIMIT $2`, userID, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL`,
+		userID).Scan(&pending); err != nil {
+		return nil, 0, err
+	}
+	if room := min(limit, 30) - len(scored); room > 0 && pending > 0 {
+		estimated, err := queryJobViews(ctx, pool, jobViewSelect+`
+		  AND j.closed_at IS NULL
+		  AND uj.stage = 'pending_score'
+		  AND (ap.status IS NULL OR ap.status = 'saved')
+		ORDER BY uj.estimated_score DESC NULLS LAST, j.first_seen_at DESC
+		LIMIT $2`, userID, room)
+		if err != nil {
+			return nil, 0, err
+		}
+		scored = append(scored, estimated...)
+	}
+	return scored, pending, nil
+}
+
+func queryJobViews(ctx context.Context, pool *pgxpool.Pool, sqlText string, args ...any) ([]JobView, error) {
+	rows, err := pool.Query(ctx, sqlText, args...)
 	if err != nil {
 		return nil, err
 	}

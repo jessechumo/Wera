@@ -186,7 +186,7 @@ func (p *Pipeline) MatchUser(ctx context.Context, prof *store.Profile) (excluded
 		p.Log.Warn("not scoring: "+why, "user_id", prof.UserID)
 		return fst.Excluded, nil, nil
 	}
-	st, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, allowance, p.Metrics)
+	st, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, nil, allowance, p.Metrics)
 	return fst.Excluded, st, err
 }
 
@@ -195,4 +195,23 @@ func deferredOf(s *FetchStats) int {
 		return 0
 	}
 	return s.CompaniesDeferred
+}
+
+// ScoreNow scores one of the user's unscored jobs right away (the user
+// opened it), within the user's allowance. Already-scored jobs and jobs
+// the user has no match for are left alone.
+func (p *Pipeline) ScoreNow(ctx context.Context, userID, jobID int64) error {
+	prof, err := store.GetProfile(ctx, p.Pool, userID)
+	if err != nil || prof == nil || !prof.Ready() {
+		return err
+	}
+	allowance, why, err := Allowance(ctx, p.Pool, p.Env, userID)
+	if err != nil {
+		return err
+	}
+	if allowance <= 0 {
+		return fmt.Errorf("not scoring: %s", why)
+	}
+	_, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 1, []int64{jobID}, allowance, p.Metrics)
+	return err
 }

@@ -28,7 +28,8 @@ type CachedAnalysis struct {
 // 'pending_score' (highest relevance estimate first, then newest, so the
 // jobs most likely to fit are scored first), with the company name needed for the prompt and any
 // reusable analysis for profileHash. limit <= 0 means no limit.
-func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int) ([]PendingJob, error) {
+// onlyIDs, when not empty, restricts the result to those jobs.
+func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int, onlyIDs []int64) ([]PendingJob, error) {
 	q := `
 		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
 		       COALESCE(j.description, ''),
@@ -40,11 +41,15 @@ func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, pro
 		JOIN companies c ON c.id = j.company_id
 		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
 		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL
+		  AND (cardinality($3::bigint[]) = 0 OR j.id = ANY($3::bigint[]))
 		ORDER BY uj.estimated_score DESC NULLS LAST, j.posted_at DESC NULLS LAST, j.id DESC`
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
-	rows, err := pool.Query(ctx, q, userID, profileHash)
+	if onlyIDs == nil {
+		onlyIDs = []int64{}
+	}
+	rows, err := pool.Query(ctx, q, userID, profileHash, onlyIDs)
 	if err != nil {
 		return nil, fmt.Errorf("load pending jobs: %w", err)
 	}

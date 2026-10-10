@@ -97,6 +97,7 @@ func runServe(ctx context.Context, args []string) error {
 		Roles:       roles,
 		Env:         env,
 		MatchUser:   matchUser,
+		ScoreNow:    p.ScoreNow,
 
 		SignupEnabled: env.SignupEnabled,
 		UserBudgetUSD: env.UserBudgetUSD,
