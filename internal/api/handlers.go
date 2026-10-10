@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
+	"wera/internal/config"
 	"wera/internal/store"
 )
 
@@ -157,4 +158,25 @@ func (s *Server) excluded(w http.ResponseWriter, r *http.Request) {
 		jobs = []store.JobView{}
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs, "count": len(jobs)})
+}
+
+// industryView is one row of GET /api/industries: the taxonomy entry
+// plus its counts.
+type industryView struct {
+	config.Industry
+	store.IndustryCounts
+}
+
+func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
+	counts, err := store.CountByIndustry(r.Context(), s.Pool)
+	if err != nil {
+		s.Log.Error("industries failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	list := make([]industryView, 0, len(s.Industries))
+	for _, ind := range s.Industries {
+		list = append(list, industryView{Industry: ind, IndustryCounts: counts[ind.ID]})
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"industries": list})
 }

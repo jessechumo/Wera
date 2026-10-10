@@ -135,7 +135,7 @@ USER_AGENT=Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)
 
 ### 5.2 `config/companies.yaml`
 
-Each entry: `name`, `ats` (`greenhouse` | `lever` | `ashby`), `token` (board slug), `group` (`ai_infra` | `trading` | `other`), `enabled`, optional `notes`.
+Each entry: `name`, `ats` (`greenhouse` | `lever` | `ashby`), `token` (board slug), `industry` (an id from `config/industries.yaml`; this replaced the original `group` of `ai_infra` | `trading` | `other`), `enabled`, optional `notes`.
 
 Tokens marked **verified** were confirmed to return a valid job list. The rest must be checked with `wera discover` (Milestone 2) before enabling.
 

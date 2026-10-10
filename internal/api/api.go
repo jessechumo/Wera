@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
 )
@@ -29,6 +30,10 @@ type Server struct {
 	Pool    *pgxpool.Pool
 	Log     *slog.Logger
 	Metrics *metrics.Registry
+
+	// Industries is the taxonomy from config/industries.yaml, in display
+	// order (GET /api/industries).
+	Industries []config.Industry
 
 	// RunPipeline is set by `wera serve` to pipeline.RunOnce; nil
 	// disables POST /api/runs.
@@ -56,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/companies", s.companies)
 	r.Get("/api/usage", s.usage)
 	r.Get("/api/excluded", s.excluded)
+	r.Get("/api/industries", s.industries)
 	return r
 }
 
@@ -110,7 +116,7 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
 	jobs, err := store.ListJobs(r.Context(), s.Pool, store.JobQuery{
-		Group:           q.Get("group"),
+		Industry:        q.Get("industry"),
 		Category:        q.Get("category"),
 		MinScore:        minScore,
 		Sponsorship:     q.Get("sponsorship"),

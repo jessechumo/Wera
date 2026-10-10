@@ -3,35 +3,35 @@
 # Adding a company here requires no code change.
 
 companies:
-  # ---------- AI inference / AI infrastructure ----------
-  - { name: Baseten,        ats: ashby,      token: baseten,          group: ai_infra, enabled: true }   # verified
-  - { name: Modal,          ats: ashby,      token: modal,            group: ai_infra, enabled: true }   # verified
-  - { name: Lambda,         ats: ashby,      token: lambda,           group: ai_infra, enabled: true }   # verified
-  - { name: Together AI,    ats: greenhouse, token: togetherai,       group: ai_infra, enabled: true }   # verified
-  - { name: CoreWeave,      ats: greenhouse, token: coreweave,        group: ai_infra, enabled: true }   # verified
-  - { name: Fireworks AI,   ats: ashby,      token: fireworks,        group: ai_infra, enabled: true }   # verified via discover
-  - { name: Groq,           ats: greenhouse, token: groq,             group: ai_infra, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Anyscale,       ats: ashby,      token: anyscale,         group: ai_infra, enabled: true }   # verified via discover
-  - { name: Replicate,      ats: ashby,      token: replicate,        group: ai_infra, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Cerebras,       ats: ashby,      token: cerebras,         group: ai_infra, enabled: true }   # verified via discover
-  - { name: Crusoe,         ats: ashby,      token: crusoe,           group: ai_infra, enabled: true }   # verified via discover
-  - { name: Nebius,         ats: greenhouse, token: nebius,           group: ai_infra, enabled: true }   # verified via discover
-  - { name: RunPod,         ats: ashby,      token: runpod,           group: ai_infra, enabled: true }   # verified via discover
+  # ---------- AI & Machine Learning (AI inference / AI infrastructure) ----------
+  - { name: Baseten,        ats: ashby,      token: baseten,          industry: ai_ml, enabled: true }   # verified
+  - { name: Modal,          ats: ashby,      token: modal,            industry: ai_ml, enabled: true }   # verified
+  - { name: Lambda,         ats: ashby,      token: lambda,           industry: ai_ml, enabled: true }   # verified
+  - { name: Together AI,    ats: greenhouse, token: togetherai,       industry: ai_ml, enabled: true }   # verified
+  - { name: CoreWeave,      ats: greenhouse, token: coreweave,        industry: ai_ml, enabled: true }   # verified
+  - { name: Fireworks AI,   ats: ashby,      token: fireworks,        industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Groq,           ats: greenhouse, token: groq,             industry: ai_ml, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Anyscale,       ats: ashby,      token: anyscale,         industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Replicate,      ats: ashby,      token: replicate,        industry: ai_ml, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Cerebras,       ats: ashby,      token: cerebras,         industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Crusoe,         ats: ashby,      token: crusoe,           industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Nebius,         ats: greenhouse, token: nebius,           industry: ai_ml, enabled: true }   # verified via discover
+  - { name: RunPod,         ats: ashby,      token: runpod,           industry: ai_ml, enabled: true }   # verified via discover
 
   # ---------- Trading firms / exchanges ----------
-  - { name: DRW,                 ats: greenhouse, token: drweng,           group: trading, enabled: true }  # verified
-  - { name: Akuna Capital,       ats: greenhouse, token: akunacapital,     group: trading, enabled: true }  # verified
-  - { name: Hudson River Trading,ats: greenhouse, token: wehrtyou,         group: trading, enabled: true }  # verified
-  - { name: Optiver,             ats: greenhouse, token: optiverus,        group: trading, enabled: true }  # verified
-  - { name: IMC Trading,         ats: greenhouse, token: imc,              group: trading, enabled: true }  # verified
-  - { name: Belvedere Trading,   ats: lever,      token: belvederetrading, group: trading, enabled: true }  # verified
-  - { name: Wolverine Trading,   ats: greenhouse, token: wolverinetrading, group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: PEAK6,               ats: greenhouse, token: peak6,            group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      group: trading, enabled: true }  # verified via discover
-  - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   group: trading, enabled: true }  # verified via discover
-  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,group: trading, enabled: true }  # verified via discover
-  - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, group: trading, enabled: true }  # verified via discover
-  - { name: Two Sigma,           ats: greenhouse, token: twosigma,         group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: DRW,                 ats: greenhouse, token: drweng,           industry: trading, enabled: true }  # verified
+  - { name: Akuna Capital,       ats: greenhouse, token: akunacapital,     industry: trading, enabled: true }  # verified
+  - { name: Hudson River Trading,ats: greenhouse, token: wehrtyou,         industry: trading, enabled: true }  # verified
+  - { name: Optiver,             ats: greenhouse, token: optiverus,        industry: trading, enabled: true }  # verified
+  - { name: IMC Trading,         ats: greenhouse, token: imc,              industry: trading, enabled: true }  # verified
+  - { name: Belvedere Trading,   ats: lever,      token: belvederetrading, industry: trading, enabled: true }  # verified
+  - { name: Wolverine Trading,   ats: greenhouse, token: wolverinetrading, industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: PEAK6,               ats: greenhouse, token: peak6,            industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      industry: trading, enabled: true }  # verified via discover
+  - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   industry: trading, enabled: true }  # verified via discover
+  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,industry: trading, enabled: true }  # verified via discover
+  - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, industry: trading, enabled: true }  # verified via discover
+  - { name: Two Sigma,           ats: greenhouse, token: twosigma,         industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
 
 # Companies on custom career sites (Citadel, Jane Street, CME, Cboe, etc.)
 # are out of scope until a public API is found. Do not scrape them.

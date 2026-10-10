@@ -44,10 +44,15 @@ func runServe(ctx context.Context, args []string) error {
 	reg := metrics.New()
 	p.Metrics = reg
 
+	inds, err := config.LoadIndustries(config.DefaultIndustriesPath)
+	if err != nil {
+		return err
+	}
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
 		Metrics:     reg,
+		Industries:  inds.Industries,
 		RunPipeline: p.RunOnce,
 	}
 

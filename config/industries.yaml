@@ -1,0 +1,28 @@
+# Industry taxonomy. Every company in companies.yaml names one of these ids.
+# The dashboard lists industries in this order. Adding an industry is a YAML
+# edit; ids are stored in the database, so rename one only with a migration.
+
+industries:
+  - { id: ai_ml,        label: "AI & Machine Learning",         description: "AI labs, model providers, and GPU / inference infrastructure." }
+  - { id: cloud,        label: "Cloud & Developer Tools",       description: "Cloud platforms, databases, observability, and tools for engineers." }
+  - { id: trading,      label: "Trading & HFT",                 description: "Proprietary trading, market makers, hedge funds, and exchanges." }
+  - { id: fintech,      label: "Fintech & Payments",            description: "Payments, banking, lending, brokerage, and finance software." }
+  - { id: crypto,       label: "Crypto & Web3",                 description: "Exchanges, custody, and blockchain infrastructure." }
+  - { id: insurance,    label: "Insurance",                     description: "Insurers and insurance technology." }
+  - { id: healthcare,   label: "Healthcare & Health Tech",      description: "Care delivery, health insurance, clinical software, and digital health." }
+  - { id: biotech,      label: "Biotech & Life Sciences",       description: "Drug discovery, genomics, and lab software." }
+  - { id: aerospace,    label: "Aviation & Aerospace",          description: "Aircraft, eVTOL, drones, satellites, and launch." }
+  - { id: defense,      label: "Defense & Public Sector",       description: "Defense technology and software for government." }
+  - { id: automotive,   label: "Automotive & Autonomy",         description: "Self-driving, EVs, and mobility." }
+  - { id: robotics,     label: "Robotics & Hardware",           description: "Robots, devices, and industrial hardware." }
+  - { id: energy,       label: "Energy & Climate",              description: "Clean energy, grid, fusion, batteries, and climate software." }
+  - { id: logistics,    label: "Logistics & Supply Chain",      description: "Freight, fleets, fulfillment, and delivery." }
+  - { id: ecommerce,    label: "Retail & E-commerce",           description: "Online retail, marketplaces for goods, and commerce platforms." }
+  - { id: consumer,     label: "Consumer Tech & Social",        description: "Social apps, travel, dating, and consumer services." }
+  - { id: media,        label: "Media & Entertainment",         description: "Streaming, news, music, and creator platforms." }
+  - { id: gaming,       label: "Gaming",                        description: "Game studios and game platforms." }
+  - { id: education,    label: "Education",                     description: "Learning platforms, edtech, and career services." }
+  - { id: enterprise,   label: "Enterprise Software",           description: "SaaS for teams: productivity, CRM, HR, and design tools." }
+  - { id: security,     label: "Cybersecurity",                 description: "Security products, identity, and compliance." }
+  - { id: real_estate,  label: "Real Estate & PropTech",        description: "Home buying, rentals, construction, and property software." }
+  - { id: nonprofit,    label: "Nonprofit & Civic Tech",        description: "Nonprofits, open-source foundations, and civic technology." }

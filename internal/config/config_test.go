@@ -14,14 +14,18 @@ func writeTemp(t *testing.T, content string) string {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	inds := "industries:\n  - { id: trading, label: Trading }\n  - { id: ai_ml, label: AI }\n"
+	if err := os.WriteFile(filepath.Join(dir, "industries.yaml"), []byte(inds), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	return path
 }
 
 func TestLoadCompaniesValid(t *testing.T) {
 	path := writeTemp(t, `
 companies:
-  - { name: DRW, ats: greenhouse, token: drweng, group: trading, enabled: true }
-  - { name: Baseten, ats: ashby, token: baseten, group: ai_infra, enabled: false, notes: "ok" }
+  - { name: DRW, ats: greenhouse, token: drweng, industry: trading, enabled: true }
+  - { name: Baseten, ats: ashby, token: baseten, industry: ai_ml, enabled: false, notes: "ok" }
 `)
 	c, err := LoadCompanies(path)
 	if err != nil {
@@ -41,7 +45,7 @@ companies:
 func TestLoadCompaniesDefaultsEnabledTrue(t *testing.T) {
 	path := writeTemp(t, `
 companies:
-  - { name: X, ats: lever, token: xtoken, group: other }
+  - { name: X, ats: lever, token: xtoken, industry: trading }
 `)
 	c, err := LoadCompanies(path)
 	if err != nil {
@@ -60,29 +64,29 @@ func TestLoadCompaniesErrors(t *testing.T) {
 	}{
 		{"duplicate name", `
 companies:
-  - { name: A, ats: greenhouse, token: a1, group: trading, enabled: true }
-  - { name: A, ats: lever, token: a2, group: trading, enabled: true }
+  - { name: A, ats: greenhouse, token: a1, industry: trading, enabled: true }
+  - { name: A, ats: lever, token: a2, industry: trading, enabled: true }
 `, []string{"duplicate name"}},
 		{"duplicate board", `
 companies:
-  - { name: A, ats: greenhouse, token: same, group: trading, enabled: true }
-  - { name: B, ats: greenhouse, token: same, group: trading, enabled: true }
+  - { name: A, ats: greenhouse, token: same, industry: trading, enabled: true }
+  - { name: B, ats: greenhouse, token: same, industry: trading, enabled: true }
 `, []string{"duplicate board"}},
 		{"bad ats", `
 companies:
-  - { name: A, ats: workday, token: a1, group: trading, enabled: true }
+  - { name: A, ats: workday, token: a1, industry: trading, enabled: true }
 `, []string{"invalid ats"}},
-		{"bad group", `
+		{"bad industry", `
 companies:
-  - { name: A, ats: greenhouse, token: a1, group: finance, enabled: true }
-`, []string{"invalid group"}},
+  - { name: A, ats: greenhouse, token: a1, industry: finance, enabled: true }
+`, []string{"invalid industry"}},
 		{"missing token", `
 companies:
-  - { name: A, ats: greenhouse, group: trading, enabled: true }
+  - { name: A, ats: greenhouse, industry: trading, enabled: true }
 `, []string{"missing token"}},
 		{"missing name", `
 companies:
-  - { ats: greenhouse, token: a1, group: trading, enabled: true }
+  - { ats: greenhouse, token: a1, industry: trading, enabled: true }
 `, []string{"missing name"}},
 	}
 	for _, tc := range tests {

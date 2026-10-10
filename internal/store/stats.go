@@ -57,7 +57,7 @@ type CompanyView struct {
 	Name           string     `json:"name"`
 	ATS            string     `json:"ats"`
 	Token          string     `json:"token"`
-	Group          string     `json:"group"`
+	Industry       string     `json:"industry"`
 	Enabled        bool       `json:"enabled"`
 	LastFetchAt    *time.Time `json:"last_fetch_at"`
 	LastFetchOK    *bool      `json:"last_fetch_ok"`
@@ -69,14 +69,14 @@ type CompanyView struct {
 // ListCompanies returns companies with fetch status and job counts.
 func ListCompanies(ctx context.Context, pool *pgxpool.Pool) ([]CompanyView, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT c.id, c.name, c.ats, c.token, c.grp, c.enabled,
+		SELECT c.id, c.name, c.ats, c.token, c.industry, c.enabled,
 		       c.last_fetch_at, c.last_fetch_ok, c.last_fetch_error,
 		       count(*) FILTER (WHERE j.closed_at IS NULL),
 		       count(*) FILTER (WHERE j.stage = 'scored' AND j.closed_at IS NULL)
 		FROM companies c
 		LEFT JOIN jobs j ON j.company_id = c.id
 		GROUP BY c.id
-		ORDER BY c.grp, c.name`)
+		ORDER BY c.industry, c.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func ListCompanies(ctx context.Context, pool *pgxpool.Pool) ([]CompanyView, erro
 	var out []CompanyView
 	for rows.Next() {
 		var v CompanyView
-		if err := rows.Scan(&v.ID, &v.Name, &v.ATS, &v.Token, &v.Group, &v.Enabled,
+		if err := rows.Scan(&v.ID, &v.Name, &v.ATS, &v.Token, &v.Industry, &v.Enabled,
 			&v.LastFetchAt, &v.LastFetchOK, &v.LastFetchError,
 			&v.JobsOpen, &v.JobsScored); err != nil {
 			return nil, err
@@ -161,7 +161,7 @@ func Usage(ctx context.Context, pool *pgxpool.Pool) (*UsageView, error) {
 // StatsView is the dashboard summary for GET /api/stats.
 type StatsView struct {
 	ByStage          map[string]int64 `json:"by_stage"`
-	ByGroup          map[string]int64 `json:"by_group"`
+	ByIndustry       map[string]int64 `json:"by_industry"`
 	ByCategory       map[string]int64 `json:"by_category"`
 	ByStatus         map[string]int64 `json:"by_status"`
 	NewPerDay        []DayCount       `json:"new_per_day"`
@@ -178,7 +178,7 @@ type DayCount struct {
 func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 	out := &StatsView{
 		ByStage:    map[string]int64{},
-		ByGroup:    map[string]int64{},
+		ByIndustry: map[string]int64{},
 		ByCategory: map[string]int64{},
 		ByStatus:   map[string]int64{},
 		NewPerDay:  []DayCount{},
@@ -204,7 +204,7 @@ func Stats(ctx context.Context, pool *pgxpool.Pool) (*StatsView, error) {
 	if err := countTo(`SELECT stage, count(*) FROM jobs GROUP BY 1`, out.ByStage); err != nil {
 		return nil, err
 	}
-	if err := countTo(`SELECT c.grp, count(*) FROM jobs j JOIN companies c ON c.id = j.company_id GROUP BY 1`, out.ByGroup); err != nil {
+	if err := countTo(`SELECT c.industry, count(*) FROM jobs j JOIN companies c ON c.id = j.company_id GROUP BY 1`, out.ByIndustry); err != nil {
 		return nil, err
 	}
 	if err := countTo(`

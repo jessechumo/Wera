@@ -11,7 +11,7 @@ import (
 
 // JobQuery carries every /api/jobs filter.
 type JobQuery struct {
-	Group           string
+	Industry        string
 	Category        string
 	MinScore        int
 	Sponsorship     string // "yes" | "unknown" (only these two are meaningful)
@@ -25,13 +25,13 @@ type JobQuery struct {
 	Offset          int
 }
 
-// JobView is one row of the API job list: the job plus company group,
+// JobView is one row of the API job list: the job plus company industry,
 // the latest score analysis, and the application status.
 type JobView struct {
 	ID              int64      `json:"id"`
 	CompanyID       int64      `json:"company_id"`
 	Company         string     `json:"company"`
-	Group           string     `json:"group"`
+	Industry        string     `json:"industry"`
 	Source          string     `json:"source"`
 	ExtID           string     `json:"ext_id"`
 	Title           string     `json:"title"`
@@ -72,7 +72,7 @@ const latestAnalysisJoin = `
 	LEFT JOIN applications ap ON ap.job_id = j.id`
 
 const jobViewSelect = `
-	SELECT j.id, j.company_id, c.name, c.grp, j.source, j.ext_id, j.title,
+	SELECT j.id, j.company_id, c.name, c.industry, j.source, j.ext_id, j.title,
 	       j.location_raw, j.is_remote, j.url, j.department, j.posted_at,
 	       j.first_seen_at, j.stage, j.matched_categories,
 	       j.exclude_reason, j.exclude_evidence,
@@ -86,7 +86,7 @@ const jobViewSelect = `
 
 // jobViewScan lists the scan targets shared by every JobView query.
 func jobViewScan(v *JobView) []any {
-	return []any{&v.ID, &v.CompanyID, &v.Company, &v.Group, &v.Source, &v.ExtID,
+	return []any{&v.ID, &v.CompanyID, &v.Company, &v.Industry, &v.Source, &v.ExtID,
 		&v.Title, &v.LocationRaw, &v.IsRemote, &v.URL, &v.Department, &v.PostedAt,
 		&v.FirstSeenAt, &v.Stage, &v.MatchedCategory,
 		&v.ExcludeReason, &v.ExcludeEvidence,
@@ -117,9 +117,9 @@ func ListJobs(ctx context.Context, pool *pgxpool.Pool, q JobQuery) ([]JobView, e
 	if !q.IncludeExcluded {
 		where = append(where, "j.stage NOT IN ('excluded','score_failed')")
 	}
-	if q.Group != "" {
-		args = append(args, q.Group)
-		where = append(where, fmt.Sprintf("c.grp = $%d", len(args)))
+	if q.Industry != "" {
+		args = append(args, q.Industry)
+		where = append(where, fmt.Sprintf("c.industry = $%d", len(args)))
 	}
 	if q.Category != "" {
 		args = append(args, q.Category)
