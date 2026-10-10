@@ -1,6 +1,6 @@
 # Wera
 
-**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board APIs (Greenhouse, Lever, Ashby), filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
+**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
 ## How it works
 
@@ -102,13 +102,14 @@ Admins can trigger runs and see overall usage and each user's spend. Everyone sh
 - **Add a company:** run `wera discover "Name"`, add it to `config/companies.yaml`, then run `wera companies validate` and `wera pipeline`.
 - **Add a role type:** add a family and patterns to `config/roles.yaml`; users can then pick it.
 - **Add an industry:** add it to `config/industries.yaml` and tag companies with it.
-- **Add a job board provider:** implement the `Source` interface in `internal/sources` and register it.
+- **Add a company on Workday:** its token is `tenant.wdN/site` from the career site URL, e.g. `https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite` is `nvidia.wd5/NVIDIAExternalCareerSite`. SmartRecruiters takes the company identifier, Eightfold `host/domain`.
+- **Add a job board provider:** implement the `Source` interface in `internal/sources` (or `DetailSource` when the list has no descriptions, so only new postings are fetched in detail) and register it.
 
 ## Project layout
 
 ```
 cmd/wera            Single binary with subcommands
-internal/sources    Greenhouse, Lever, and Ashby adapters
+internal/sources    Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters
 internal/normalize  HTML to text, content hashing
 internal/filter     Rule engine driven by config/roles.yaml
 internal/scoring    Coral Bricks client, prompt, cost accounting
