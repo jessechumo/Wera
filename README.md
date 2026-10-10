@@ -80,6 +80,13 @@ cp .env.example .env            # set CORAL_API_KEY and a random POSTGRES_PASSWO
 docker compose up -d --build    # postgres, migrations, API, worker, dashboard
 ```
 
+To stamp the deployed version into the images (shown in `/healthz` and the dashboard footer):
+
+```bash
+WERA_VERSION=$(git describe --tags --always) WERA_COMMIT=$(git rev-parse --short HEAD) \
+WERA_WEB_COMMIT=$(git -C ../wera-frontend rev-parse --short HEAD) docker compose up -d --build
+```
+
 The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations run automatically before the API and worker start. Postgres (`5433`) and the API (`8080`) bind to `127.0.0.1` only, so the dashboard is the only service other machines can reach. Docker-published ports bypass `ufw`, so to limit the dashboard to your LAN, add a rule to the `DOCKER-USER` chain:
 
 ```bash
