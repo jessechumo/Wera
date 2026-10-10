@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -25,7 +24,7 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 		Status string `json:"status"`
 		Notes  string `json:"notes"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(r, &body); err != nil {
 		s.writeError(w, http.StatusBadRequest, "bad JSON body")
 		return
 	}

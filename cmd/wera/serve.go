@@ -119,6 +119,13 @@ func runServe(ctx context.Context, args []string) error {
 		Addr:              env.HTTPAddr,
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// Slow clients cannot hold connections open forever. Reads cover a
+		// resume upload on a slow link; writes cover the slowest handler
+		// (a profile save that filters and ranks ~40k jobs, or an LLM call).
+		ReadTimeout:    60 * time.Second,
+		WriteTimeout:   120 * time.Second,
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 64 << 10,
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.
