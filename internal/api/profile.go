@@ -158,32 +158,13 @@ func (s *Server) draftProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-	defer cancel()
-	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: s.Env.CoralModel,
-		Timeout: 85 * time.Second, MaxTokens: 2500, Log: s.Log,
-	})
-	start := time.Now()
-	comp, err := client.Chat(ctx, "", profile.DraftMessages(resume, in.Answers, in.Preferences, s.Roles, s.Industries))
+	content, err := s.chatForUser(r.Context(), user.ID, "profile", 2500,
+		profile.DraftMessages(resume, in.Answers, in.Preferences, s.Roles, s.Industries))
 	if err != nil {
-		s.Log.Error("profile draft failed", "user_id", user.ID, "err", err)
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again or write the profile by hand")
 		return
 	}
-	cost := 0.0
-	if comp.CostUSD != nil {
-		cost = *comp.CostUSD
-	} else if prices, ok := scoring.PriceFor(s.Env.CoralModel); ok {
-		cost = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
-	}
-	if err := store.RecordLLMUsage(context.Background(), s.Pool, user.ID, "profile", s.Env.CoralModel,
-		comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens, cost); err != nil {
-		s.Log.Error("recording draft usage failed", "user_id", user.ID, "err", err)
-	}
-	draft := profile.CleanDraft(comp.Content)
-	s.Log.Info("profile drafted", "user_id", user.ID, "chars", len(draft),
-		"cost_usd", cost, "ms", time.Since(start).Milliseconds())
+	draft := profile.CleanDraft(content)
 	if draft == "" {
 		s.writeError(w, http.StatusBadGateway, "the AI returned an empty draft; try again")
 		return
@@ -224,4 +205,80 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 		go s.MatchUser(context.Background(), user.ID)
 	}
 	s.getProfile(w, r)
+}
+
+// chatForUser makes one Coral chat call on behalf of a user and records
+// its cost (kind names the purpose in llm_usage). It returns the reply.
+func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, maxTokens int, msgs []scoring.Message) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	client := scoring.NewClient(scoring.ClientOptions{
+		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: s.Env.CoralModel,
+		Timeout: 85 * time.Second, MaxTokens: maxTokens, Log: s.Log,
+	})
+	start := time.Now()
+	comp, err := client.Chat(ctx, "", msgs)
+	if err != nil {
+		s.Log.Error("llm call failed", "kind", kind, "user_id", userID, "err", err)
+		return "", err
+	}
+	cost := 0.0
+	if comp.CostUSD != nil {
+		cost = *comp.CostUSD
+	} else if prices, ok := scoring.PriceFor(s.Env.CoralModel); ok {
+		cost = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
+	}
+	if err := store.RecordLLMUsage(context.Background(), s.Pool, userID, kind, s.Env.CoralModel,
+		comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens, cost); err != nil {
+		s.Log.Error("recording llm usage failed", "kind", kind, "user_id", userID, "err", err)
+	}
+	s.Log.Info("llm call", "kind", kind, "user_id", userID, "cost_usd", cost,
+		"ms", time.Since(start).Milliseconds())
+	return comp.Content, nil
+}
+
+// suggestPreferences is POST /api/profile/suggest: infer role families,
+// levels, experience and locations from the stored resume so the signup
+// form starts pre-filled. Nothing is saved; the cost counts toward the
+// user's budget.
+func (s *Server) suggestPreferences(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	if s.Env == nil || s.Env.CoralAPIKey == "" {
+		s.writeError(w, http.StatusServiceUnavailable, "suggestions are not configured on this server")
+		return
+	}
+	if !s.draftLimit.Allow(strconv.FormatInt(user.ID, 10)) {
+		s.writeError(w, http.StatusTooManyRequests, "too many AI requests; try again in an hour")
+		return
+	}
+	p, err := store.GetProfile(r.Context(), s.Pool, user.ID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if p == nil || p.ResumeText == "" {
+		s.writeError(w, http.StatusBadRequest, "upload a resume first")
+		return
+	}
+	allowance, why, err := pipeline.Allowance(r.Context(), s.Pool, s.Env, user.ID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "budget check failed")
+		return
+	}
+	if allowance <= 0 {
+		s.writeError(w, http.StatusPaymentRequired, "AI suggestions are unavailable: "+why)
+		return
+	}
+	content, err := s.chatForUser(r.Context(), user.ID, "suggest", 600, profile.SuggestMessages(p.ResumeText, s.Roles))
+	if err != nil {
+		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; fill the form in by hand")
+		return
+	}
+	sug, err := profile.ParseSuggestions(content, s.Roles)
+	if err != nil {
+		s.Log.Warn("unreadable suggestions", "user_id", user.ID, "err", err)
+		s.writeError(w, http.StatusBadGateway, "the AI's suggestions were unreadable; fill the form in by hand")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, sug)
 }

@@ -80,3 +80,31 @@ func TestDraftMessages(t *testing.T) {
 		t.Errorf("CleanDraft = %q", got)
 	}
 }
+
+func TestParseSuggestions(t *testing.T) {
+	roles, err := config.LoadRoles(filepath.Join("..", "..", "config", "roles.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply := "```json\n" + `{"role_families":["data_science","astrology","ml_engineering","data_science"],` +
+		`"levels":["entry","mid","senior","management"],"years_experience":3,"current_title":" Data Scientist ",` +
+		`"locations":["Dallas, TX","Fort Worth, TX","Austin, TX","Houston, TX"],"target_roles":"Data Scientist, ML Engineer"}` + "\n```"
+	s, err := ParseSuggestions(reply, roles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(s.RoleFamilies, ",") != "data_science,ml_engineering" {
+		t.Errorf("families: %v", s.RoleFamilies)
+	}
+	if len(s.Levels) != 3 || s.CurrentTitle != "Data Scientist" || len(s.Locations) != 3 ||
+		s.YearsExperience == nil || *s.YearsExperience != 3 {
+		t.Errorf("suggestions: %+v", s)
+	}
+	if _, err := ParseSuggestions("not json", roles); err == nil {
+		t.Error("garbage accepted")
+	}
+	msgs := SuggestMessages("RESUME", roles)
+	if !strings.Contains(msgs[1].Content, "- data_science: Data science") || !strings.Contains(msgs[1].Content, "RESUME") {
+		t.Errorf("prompt: %s", msgs[1].Content)
+	}
+}

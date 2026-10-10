@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 			r.Put("/profile", s.putProfile)
 			r.Post("/profile/resume", s.uploadResume)
 			r.Post("/profile/draft", s.draftProfile)
+			r.Post("/profile/suggest", s.suggestPreferences)
 
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireAdmin)

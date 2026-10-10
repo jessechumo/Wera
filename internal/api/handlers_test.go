@@ -262,6 +262,12 @@ func TestProfileFlow(t *testing.T) {
 		t.Fatalf("resume upload: %d %s", resp.StatusCode, b)
 	}
 
+	// Without Coral settings the AI endpoints answer 503, never a crash.
+	req, _ = http.NewRequest(http.MethodPost, ts.URL+"/api/profile/suggest", nil)
+	if resp, err := client.Do(req); err != nil || resp.StatusCode != 503 {
+		t.Errorf("suggest without Coral: want 503, got %v %v", resp, err)
+	}
+
 	put := func(payload string) (int, string) {
 		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/profile", strings.NewReader(payload))
 		resp, err := client.Do(req)
