@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"image"
+	pngenc "image/png"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -382,5 +384,60 @@ func TestDeleteAccount(t *testing.T) {
 	}
 	if code, _ := do(t, user, http.MethodGet, ts.URL+"/api/auth/me", ""); code != 401 {
 		t.Errorf("session survived deletion: %d", code)
+	}
+}
+
+func upload(t *testing.T, url, method, field, name string, data []byte) (int, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile(field, name)
+	fw.Write(data)
+	mw.Close()
+	req, _ := http.NewRequest(method, url, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode, string(b)
+}
+
+func TestAvatarAndResumeFile(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	var png bytes.Buffer
+	pngenc.Encode(&png, image.NewRGBA(image.Rect(0, 0, 40, 20)))
+	if code, body := upload(t, ts.URL+"/api/profile/avatar", http.MethodPut, "file", "me.png", png.Bytes()); code != 200 || !strings.Contains(body, `"avatar_version":`) {
+		t.Fatalf("avatar upload: %d %s", code, body)
+	}
+	resp, err := client.Get(ts.URL + "/api/profile/avatar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/jpeg" {
+		t.Errorf("avatar get: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if code, _ := upload(t, ts.URL+"/api/profile/avatar", http.MethodPut, "file", "x.svg", []byte("<svg/>")); code != 422 {
+		t.Errorf("svg avatar: want 422, got %d", code)
+	}
+
+	pdf, _ := os.ReadFile("../profile/testdata/sample-resume.pdf")
+	if code, body := upload(t, ts.URL+"/api/profile/resume", http.MethodPost, "file", `..\\evil"name.pdf`, pdf); code != 200 {
+		t.Fatalf("resume upload: %d %s", code, body)
+	}
+	resp, err = client.Get(ts.URL + "/api/profile/resume/file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || !bytes.Equal(got, pdf) || resp.Header.Get("Content-Type") != "application/pdf" {
+		t.Errorf("resume file: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if cd := resp.Header.Get("Content-Disposition"); strings.ContainsAny(strings.TrimPrefix(cd, `inline; filename="`)[:len(cd)-len(`inline; filename="`)-1], `"\\/`) {
+		t.Errorf("unsafe filename in %q", cd)
 	}
 }

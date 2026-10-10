@@ -271,7 +271,12 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, http.StatusOK, map[string]any{"user": currentUser(r)})
+	u := currentUser(r)
+	v, err := store.AvatarVersion(r.Context(), s.Pool, u.ID)
+	if err != nil {
+		s.Log.Warn("avatar lookup failed", "err", err)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"user": u, "avatar_version": v})
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {

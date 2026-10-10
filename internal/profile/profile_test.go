@@ -1,6 +1,9 @@
 package profile
 
 import (
+	"bytes"
+	"image"
+	pngenc "image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,5 +109,24 @@ func TestParseSuggestions(t *testing.T) {
 	msgs := SuggestMessages("RESUME", roles)
 	if !strings.Contains(msgs[1].Content, "- data_science: Data science") || !strings.Contains(msgs[1].Content, "RESUME") {
 		t.Errorf("prompt: %s", msgs[1].Content)
+	}
+}
+
+func TestNormalizeAvatar(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 300, 120)) // wide, transparent
+	var png bytes.Buffer
+	if err := pngenc.Encode(&png, src); err != nil {
+		t.Fatal(err)
+	}
+	out, err := NormalizeAvatar(png.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, format, err := image.Decode(bytes.NewReader(out))
+	if err != nil || format != "jpeg" || img.Bounds().Dx() != 256 || img.Bounds().Dy() != 256 {
+		t.Fatalf("got %s %v %v", format, img.Bounds(), err)
+	}
+	if _, err := NormalizeAvatar([]byte("<svg onload=alert(1)>")); err != ErrBadImage {
+		t.Errorf("non-image accepted: %v", err)
 	}
 }

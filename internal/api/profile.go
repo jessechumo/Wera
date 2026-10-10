@@ -32,7 +32,9 @@ type profileView struct {
 	Preferences config.Preferences `json:"preferences"`
 	Answers     json.RawMessage    `json:"answers"`
 	ResumeChars int                `json:"resume_chars"` // 0 = no resume on file
-	Ready       bool               `json:"ready"`        // matching runs for this profile
+	ResumeText  string             `json:"resume_text"`
+	ResumeFile  *resumeFileView    `json:"resume_file"` // nil when only text was pasted
+	Ready       bool               `json:"ready"`       // matching runs for this profile
 	UpdatedAt   *time.Time         `json:"updated_at"`
 }
 
@@ -48,12 +50,22 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	if p != nil {
 		v.Markdown, v.Preferences, v.Ready = p.Markdown, p.Preferences, p.Ready()
 		v.ResumeChars = len([]rune(p.ResumeText))
+		v.ResumeText = p.ResumeText
 		if len(p.Answers) > 0 {
 			v.Answers = p.Answers
 		}
 		v.UpdatedAt = &p.UpdatedAt
 	}
+	name, uploaded, ok, err := store.ResumeFileInfo(r.Context(), s.Pool, currentUser(r).ID)
+	if err == nil && ok {
+		v.ResumeFile = &resumeFileView{Filename: name, UploadedAt: uploaded}
+	}
 	s.writeJSON(w, http.StatusOK, v)
+}
+
+type resumeFileView struct {
+	Filename   string    `json:"filename"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
 // uploadResume is POST /api/profile/resume: a multipart form with either a
@@ -65,7 +77,7 @@ func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var text string
-	if f, _, err := r.FormFile("file"); err == nil {
+	if f, hdr, err := r.FormFile("file"); err == nil {
 		defer f.Close()
 		data, err := io.ReadAll(f)
 		if err != nil {
@@ -75,6 +87,10 @@ func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 		if text, err = profile.ExtractPDFText(data); err != nil {
 			s.writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
+		}
+		// Keep the PDF itself so the user can view what they uploaded.
+		if err := store.SaveResumeFile(r.Context(), s.Pool, currentUser(r).ID, safeFilename(hdr.Filename), data); err != nil {
+			s.Log.Error("save resume file failed", "err", err)
 		}
 	} else {
 		text = profile.CleanText(r.FormValue("text"))
