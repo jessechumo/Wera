@@ -80,7 +80,7 @@ func StripFences(s string) string {
 func ParseAnalysis(text string) (*Analysis, error) {
 	a := &Analysis{}
 	if err := json.Unmarshal([]byte(StripFences(text)), a); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
 	if a.FitScore < 0 || a.FitScore > 100 {
 		return nil, fmt.Errorf("%w: fit_score %d out of range 0-100", ErrInvalidSchema, a.FitScore)

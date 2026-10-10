@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -123,7 +124,7 @@ func GetDeepAnalysis(ctx context.Context, pool *pgxpool.Pool, jobID int64, profi
 		Scan(&v.Kind, &v.Model, &v.CreatedAt, &v.FitScore, &v.Reason,
 			&v.PromptTokens, &v.CachedTokens, &v.CompletionTokens,
 			&v.CostUSD, &v.LatencyMS, &v.Raw)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

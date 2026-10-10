@@ -65,7 +65,7 @@ func BuildFactsMessages(j Job) []Message {
 func ParseFacts(reply, description string) (*Facts, error) {
 	var f Facts
 	if err := json.Unmarshal([]byte(StripFences(reply)), &f); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
 	if !seniority[f.Seniority] {
 		f.Seniority = "unknown"
@@ -159,7 +159,7 @@ func BuildFitMessages(profile []byte, card string) []Message {
 func ParseFit(reply string) (*Fit, error) {
 	var f Fit
 	if err := json.Unmarshal([]byte(StripFences(reply)), &f); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
 	if f.FitScore < 0 || f.FitScore > 100 {
 		return nil, fmt.Errorf("%w: fit_score %d out of range", ErrInvalidSchema, f.FitScore)

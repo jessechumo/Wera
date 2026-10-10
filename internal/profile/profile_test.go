@@ -2,6 +2,7 @@ package profile
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	pngenc "image/png"
 	"os"
@@ -34,7 +35,7 @@ func TestExtractPDFText(t *testing.T) {
 			}
 		}
 	}
-	if _, err := ExtractPDFText([]byte("hello, not a pdf")); err != ErrNotPDF {
+	if _, err := ExtractPDFText([]byte("hello, not a pdf")); !errors.Is(err, ErrNotPDF) {
 		t.Errorf("non-PDF: want ErrNotPDF, got %v", err)
 	}
 	if _, err := ExtractPDFText([]byte("%PDF-1.7 garbage")); err == nil {
@@ -126,7 +127,7 @@ func TestNormalizeAvatar(t *testing.T) {
 	if err != nil || format != "jpeg" || img.Bounds().Dx() != 256 || img.Bounds().Dy() != 256 {
 		t.Fatalf("got %s %v %v", format, img.Bounds(), err)
 	}
-	if _, err := NormalizeAvatar([]byte("<svg onload=alert(1)>")); err != ErrBadImage {
+	if _, err := NormalizeAvatar([]byte("<svg onload=alert(1)>")); !errors.Is(err, ErrBadImage) {
 		t.Errorf("non-image accepted: %v", err)
 	}
 }

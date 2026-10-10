@@ -58,7 +58,7 @@ func BuildDeepInput(profile []byte, j Job) []Message {
 func ParseDeepAnalysis(text string) (*DeepAnalysis, error) {
 	d := &DeepAnalysis{}
 	if err := json.Unmarshal([]byte(StripFences(text)), d); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
 	if err := validateDeepStrings("why_fit", d.WhyFit, 1, 5); err != nil {
 		return nil, err
