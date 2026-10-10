@@ -106,7 +106,7 @@ Return ONLY a JSON object: {"allowed": true|false, "categories": [zero or more o
 
 // Messages builds the LLM moderation request.
 func Messages(kind Kind, title, body string) []scoring.Message {
-	fenced := strings.NewReplacer("<content>", "(content)", "</content>", "(/content)").Replace
+	fenced := scoring.Fence
 	var b strings.Builder
 	fmt.Fprintf(&b, "Type: %s\n<content>\n", kind)
 	if title != "" {

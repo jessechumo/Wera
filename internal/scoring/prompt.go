@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strings"
 )
 
 // systemPromptText is the fixed scoring instruction from PLAN.md
@@ -14,7 +13,7 @@ const systemPromptText = `You evaluate job postings for one candidate. Return ON
 
 // systemPrompt is the full fixed instruction: the prose plus the exact
 // JSON schema the reply must match (field names and types matter).
-const systemPrompt = systemPromptText + `
+const systemPrompt = systemPromptText + " " + Untrusted + `
 
 Your reply must be exactly this JSON shape (types matter: fit_score is an integer 0-100; years_required is an integer or null; us_eligible is a boolean or null; sponsorship_quote is a string copied verbatim from the posting or null; skills_matched and skills_missing are arrays of strings):
 
@@ -63,24 +62,17 @@ type Job struct {
 func BuildMessages(profile []byte, j Job) []Message {
 	return []Message{
 		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: "CANDIDATE PROFILE:\n" + string(profile)},
+		{Role: "user", Content: "<profile>\n" + Fence(string(profile)) + "\n</profile>"},
 		{Role: "user", Content: buildJobMessage(j)},
 	}
 }
 
 // buildJobMessage renders the per-job part of the prompt.
 func buildJobMessage(j Job) string {
-	var b strings.Builder
-	b.WriteString("JOB:\n")
-	fmt.Fprintf(&b, "Company: %s\n", j.Company)
-	fmt.Fprintf(&b, "Title: %s\n", j.Title)
-	fmt.Fprintf(&b, "Location: %s\n", j.Location)
-	fmt.Fprintf(&b, "URL: %s\n", j.URL)
-	b.WriteString("\nDescription:\n")
 	desc := j.Description
 	if len(desc) > maxDescriptionChars {
 		desc = desc[:maxDescriptionChars]
 	}
-	b.WriteString(desc)
-	return b.String()
+	return "<posting>\n" + Fence(fmt.Sprintf("Company: %s\nTitle: %s\nLocation: %s\nURL: %s\n\nDescription:\n%s",
+		j.Company, j.Title, j.Location, j.URL, desc)) + "\n</posting>"
 }

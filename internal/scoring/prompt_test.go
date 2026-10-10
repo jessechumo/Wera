@@ -51,7 +51,7 @@ func TestBuildMessagesTruncatesDescription(t *testing.T) {
 	long := strings.Repeat("x", maxDescriptionChars+500)
 	msgs := BuildMessages([]byte(testProfile), Job{Description: long})
 	jobPart := msgs[2].Content
-	if !strings.HasSuffix(jobPart, strings.Repeat("x", maxDescriptionChars)) {
+	if !strings.HasSuffix(jobPart, strings.Repeat("x", maxDescriptionChars)+"\n</posting>") {
 		t.Errorf("description should end with exactly %d x's", maxDescriptionChars)
 	}
 	if strings.Contains(jobPart, strings.Repeat("x", maxDescriptionChars+1)) {

@@ -125,7 +125,7 @@ func TestScorerRetriesInvalidJSONOnce(t *testing.T) {
 		t.Errorf("retry messages: %+v", retryMsgs)
 	}
 	// Prefix still intact on the retry.
-	if retryMsgs[0].Content != systemPrompt || retryMsgs[1].Content != "CANDIDATE PROFILE:\n"+testProfile {
+	if retryMsgs[0].Content != systemPrompt || retryMsgs[1].Content != "<profile>\n"+testProfile+"\n</profile>" {
 		t.Error("retry broke the cached prefix")
 	}
 }

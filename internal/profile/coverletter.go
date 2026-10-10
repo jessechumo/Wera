@@ -47,21 +47,16 @@ func CoverLetterMessages(in LetterInput) []scoring.Message {
 		name = "the candidate (sign with no name)"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Candidate name: %s\n\n<profile>\n%s\n</profile>\n\n", name, fence(in.Profile))
+	fmt.Fprintf(&b, "Candidate name: %s\n\n<profile>\n%s\n</profile>\n\n", scoring.Fence(name), scoring.Fence(in.Profile))
 	if resume != "" {
-		fmt.Fprintf(&b, "<resume>\n%s\n</resume>\n\n", fence(resume))
+		fmt.Fprintf(&b, "<resume>\n%s\n</resume>\n\n", scoring.Fence(resume))
 	}
-	fmt.Fprintf(&b, "<posting>\nCompany: %s\nTitle: %s\nLocation: %s\n\n%s\n</posting>",
-		in.Company, in.Title, in.Location, fence(desc))
+	fmt.Fprintf(&b, "<posting>\n%s\n</posting>", scoring.Fence(fmt.Sprintf("Company: %s\nTitle: %s\nLocation: %s\n\n%s",
+		in.Company, in.Title, in.Location, desc)))
 	return []scoring.Message{
 		{Role: "system", Content: letterInstructions},
 		{Role: "user", Content: b.String()},
 	}
-}
-
-// fence stops embedded text from closing the data tags.
-func fence(s string) string {
-	return strings.NewReplacer("</profile>", "(/profile)", "</resume>", "(/resume)", "</posting>", "(/posting)").Replace(s)
 }
 
 var (

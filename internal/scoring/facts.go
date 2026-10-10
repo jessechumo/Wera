@@ -51,19 +51,12 @@ func BuildFactsMessages(j Job) []Message {
 	}
 	var b strings.Builder
 	b.WriteString("<posting>\n")
-	fmt.Fprintf(&b, "Company: %s\nTitle: %s\nLocation: %s\n\n", j.Company, j.Title, j.Location)
-	b.WriteString(neutralizeTags(desc))
+	b.WriteString(Fence(fmt.Sprintf("Company: %s\nTitle: %s\nLocation: %s\n\n%s", j.Company, j.Title, j.Location, desc)))
 	b.WriteString("\n</posting>")
 	return []Message{
 		{Role: "system", Content: factsSystemPrompt},
 		{Role: "user", Content: b.String()},
 	}
-}
-
-// neutralizeTags stops a posting from closing the <posting> wrapper.
-func neutralizeTags(s string) string {
-	return strings.NewReplacer("<posting>", "(posting)", "</posting>", "(/posting)",
-		"<profile>", "(profile)", "</profile>", "(/profile)").Replace(s)
 }
 
 // ParseFacts validates a facts reply against the posting it came from. A
@@ -131,7 +124,7 @@ func (f *Facts) Card(j Job) string {
 	if len(f.SkillsRequired) > 0 {
 		fmt.Fprintf(&b, "Skills: %s\n", strings.Join(f.SkillsRequired, ", "))
 	}
-	fmt.Fprintf(&b, "Summary: %s\n</posting>", neutralizeTags(f.Digest))
+	fmt.Fprintf(&b, "Summary: %s\n</posting>", Fence(f.Digest))
 	return b.String()
 }
 
@@ -157,7 +150,7 @@ Score fit for THIS candidate considering role type, seniority, required skills, 
 func BuildFitMessages(profile []byte, card string) []Message {
 	return []Message{
 		{Role: "system", Content: fitSystemPrompt},
-		{Role: "user", Content: "<profile>\n" + neutralizeTags(string(profile)) + "\n</profile>"},
+		{Role: "user", Content: "<profile>\n" + Fence(string(profile)) + "\n</profile>"},
 		{Role: "user", Content: card},
 	}
 }
