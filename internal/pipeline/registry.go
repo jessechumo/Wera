@@ -4,6 +4,7 @@ import (
 	"wera/internal/config"
 	"wera/internal/sources"
 	"wera/internal/sources/ashby"
+	"wera/internal/sources/eightfold"
 	"wera/internal/sources/greenhouse"
 	"wera/internal/sources/lever"
 	"wera/internal/sources/smartrecruiters"
@@ -22,5 +23,6 @@ func NewSourceRegistry(env *config.Env) map[string]sources.Source {
 		"ashby":           ashby.New(h),
 		"workday":         workday.New(h),
 		"smartrecruiters": smartrecruiters.New(h),
+		"eightfold":       eightfold.New(h),
 	}
 }

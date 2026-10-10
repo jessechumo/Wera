@@ -19,6 +19,7 @@ var KnownATS = map[string]bool{
 	"ashby":           true,
 	"workday":         true,
 	"smartrecruiters": true,
+	"eightfold":       true,
 }
 
 // Default config paths, relative to the working directory.
