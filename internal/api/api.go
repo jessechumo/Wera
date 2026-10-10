@@ -207,8 +207,8 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// PLAN.md section 9: the detail view carries the latest score
-	// analysis (inside JobView), the application row, and the deep
-	// analysis when one exists.
+	// analysis (inside JobView), the application row, the plain-text
+	// description, and the deep analysis when one exists.
 	var deep *store.DeepView
 	prof, err := store.GetProfile(r.Context(), s.Pool, user.ID)
 	if err == nil && prof != nil {
@@ -219,8 +219,15 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
+	desc, err := store.JobDescription(r.Context(), s.Pool, id)
+	if err != nil {
+		s.Log.Error("get job description failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
 	s.writeJSON(w, http.StatusOK, struct {
 		store.JobView
-		Deep *store.DeepView `json:"deep"`
-	}{JobView: *job, Deep: deep})
+		Description string          `json:"description"`
+		Deep        *store.DeepView `json:"deep"`
+	}{JobView: *job, Description: desc, Deep: deep})
 }
