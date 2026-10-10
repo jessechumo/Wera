@@ -3,6 +3,7 @@ package pipeline
 import (
 	"wera/internal/config"
 	"wera/internal/sources"
+	"wera/internal/sources/amazon"
 	"wera/internal/sources/ashby"
 	"wera/internal/sources/eightfold"
 	"wera/internal/sources/greenhouse"
@@ -24,5 +25,6 @@ func NewSourceRegistry(env *config.Env) map[string]sources.Source {
 		"workday":         workday.New(h),
 		"smartrecruiters": smartrecruiters.New(h),
 		"eightfold":       eightfold.New(h),
+		"amazon":          amazon.New(h),
 	}
 }
