@@ -117,6 +117,10 @@ func (s *Server) getResumeFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", disposition+`; filename="`+name+`"`)
+	// The browser's PDF viewer will not open in a sandboxed document, so
+	// this response gets a CSP without sandbox (still no scripts or
+	// framing by other sites).
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; object-src 'self'; frame-ancestors 'self'")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Write(data)

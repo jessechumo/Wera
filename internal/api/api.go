@@ -64,6 +64,7 @@ type Server struct {
 
 	signupLimit  *auth.Limiter
 	loginLimit   *auth.Limiter
+	accountLimit *auth.Limiter
 	draftLimit   *auth.Limiter
 	scoreLimit   *auth.Limiter
 	letterLimit  *auth.Limiter
@@ -75,6 +76,7 @@ type Server struct {
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 	r.Use(s.cors)
 
 	r.Get("/healthz", s.healthz)
@@ -84,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 
 	s.signupLimit = auth.NewLimiter(5, time.Hour)
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
+	s.accountLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.draftLimit = auth.NewLimiter(10, time.Hour)
 	s.scoreLimit = auth.NewLimiter(120, time.Hour)
 	s.letterLimit = auth.NewLimiter(20, time.Hour)

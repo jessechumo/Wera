@@ -79,6 +79,7 @@ func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Metrics:       reg,
 		SignupEnabled: true,
+		TrustProxy:    true, // lets tests pose as different clients via X-Real-IP
 		Roles:         roles,
 		Industries:    inds.Industries,
 		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
