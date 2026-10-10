@@ -31,6 +31,7 @@ jobs:
     if: needs.release-please.outputs.created == 'true'
     runs-on: ubuntu-latest
     env:
+      IMAGE: jessechumo/wera
       TAG: ${{ needs.release-please.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
@@ -70,5 +71,5 @@ jobs:
             VERSION=${{ env.TAG }}
             COMMIT=${{ github.sha }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ env.TAG }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ env.IMAGE }}:${{ env.TAG }}
+            ghcr.io/${{ env.IMAGE }}:latest

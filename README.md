@@ -1,15 +1,15 @@
 # Wera
 
-[![CI](https://github.com/jessechumo/wera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jessechumo/wera/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jessechumo/wera/badges/coverage.json)](https://github.com/jessechumo/wera/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jessechumo/wera?sort=semver&display_name=tag)](https://github.com/jessechumo/wera/releases)
-[![Go](https://img.shields.io/github/go-mod/go-version/jessechumo/wera?logo=go)](go.mod)
+[![CI](https://github.com/jessechumo/Wera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jessechumo/Wera/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jessechumo/Wera/badges/coverage.json)](https://github.com/jessechumo/Wera/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jessechumo/Wera?sort=semver&display_name=tag)](https://github.com/jessechumo/Wera/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/jessechumo/Wera?logo=go)](go.mod)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
-[![License](https://img.shields.io/github/license/jessechumo/wera)](LICENSE)
+[![License](https://img.shields.io/github/license/jessechumo/Wera)](LICENSE)
 
 **Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
-The dashboard lives in [wera-frontend](https://github.com/jessechumo/wera-frontend).
+The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend).
 
 ## Architecture
 
