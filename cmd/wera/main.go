@@ -28,6 +28,7 @@ Usage:
   wera rescore --all            requeue after profile change
   wera refilter --all           reapply roles.yaml rules to all open jobs (no LLM cost)
   wera deep [--top N]           deep review of top-scored jobs
+  wera users <list|create|passwd|admin>   manage accounts (see wera users)
   wera healthcheck              exit 0 if the database is reachable (container healthchecks)
 `
 
@@ -81,6 +82,9 @@ func main() {
 
 	case "deep":
 		err = runDeep(ctx, args)
+
+	case "users":
+		err = runUsers(ctx, args)
 
 	case "healthcheck":
 		err = runHealthcheck(ctx, args)

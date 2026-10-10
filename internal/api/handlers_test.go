@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"wera/internal/metrics"
 	"wera/internal/store"
@@ -29,7 +31,7 @@ func TestPutApplicationPersists(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,7 +46,7 @@ func TestPutApplicationPersists(t *testing.T) {
 	// Invalid status is rejected.
 	req, _ := http.NewRequest(http.MethodPut, jobURL(ts, id, "/application"),
 		strings.NewReader(`{"status":"nonsense"}`))
-	r, _ := http.DefaultClient.Do(req)
+	r, _ := client.Do(req)
 	r.Body.Close()
 	if r.StatusCode != 400 {
 		t.Errorf("invalid status: want 400, got %d", r.StatusCode)
@@ -111,7 +113,7 @@ func TestMetricsAndCORS(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodOptions, ts.URL+"/api/jobs", nil)
 	req.Header.Set("Origin", "http://localhost:5173")
 	req.Header.Set("Access-Control-Request-Method", "GET")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,9 +124,103 @@ func TestMetricsAndCORS(t *testing.T) {
 
 	req2, _ := http.NewRequest(http.MethodGet, ts.URL+"/healthz", nil)
 	req2.Header.Set("Origin", "http://evil.example")
-	resp2, _ := http.DefaultClient.Do(req2)
+	resp2, _ := client.Do(req2)
 	resp2.Body.Close()
 	if resp2.Header.Get("Access-Control-Allow-Origin") != "" {
 		t.Error("disallowed origin got CORS headers")
+	}
+}
+
+func TestAuthFlow(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	anon := &http.Client{}
+
+	post := func(c *http.Client, path, body string) *http.Response {
+		t.Helper()
+		resp, err := c.Post(ts.URL+path, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
+	}
+
+	// Protected endpoints need a session.
+	resp, err := anon.Get(ts.URL + "/api/jobs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Errorf("anonymous /api/jobs: want 401, got %d", resp.StatusCode)
+	}
+
+	email := fmt.Sprintf("signup-%d@example.com", time.Now().UnixNano())
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE email = $1`, email) })
+
+	if r := post(anon, "/api/auth/signup", `{"email":"`+email+`","password":"short"}`); r.StatusCode != 400 {
+		t.Errorf("short password: want 400, got %d", r.StatusCode)
+	}
+	r := post(anon, "/api/auth/signup", `{"email":"`+email+`","password":"long enough pw","name":"T"}`)
+	if r.StatusCode != 201 {
+		t.Fatalf("signup: want 201, got %d", r.StatusCode)
+	}
+	var cookie string
+	for _, c := range r.Cookies() {
+		if c.Name == sessionCookie {
+			cookie = c.Value
+			if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode {
+				t.Errorf("session cookie flags: %+v", c)
+			}
+		}
+	}
+	if cookie == "" {
+		t.Fatal("signup set no session cookie")
+	}
+	if r := post(anon, "/api/auth/signup", `{"email":"`+strings.ToUpper(email)+`","password":"long enough pw"}`); r.StatusCode != 409 {
+		t.Errorf("duplicate email: want 409, got %d", r.StatusCode)
+	}
+
+	user := &http.Client{Transport: cookieTransport{cookie}}
+	resp, err = user.Get(ts.URL + "/api/auth/me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || !strings.Contains(string(body), email) {
+		t.Errorf("/api/auth/me: %d %s", resp.StatusCode, body)
+	}
+	if r := post(user, "/api/runs", ``); r.StatusCode != 403 {
+		t.Errorf("non-admin POST /api/runs: want 403, got %d", r.StatusCode)
+	}
+
+	if r := post(anon, "/api/auth/login", `{"email":"`+email+`","password":"wrong password"}`); r.StatusCode != 401 {
+		t.Errorf("wrong password: want 401, got %d", r.StatusCode)
+	}
+	if r := post(anon, "/api/auth/login", `{"email":"`+email+`","password":"long enough pw"}`); r.StatusCode != 200 {
+		t.Errorf("login: want 200, got %d", r.StatusCode)
+	}
+
+	// Logout ends the session.
+	if r := post(user, "/api/auth/logout", ``); r.StatusCode != 204 {
+		t.Errorf("logout: want 204, got %d", r.StatusCode)
+	}
+	resp, _ = user.Get(ts.URL + "/api/auth/me")
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Errorf("after logout: want 401, got %d", resp.StatusCode)
+	}
+
+	// Cross-origin writes are refused.
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/auth/login", strings.NewReader(`{}`))
+	req.Header.Set("Origin", "https://evil.example")
+	resp, err = anon.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 403 {
+		t.Errorf("cross-origin POST: want 403, got %d", resp.StatusCode)
 	}
 }

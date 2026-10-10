@@ -54,6 +54,11 @@ func runServe(ctx context.Context, args []string) error {
 		Metrics:     reg,
 		Industries:  inds.Industries,
 		RunPipeline: p.RunOnce,
+
+		SignupEnabled: env.SignupEnabled,
+		CookieSecure:  env.CookieSecure,
+		PublicOrigins: env.PublicOrigins,
+		TrustProxy:    env.TrustProxy,
 	}
 
 	httpServer := &http.Server{
@@ -67,6 +72,22 @@ func runServe(ctx context.Context, args []string) error {
 	defer stop()
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- httpServer.ListenAndServe() }()
+
+	// Expired sessions are useless; sweep them hourly.
+	go func() {
+		for {
+			if n, err := store.DeleteExpiredSessions(ctx, pool); err != nil {
+				log.Warn("session cleanup failed", "err", err)
+			} else if n > 0 {
+				log.Info("expired sessions removed", "sessions", n)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Hour):
+			}
+		}
+	}()
 
 	log.Info("api listening", "addr", env.HTTPAddr)
 	select {

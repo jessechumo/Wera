@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/auth"
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
@@ -38,6 +39,15 @@ type Server struct {
 	// RunPipeline is set by `wera serve` to pipeline.RunOnce; nil
 	// disables POST /api/runs.
 	RunPipeline func(ctx context.Context) (bool, error)
+
+	// Accounts and browser security (see config.Env).
+	SignupEnabled bool
+	CookieSecure  bool
+	PublicOrigins []string
+	TrustProxy    bool
+
+	signupLimit *auth.Limiter
+	loginLimit  *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -51,17 +61,38 @@ func (s *Server) Handler() http.Handler {
 		r.Handle("/metrics", s.Metrics.HTTPHandler())
 	}
 
-	r.Get("/api/jobs", s.listJobs)
-	r.Get("/api/jobs/{id}", s.getJob)
-	r.Put("/api/jobs/{id}/application", s.putApplication)
-	r.Get("/api/today", s.today)
-	r.Get("/api/stats", s.stats)
-	r.Get("/api/runs", s.runs)
-	r.Post("/api/runs", s.triggerRun)
-	r.Get("/api/companies", s.companies)
-	r.Get("/api/usage", s.usage)
-	r.Get("/api/excluded", s.excluded)
-	r.Get("/api/industries", s.industries)
+	s.signupLimit = auth.NewLimiter(5, time.Hour)
+	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
+
+	r.Route("/api", func(r chi.Router) {
+		r.Use(s.sameOrigin)
+		r.Post("/auth/signup", s.signup)
+		r.Post("/auth/login", s.login)
+		r.Post("/auth/logout", s.logout)
+
+		// Everything else needs a session.
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireUser)
+			r.Get("/auth/me", s.me)
+			r.Put("/auth/password", s.changePassword)
+
+			r.Get("/jobs", s.listJobs)
+			r.Get("/jobs/{id}", s.getJob)
+			r.Put("/jobs/{id}/application", s.putApplication)
+			r.Get("/today", s.today)
+			r.Get("/stats", s.stats)
+			r.Get("/runs", s.runs)
+			r.Get("/companies", s.companies)
+			r.Get("/excluded", s.excluded)
+			r.Get("/industries", s.industries)
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireAdmin)
+				r.Post("/runs", s.triggerRun)
+				r.Get("/usage", s.usage)
+			})
+		})
+	})
 	return r
 }
 
@@ -76,7 +107,8 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		if origin := r.Header.Get("Origin"); allowedOrigins[origin] {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		}
 		if r.Method == http.MethodOptions {

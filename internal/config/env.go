@@ -26,6 +26,12 @@ type Env struct {
 	LogFormat          string
 	UserAgent          string
 	MaxCostPerRunUSD   float64
+
+	// Accounts and browser security.
+	SignupEnabled bool     // POST /api/auth/signup open to anyone
+	CookieSecure  bool     // set Secure on the session cookie (HTTPS only)
+	PublicOrigins []string // extra origins allowed to send state-changing requests
+	TrustProxy    bool     // take the client IP from proxy headers
 }
 
 // LoadEnv builds an Env from the process environment with defaults.
@@ -42,6 +48,7 @@ func LoadEnv() (*Env, error) {
 		LogFormat:          "text",
 		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
 		MaxCostPerRunUSD:   0.50,
+		SignupEnabled:      true,
 	}
 
 	var errs []string
@@ -68,6 +75,16 @@ func LoadEnv() (*Env, error) {
 				return
 			}
 			*dst = d
+		}
+	}
+	boolVal := func(key string, dst *bool) {
+		if v := os.Getenv(key); v != "" {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: not a boolean: %q", key, v))
+				return
+			}
+			*dst = b
 		}
 	}
 	floatVal := func(key string, dst *float64) {
@@ -102,6 +119,14 @@ func LoadEnv() (*Env, error) {
 	str("LOG_FORMAT", &e.LogFormat)
 	str("USER_AGENT", &e.UserAgent)
 	floatVal("MAX_COST_PER_RUN_USD", &e.MaxCostPerRunUSD)
+	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
+	boolVal("COOKIE_SECURE", &e.CookieSecure)
+	boolVal("TRUST_PROXY", &e.TrustProxy)
+	for _, o := range strings.Split(os.Getenv("PUBLIC_ORIGINS"), ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			e.PublicOrigins = append(e.PublicOrigins, o)
+		}
+	}
 
 	if e.FetchConcurrency < 1 {
 		errs = append(errs, "FETCH_CONCURRENCY must be >= 1")

@@ -50,6 +50,16 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
 
+### Accounts
+
+Every API route except signup and login needs a session. People sign up in the dashboard (turn this off with `SIGNUP_ENABLED=false`), or you create accounts from the shell; `create` and `passwd` print a generated password:
+
+```bash
+docker exec wera-api /app/wera users create --email you@example.com --name You --admin
+```
+
+Admins can trigger runs and see overall usage. Sessions are HTTP-only, `SameSite=Lax` cookies that last 30 days; only a hash of each token is stored. Signup and login are rate-limited per IP.
+
 ## Commands
 
 | Command | Purpose |
@@ -63,6 +73,7 @@ iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 300
 | `wera rescore --all` | Rescore after changing your profile |
 | `wera deep --top N` | Longer review of top matches using Coral background mode |
 | `wera bench` | Measure scoring throughput, cache hit rate, and cost per job |
+| `wera users list\|create\|passwd\|admin` | Manage accounts from the server shell |
 
 ## Extending
 

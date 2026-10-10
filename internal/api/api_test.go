@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -11,9 +12,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/auth"
 	"wera/internal/metrics"
 	"wera/internal/store"
 )
@@ -38,22 +41,54 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// client sends the test user's session cookie; testServer sets it up.
+var client = http.DefaultClient
+
+// cookieTransport adds a fixed session cookie to every request.
+type cookieTransport struct{ cookie string }
+
+func (c cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: c.cookie})
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+// testServer starts the API and logs `client` in as a throwaway admin
+// user, deleted again when the test ends.
 func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool.Pool) {
 	t.Helper()
 	pool := testPool(t)
 	srv := &Server{
-		Pool:    pool,
-		Log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Metrics: reg,
+		Pool:          pool,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Metrics:       reg,
+		SignupEnabled: true,
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
+
+	ctx := context.Background()
+	email := fmt.Sprintf("api-test-%d@example.com", time.Now().UnixNano())
+	u, err := store.CreateUser(ctx, pool, email, "API test", "", true)
+	if err != nil {
+		t.Fatalf("create test user: %v", err)
+	}
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+	token, hash, err := auth.NewToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateSession(ctx, pool, u.ID, hash, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	client = &http.Client{Transport: cookieTransport{token}}
+	t.Cleanup(func() { client = http.DefaultClient })
 	return ts, pool
 }
 
 func getBody(t *testing.T, url string) (int, string) {
 	t.Helper()
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
