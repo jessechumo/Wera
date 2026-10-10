@@ -75,7 +75,7 @@ func TestSummaryEndpoints(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	for _, path := range []string{
 		"/api/today", "/api/stats", "/api/runs?limit=5", "/api/companies",
-		"/api/usage", "/api/excluded?reason=title:senior", "/api/industries",
+		"/api/usage", "/api/usage/me", "/api/excluded?reason=title:senior", "/api/industries",
 	} {
 		code, body := getBody(t, ts.URL+path)
 		if code != 200 {

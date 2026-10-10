@@ -23,7 +23,8 @@ const usersUsage = `usage:
   wera users passwd --email E                       prints a new generated password
   wera users admin --email E [--revoke]
   wera users update --email E [--new-email X] [--name N]
-  wera users import-profile --email E --file profile.md`
+  wera users import-profile --email E --file profile.md
+  wera users budget --email E --usd 20               monthly inference budget`
 
 // runUsers implements `wera users ...`.
 func runUsers(ctx context.Context, args []string) error {
@@ -38,6 +39,7 @@ func runUsers(ctx context.Context, args []string) error {
 	revoke := fs.Bool("revoke", false, "revoke admin instead of granting it")
 	newEmail := fs.String("new-email", "", "update: the new email")
 	file := fs.String("file", "", "import-profile: markdown file to use as the profile text")
+	usd := fs.Float64("usd", -1, "budget: monthly inference budget in USD")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -134,6 +136,24 @@ func runUsers(ctx context.Context, args []string) error {
 			}
 		}
 		fmt.Printf("updated user %d (%s)\n", u.ID, u.Email)
+	case "budget":
+		if *usd < 0 {
+			return errors.New("budget needs --usd")
+		}
+		u, err := store.UserByEmail(ctx, pool, norm)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("no user with email %s", norm)
+		} else if err != nil {
+			return err
+		}
+		if err := store.SetBudget(ctx, pool, u.ID, *usd); err != nil {
+			return err
+		}
+		b, err := store.UserBudget(ctx, pool, u.ID)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s: budget $%.2f/month, spent $%.4f this month\n", u.Email, b.MonthlyUSD, b.SpentUSD)
 	case "import-profile":
 		u, err := store.UserByEmail(ctx, pool, norm)
 		if errors.Is(err, pgx.ErrNoRows) {

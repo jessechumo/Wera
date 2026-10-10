@@ -136,6 +136,8 @@ func (s *Server) companies(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"companies": list})
 }
 
+// usage is the admin report: overall token usage plus each user's spend
+// this month.
 func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 	u, err := store.Usage(r.Context(), s.Pool)
 	if err != nil {
@@ -143,7 +145,34 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, u)
+	users, err := store.SpendByUser(r.Context(), s.Pool)
+	if err != nil {
+		s.Log.Error("usage by user failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if users == nil {
+		users = []store.UserSpend{}
+	}
+	s.writeJSON(w, http.StatusOK, struct {
+		*store.UsageView
+		Users []store.UserSpend `json:"users"`
+	}{u, users})
+}
+
+// myUsage returns the current user's budget and spend this month.
+func (s *Server) myUsage(w http.ResponseWriter, r *http.Request) {
+	b, err := store.UserBudget(r.Context(), s.Pool, currentUser(r).ID)
+	if err != nil {
+		s.Log.Error("my usage failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]float64{
+		"monthly_budget_usd": b.MonthlyUSD,
+		"month_spend_usd":    b.SpentUSD,
+		"remaining_usd":      b.Remaining(),
+	})
 }
 
 func (s *Server) excluded(w http.ResponseWriter, r *http.Request) {

@@ -119,9 +119,10 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 }
 
 // matchAll filters and scores new jobs for every user with a ready
-// profile. The per-run cost guard is shared across users. One user's
-// failure is logged and does not stop the others; the first error is
-// returned so the run is marked failed.
+// profile. Each user's spend is limited by Allowance (per-run cap, their
+// monthly budget, the global monthly cap); jobs left over stay pending.
+// One user's failure is logged and does not stop the others; the first
+// error is returned so the run is marked failed.
 func (p *Pipeline) matchAll(ctx context.Context) (excluded int, total *ScoreStats, firstErr error) {
 	profiles, err := store.ReadyProfiles(ctx, p.Pool)
 	if err != nil {
@@ -141,12 +142,19 @@ func (p *Pipeline) matchAll(ctx context.Context) (excluded int, total *ScoreStat
 			continue
 		}
 		excluded += fst.Excluded
-		remaining := p.Env.MaxCostPerRunUSD - total.CostUSD
-		if remaining <= 0 {
-			p.Log.Warn("per-run cost guard reached; remaining users are scored next run", "user_id", prof.UserID)
+		allowance, why, err := Allowance(ctx, p.Pool, p.Env, prof.UserID)
+		if err != nil {
+			p.Log.Error("loading budget failed", "user_id", prof.UserID, "err", err)
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
-		sst, err := ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, remaining, p.Metrics)
+		if allowance <= 0 {
+			p.Log.Warn("not scoring: "+why, "user_id", prof.UserID)
+			continue
+		}
+		sst, err := ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, allowance, p.Metrics)
 		total.Add(sst)
 		if err != nil {
 			p.Log.Error("scoring failed", "user_id", prof.UserID, "err", err)

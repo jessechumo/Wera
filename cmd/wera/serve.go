@@ -56,6 +56,7 @@ func runServe(ctx context.Context, args []string) error {
 		RunPipeline: p.RunOnce,
 
 		SignupEnabled: env.SignupEnabled,
+		UserBudgetUSD: env.UserBudgetUSD,
 		CookieSecure:  env.CookieSecure,
 		PublicOrigins: env.PublicOrigins,
 		TrustProxy:    env.TrustProxy,

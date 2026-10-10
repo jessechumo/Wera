@@ -56,7 +56,7 @@ Every API route except signup and login needs a session. People sign up in the d
 docker exec wera-api /app/wera users create --email you@example.com --name You --admin
 ```
 
-Admins can trigger runs and see overall usage. Sessions are HTTP-only, `SameSite=Lax` cookies that last 30 days; only a hash of each token is stored. Signup and login are rate-limited per IP.
+Admins can trigger runs and see overall usage and each user's spend. Everyone shares one Coral Bricks key, so spending is capped three ways: per user per run (`MAX_COST_PER_RUN_USD`), per user per month (`USER_MONTHLY_BUDGET_USD`, default $10; change one user's with `wera users budget`), and for all users together per month (`MAX_MONTHLY_COST_USD`). Jobs over a limit stay pending until the next month or a higher budget. Sessions are HTTP-only, `SameSite=Lax` cookies that last 30 days; only a hash of each token is stored. Signup and login are rate-limited per IP.
 
 ## Commands
 
@@ -71,7 +71,7 @@ Admins can trigger runs and see overall usage. Sessions are HTTP-only, `SameSite
 | `wera rescore --all [--user E]` | Rescore after changing profiles |
 | `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
-| `wera users list\|create\|passwd\|admin\|update\|import-profile` | Manage accounts and profiles from the server shell |
+| `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
 
 ## Extending
 

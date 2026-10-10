@@ -49,7 +49,15 @@ func runScore(ctx context.Context, args []string) error {
 	}
 	total := &pipeline.ScoreStats{}
 	for _, prof := range profiles {
-		st, err := pipeline.ScoreUser(ctx, pool, env, log, prof, *limit, env.MaxCostPerRunUSD-total.CostUSD, nil)
+		allowance, why, err := pipeline.Allowance(ctx, pool, env, prof.UserID)
+		if err != nil {
+			return err
+		}
+		if allowance <= 0 {
+			log.Warn("not scoring: "+why, "user_id", prof.UserID)
+			continue
+		}
+		st, err := pipeline.ScoreUser(ctx, pool, env, log, prof, *limit, allowance, nil)
 		if err != nil {
 			return err
 		}

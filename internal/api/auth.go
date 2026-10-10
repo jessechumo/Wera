@@ -221,6 +221,9 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "could not create the account")
 		return
 	}
+	if err := store.SetBudget(r.Context(), s.Pool, u.ID, s.UserBudgetUSD); err != nil {
+		s.Log.Error("setting budget failed", "user_id", u.ID, "err", err)
+	}
 	s.Log.Info("user signed up", "user_id", u.ID)
 	if s.startSession(w, r, u) {
 		s.writeJSON(w, http.StatusCreated, map[string]any{"user": u})

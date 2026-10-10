@@ -42,6 +42,7 @@ type Server struct {
 
 	// Accounts and browser security (see config.Env).
 	SignupEnabled bool
+	UserBudgetUSD float64 // monthly inference budget for new accounts
 	CookieSecure  bool
 	PublicOrigins []string
 	TrustProxy    bool
@@ -85,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/companies", s.companies)
 			r.Get("/excluded", s.excluded)
 			r.Get("/industries", s.industries)
+			r.Get("/usage/me", s.myUsage)
 
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireAdmin)

@@ -25,7 +25,9 @@ type Env struct {
 	HTTPAddr           string
 	LogFormat          string
 	UserAgent          string
-	MaxCostPerRunUSD   float64
+	MaxCostPerRunUSD   float64 // per user per run
+	UserBudgetUSD      float64 // monthly budget given to new accounts
+	MaxMonthlyCostUSD  float64 // all users together, per calendar month
 
 	// Accounts and browser security.
 	SignupEnabled bool     // POST /api/auth/signup open to anyone
@@ -47,7 +49,9 @@ func LoadEnv() (*Env, error) {
 		HTTPAddr:           "127.0.0.1:8080",
 		LogFormat:          "text",
 		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
-		MaxCostPerRunUSD:   0.50,
+		MaxCostPerRunUSD:   1.00,
+		UserBudgetUSD:      10,
+		MaxMonthlyCostUSD:  100,
 		SignupEnabled:      true,
 	}
 
@@ -119,6 +123,8 @@ func LoadEnv() (*Env, error) {
 	str("LOG_FORMAT", &e.LogFormat)
 	str("USER_AGENT", &e.UserAgent)
 	floatVal("MAX_COST_PER_RUN_USD", &e.MaxCostPerRunUSD)
+	floatVal("USER_MONTHLY_BUDGET_USD", &e.UserBudgetUSD)
+	floatVal("MAX_MONTHLY_COST_USD", &e.MaxMonthlyCostUSD)
 	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
 	boolVal("COOKIE_SECURE", &e.CookieSecure)
 	boolVal("TRUST_PROXY", &e.TrustProxy)
@@ -139,6 +145,9 @@ func LoadEnv() (*Env, error) {
 	}
 	if e.MaxCostPerRunUSD <= 0 {
 		errs = append(errs, "MAX_COST_PER_RUN_USD must be positive")
+	}
+	if e.UserBudgetUSD < 0 || e.MaxMonthlyCostUSD <= 0 {
+		errs = append(errs, "USER_MONTHLY_BUDGET_USD must be >= 0 and MAX_MONTHLY_COST_USD positive")
 	}
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))
