@@ -32,7 +32,9 @@ type profileView struct {
 	Preferences config.Preferences `json:"preferences"`
 	Answers     json.RawMessage    `json:"answers"`
 	ResumeChars int                `json:"resume_chars"` // 0 = no resume on file
-	Ready       bool               `json:"ready"`        // matching runs for this profile
+	ResumeText  string             `json:"resume_text"`
+	ResumeFile  *resumeFileView    `json:"resume_file"` // nil when only text was pasted
+	Ready       bool               `json:"ready"`       // matching runs for this profile
 	UpdatedAt   *time.Time         `json:"updated_at"`
 }
 
@@ -48,24 +50,34 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	if p != nil {
 		v.Markdown, v.Preferences, v.Ready = p.Markdown, p.Preferences, p.Ready()
 		v.ResumeChars = len([]rune(p.ResumeText))
+		v.ResumeText = p.ResumeText
 		if len(p.Answers) > 0 {
 			v.Answers = p.Answers
 		}
 		v.UpdatedAt = &p.UpdatedAt
 	}
+	name, uploaded, ok, err := store.ResumeFileInfo(r.Context(), s.Pool, currentUser(r).ID)
+	if err == nil && ok {
+		v.ResumeFile = &resumeFileView{Filename: name, UploadedAt: uploaded}
+	}
 	s.writeJSON(w, http.StatusOK, v)
+}
+
+type resumeFileView struct {
+	Filename   string    `json:"filename"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
 // uploadResume is POST /api/profile/resume: a multipart form with either a
 // PDF in "file" or pasted text in "text". Only the extracted text is kept.
 func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, profile.MaxResumeBytes+64<<10)
-	if err := r.ParseMultipartForm(profile.MaxResumeBytes); err != nil {
+	if err := r.ParseMultipartForm(profile.MaxResumeBytes); err != nil { //nolint:gosec // the body is capped by MaxBytesReader above
 		s.writeError(w, http.StatusBadRequest, "upload a PDF of at most 5 MB, or paste the text")
 		return
 	}
 	var text string
-	if f, _, err := r.FormFile("file"); err == nil {
+	if f, hdr, err := r.FormFile("file"); err == nil {
 		defer f.Close()
 		data, err := io.ReadAll(f)
 		if err != nil {
@@ -75,6 +87,10 @@ func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 		if text, err = profile.ExtractPDFText(data); err != nil {
 			s.writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
+		}
+		// Keep the PDF itself so the user can view what they uploaded.
+		if err := store.SaveResumeFile(r.Context(), s.Pool, currentUser(r).ID, safeFilename(hdr.Filename), data); err != nil {
+			s.Log.Error("save resume file failed", "err", err)
 		}
 	} else {
 		text = profile.CleanText(r.FormValue("text"))
@@ -201,8 +217,17 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "could not save the profile")
 		return
 	}
+	// Filter and rank now (seconds, no LLM) so Today is populated when
+	// this request returns; AI scoring then streams in the background.
+	if s.PrepareUser != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		if err := s.PrepareUser(ctx, user.ID); err != nil {
+			s.Log.Warn("preparing matches failed; the background match will retry", "user_id", user.ID, "err", err)
+		}
+		cancel()
+	}
 	if s.MatchUser != nil {
-		go s.MatchUser(context.Background(), user.ID)
+		go s.MatchUser(context.Background(), user.ID) //nolint:gosec // matching outlives the request on purpose
 	}
 	s.getProfile(w, r)
 }
@@ -210,11 +235,16 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 // chatForUser makes one Coral chat call on behalf of a user and records
 // its cost (kind names the purpose in llm_usage). It returns the reply.
 func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, maxTokens int, msgs []scoring.Message) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	return s.chatWithModel(ctx, userID, kind, s.Env.CoralModel, maxTokens, msgs)
+}
+
+// chatWithModel is chatForUser with an explicit model.
+func (s *Server) chatWithModel(ctx context.Context, userID int64, kind, model string, maxTokens int, msgs []scoring.Message) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 110*time.Second)
 	defer cancel()
 	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: s.Env.CoralModel,
-		Timeout: 85 * time.Second, MaxTokens: maxTokens, Log: s.Log,
+		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: model,
+		Timeout: 105 * time.Second, MaxTokens: maxTokens, Log: s.Log,
 	})
 	start := time.Now()
 	comp, err := client.Chat(ctx, "", msgs)
@@ -225,10 +255,10 @@ func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, max
 	cost := 0.0
 	if comp.CostUSD != nil {
 		cost = *comp.CostUSD
-	} else if prices, ok := scoring.PriceFor(s.Env.CoralModel); ok {
+	} else if prices, ok := scoring.PriceFor(model); ok {
 		cost = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
 	}
-	if err := store.RecordLLMUsage(context.Background(), s.Pool, userID, kind, s.Env.CoralModel,
+	if err := store.RecordLLMUsage(context.Background(), s.Pool, userID, kind, model,
 		comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens, cost); err != nil {
 		s.Log.Error("recording llm usage failed", "kind", kind, "user_id", userID, "err", err)
 	}

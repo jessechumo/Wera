@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOLANGCI_LINT_VERSION: v2.14.0
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: golangci-lint
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@"${GOLANGCI_LINT_VERSION}" run ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # publishes the coverage badge on main
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wera
+          POSTGRES_PASSWORD: wera
+          POSTGRES_DB: wera_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wera" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://wera:wera@localhost:5432/wera_test?sslmode=disable
+      WERA_TEST_DATABASE_URL: postgres://wera:wera@localhost:5432/wera_test?sslmode=disable
+      MIN_COVERAGE: "70"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install pdftotext (resume parsing tests)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+      - name: Migrate
+        run: go run ./cmd/wera migrate
+      - name: Test (race detector)
+        run: go test -p 1 -race ./...
+      - name: Coverage
+        run: |
+          go test -p 1 -coverpkg=./internal/... -coverprofile=coverage.out ./... > /dev/null
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/ {sub("%","",$3); print $3}')
+          echo "Coverage: ${pct}%" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "COVERAGE=${pct}" >> "$GITHUB_ENV"
+          awk -v p="$pct" -v m="$MIN_COVERAGE" 'BEGIN { exit (p+0 < m+0) }' \
+            || { echo "::error::coverage ${pct}% is below ${MIN_COVERAGE}%"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+      - name: Publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/publish-badge.sh coverage "${COVERAGE}%" "$COVERAGE"
+
+  vuln:
+    name: Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --build-arg VERSION=ci --build-arg COMMIT="${GITHUB_SHA::7}" -t wera:ci .
+      - name: Smoke test
+        run: docker run --rm wera:ci version

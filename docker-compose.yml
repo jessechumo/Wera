@@ -24,7 +24,11 @@ services:
 
   # One-shot: applies embedded migrations, then exits. API and worker wait on it.
   wera-migrate:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${WERA_VERSION:-dev}
+        COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-migrate
     command: ["migrate"]
@@ -37,7 +41,11 @@ services:
     restart: "no"
 
   wera-api:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${WERA_VERSION:-dev}
+        COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-api
     env_file:
@@ -66,7 +74,11 @@ services:
     restart: unless-stopped
 
   wera-worker:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${WERA_VERSION:-dev}
+        COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-worker
     command: ["worker"]
@@ -95,7 +107,10 @@ services:
   # Dashboard (../wera-frontend): nginx serves the SPA and proxies /api to
   # wera-api. Published on all interfaces so other machines on the LAN can use it.
   wera-web:
-    build: ../wera-frontend
+    build:
+      context: ../wera-frontend
+      args:
+        APP_COMMIT: ${WERA_WEB_COMMIT:-dev}
     image: wera-web:local
     container_name: wera-web
     ports:

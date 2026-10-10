@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	pngenc "image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -78,7 +80,7 @@ func TestSummaryEndpoints(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	for _, path := range []string{
 		"/api/today", "/api/stats", "/api/runs?limit=5", "/api/companies",
-		"/api/usage", "/api/usage/me", "/api/excluded?reason=title:senior", "/api/industries",
+		"/api/usage", "/api/usage/me", "/api/today?limit=5", "/api/excluded?reason=title:senior", "/api/industries",
 	} {
 		code, body := getBody(t, ts.URL+path)
 		if code != 200 {
@@ -296,5 +298,172 @@ func TestProfileFlow(t *testing.T) {
 	}
 	if matchCalls.Load() == before {
 		t.Error("saving a profile did not start matching")
+	}
+}
+
+func do(t *testing.T, c *http.Client, method, url, body string) (int, string) {
+	t.Helper()
+	req, _ := http.NewRequest(method, url, strings.NewReader(body))
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode, string(b)
+}
+
+func TestSettingsAndHiddenCompanies(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	code, body := do(t, client, http.MethodGet, ts.URL+"/api/settings", "")
+	if code != 200 || !strings.Contains(body, `"theme":"system"`) || !strings.Contains(body, `"hidden_companies":[]`) {
+		t.Fatalf("defaults: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPut, ts.URL+"/api/settings", `{"theme":"neon","default_sort":"score","notifications":{"frequency":"daily","min_score":80}}`); code != 400 {
+		t.Errorf("bad theme: want 400, got %d", code)
+	}
+	code, body = do(t, client, http.MethodPut, ts.URL+"/api/settings",
+		`{"theme":"dark","default_sort":"newest","notifications":{"email_digest":false,"frequency":"weekly","strong_matches":true,"min_score":85}}`)
+	if code != 200 || !strings.Contains(body, `"theme":"dark"`) || !strings.Contains(body, `"frequency":"weekly"`) {
+		t.Fatalf("save: %d %s", code, body)
+	}
+
+	// Hiding a company removes its jobs from the user's lists.
+	var jobID, companyID int64
+	if err := pool.QueryRow(context.Background(), `
+		SELECT j.id, j.company_id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+		WHERE uj.user_id = $1 LIMIT 1`, testUserID).Scan(&jobID, &companyID); err != nil {
+		t.Fatalf("seeded match: %v", err)
+	}
+	jobURL := fmt.Sprintf("%s/api/jobs/%d", ts.URL, jobID)
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 200 {
+		t.Fatalf("job visible before hiding: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/companies/%d/hidden", ts.URL, companyID), ""); code != 204 {
+		t.Fatalf("hide: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 404 {
+		t.Errorf("hidden company's job still visible: %d", code)
+	}
+	if _, body := do(t, client, http.MethodGet, ts.URL+"/api/settings", ""); !strings.Contains(body, fmt.Sprintf(`"id":%d`, companyID)) {
+		t.Errorf("hidden company not listed: %s", body)
+	}
+	do(t, client, http.MethodDelete, fmt.Sprintf("%s/api/companies/%d/hidden", ts.URL, companyID), "")
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 200 {
+		t.Errorf("unhidden job not back: %d", code)
+	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	anon := &http.Client{}
+	email := fmt.Sprintf("delete-%d@example.com", time.Now().UnixNano())
+	resp, err := anon.Post(ts.URL+"/api/auth/signup", "application/json",
+		strings.NewReader(`{"email":"`+email+`","password":"delete me please"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	var cookie string
+	for _, c := range resp.Cookies() {
+		if c.Name == sessionCookie {
+			cookie = c.Value
+		}
+	}
+	user := &http.Client{Transport: cookieTransport{cookie}}
+	if code, _ := do(t, user, http.MethodDelete, ts.URL+"/api/auth/account", `{"password":"wrong"}`); code != 401 {
+		t.Errorf("wrong password: want 401, got %d", code)
+	}
+	if code, _ := do(t, user, http.MethodDelete, ts.URL+"/api/auth/account", `{"password":"delete me please"}`); code != 204 {
+		t.Fatalf("delete: want 204, got %d", code)
+	}
+	var n int
+	pool.QueryRow(context.Background(), `SELECT count(*) FROM users WHERE email = $1`, email).Scan(&n)
+	if n != 0 {
+		t.Error("account still exists")
+	}
+	if code, _ := do(t, user, http.MethodGet, ts.URL+"/api/auth/me", ""); code != 401 {
+		t.Errorf("session survived deletion: %d", code)
+	}
+}
+
+func upload(t *testing.T, url, method, field, name string, data []byte) (int, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile(field, name)
+	fw.Write(data)
+	mw.Close()
+	req, _ := http.NewRequest(method, url, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode, string(b)
+}
+
+func TestAvatarAndResumeFile(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	var png bytes.Buffer
+	pngenc.Encode(&png, image.NewRGBA(image.Rect(0, 0, 40, 20)))
+	if code, body := upload(t, ts.URL+"/api/profile/avatar", http.MethodPut, "file", "me.png", png.Bytes()); code != 200 || !strings.Contains(body, `"avatar_version":`) {
+		t.Fatalf("avatar upload: %d %s", code, body)
+	}
+	resp, err := client.Get(ts.URL + "/api/profile/avatar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/jpeg" {
+		t.Errorf("avatar get: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if code, _ := upload(t, ts.URL+"/api/profile/avatar", http.MethodPut, "file", "x.svg", []byte("<svg/>")); code != 422 {
+		t.Errorf("svg avatar: want 422, got %d", code)
+	}
+
+	pdf, _ := os.ReadFile("../profile/testdata/sample-resume.pdf")
+	if code, body := upload(t, ts.URL+"/api/profile/resume", http.MethodPost, "file", `..\\evil"name.pdf`, pdf); code != 200 {
+		t.Fatalf("resume upload: %d %s", code, body)
+	}
+	resp, err = client.Get(ts.URL + "/api/profile/resume/file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || !bytes.Equal(got, pdf) || resp.Header.Get("Content-Type") != "application/pdf" {
+		t.Errorf("resume file: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if cd := resp.Header.Get("Content-Disposition"); strings.ContainsAny(strings.TrimPrefix(cd, `inline; filename="`)[:len(cd)-len(`inline; filename="`)-1], `"\\/`) {
+		t.Errorf("unsafe filename in %q", cd)
+	}
+}
+
+func TestCoverLetterEdits(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	var jobID int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT job_id FROM user_jobs WHERE user_id = $1 LIMIT 1`, testUserID).Scan(&jobID); err != nil {
+		t.Fatalf("seeded match: %v", err)
+	}
+	url := fmt.Sprintf("%s/api/jobs/%d/cover-letter", ts.URL, jobID)
+	if code, _ := do(t, client, http.MethodGet, url, ""); code != 404 {
+		t.Errorf("no letter yet: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodPost, url, ""); code != 503 {
+		t.Errorf("generation without Coral: want 503, got %d", code)
+	}
+	code, body := do(t, client, http.MethodPut, url, `{"body":"Dear Hiring Team,\n\nI built it — well.\n\nSincerely,\nT"}`)
+	if code != 200 || !strings.Contains(body, `"edited":true`) || strings.Contains(body, "—") {
+		t.Fatalf("save edit: %d %s", code, body)
+	}
+	if code, body := do(t, client, http.MethodGet, url, ""); code != 200 || !strings.Contains(body, "I built it, well.") {
+		t.Errorf("get after edit: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/jobs/999999999/cover-letter", ts.URL), `{"body":"x"}`); code != 404 {
+		t.Errorf("letter for someone else's job: want 404, got %d", code)
 	}
 }

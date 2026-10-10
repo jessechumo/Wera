@@ -51,7 +51,8 @@ func TestTokens(t *testing.T) {
 
 func TestLimiter(t *testing.T) {
 	l := NewLimiter(2, time.Hour)
-	if !l.Allow("ip") || !l.Allow("ip") || l.Allow("ip") {
+	first, second, third := l.Allow("ip"), l.Allow("ip"), l.Allow("ip")
+	if !first || !second || third {
 		t.Error("third event in window should be refused")
 	}
 	if !l.Allow("other") {

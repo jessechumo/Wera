@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -72,4 +73,41 @@ func UpdateFetchStatus(ctx context.Context, pool *pgxpool.Pool, companyID int64,
 		return fmt.Errorf("update fetch status for company %d: %w", companyID, err)
 	}
 	return nil
+}
+
+// CompanyETag returns the ETag of a company's last successful fetch ("" if none).
+func CompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64) (string, error) {
+	var etag *string
+	if err := pool.QueryRow(ctx, `SELECT etag FROM companies WHERE id = $1`, companyID).Scan(&etag); err != nil {
+		return "", err
+	}
+	if etag == nil {
+		return "", nil
+	}
+	return *etag, nil
+}
+
+// SetCompanyETag records the ETag of a fetch whose jobs were saved.
+func SetCompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64, etag string) error {
+	_, err := pool.Exec(ctx, `UPDATE companies SET etag = NULLIF($2, '') WHERE id = $1`, companyID, etag)
+	return err
+}
+
+// LastFullFetch returns when a company's whole board was last listed
+// (zero time if never).
+func LastFullFetch(ctx context.Context, pool *pgxpool.Pool, companyID int64) (time.Time, error) {
+	var t *time.Time
+	if err := pool.QueryRow(ctx, `SELECT last_full_fetch_at FROM companies WHERE id = $1`, companyID).Scan(&t); err != nil {
+		return time.Time{}, err
+	}
+	if t == nil {
+		return time.Time{}, nil
+	}
+	return *t, nil
+}
+
+// MarkFullFetch records a complete listing of a company's board.
+func MarkFullFetch(ctx context.Context, pool *pgxpool.Pool, companyID int64) error {
+	_, err := pool.Exec(ctx, `UPDATE companies SET last_full_fetch_at = now() WHERE id = $1`, companyID)
+	return err
 }

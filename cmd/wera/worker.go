@@ -107,6 +107,13 @@ func runWorker(ctx context.Context, args []string) error {
 		// not trigger an extra run); with an interval, run immediately.
 		if sched != nil {
 			next := sched.Next(time.Now())
+			// Companies skipped for job board maintenance get a catch-up
+			// run right after the window instead of at the next slot.
+			if catchUp := p.CatchUpAt.Add(2 * time.Minute); !p.CatchUpAt.IsZero() && catchUp.Before(next) {
+				next = catchUp
+				p.Log.Info("catch-up run after job board maintenance", "at", next.Format(time.RFC3339))
+			}
+			p.CatchUpAt = time.Time{}
 			p.Log.Info("next run scheduled", "at", next.Format(time.RFC3339))
 			select {
 			case <-ctx.Done():

@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -21,26 +20,12 @@ import (
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
+	"wera/internal/testutil"
 )
 
-// testPool connects to the development database (WERA_TEST_DATABASE_URL or
-// the local default). Tests that need it skip when it is unreachable.
+// testPool connects to the test database (see testutil.Pool).
 func testPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	url := os.Getenv("WERA_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://wera:wera@localhost:5433/wera?sslmode=disable"
-	}
-	pool, err := pgxpool.New(context.Background(), url)
-	if err != nil {
-		t.Skipf("no test database (%v)", err)
-	}
-	if err := pool.Ping(context.Background()); err != nil {
-		pool.Close()
-		t.Skipf("test database unreachable: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return testutil.Pool(t)
 }
 
 // client sends the test user's session cookie; testServer sets it up.
@@ -48,6 +33,9 @@ var client = http.DefaultClient
 
 // testUserID is the throwaway user testServer logged client in as.
 var testUserID int64
+
+// testJobIDs are the open jobs testServer created as the user's matches.
+var testJobIDs []int64
 
 // matchCalls counts background matches the server started.
 var matchCalls atomic.Int32
@@ -65,6 +53,13 @@ func (c cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // user, deleted again when the test ends.
 func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool.Pool) {
 	t.Helper()
+	return testServerWith(t, reg, nil)
+}
+
+// testServerWith is testServer with a hook to adjust the Server (for
+// example to point it at a fake inference API).
+func testServerWith(t *testing.T, reg *metrics.Registry, configure func(*Server)) (*httptest.Server, *pgxpool.Pool) {
+	t.Helper()
 	pool := testPool(t)
 	roles, err := config.LoadRoles("../../config/roles.yaml")
 	if err != nil {
@@ -79,9 +74,14 @@ func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Metrics:       reg,
 		SignupEnabled: true,
+		TrustProxy:    true, // lets tests pose as different clients via X-Real-IP
 		Roles:         roles,
 		Industries:    inds.Industries,
 		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
+		Moderator:     fakeModerator,
+	}
+	if configure != nil {
+		configure(srv)
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
@@ -94,11 +94,17 @@ func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool
 	}
 	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
 	testUserID = u.ID
-	// A few open jobs count as the user's matches, so job endpoints have data.
+	// The test's own company and jobs are the user's matches, so job
+	// endpoints have data in any database (including an empty CI one).
+	companyID, _ := testutil.Company(t, pool, "ai_ml")
+	testJobIDs = testutil.Jobs(t, pool, companyID,
+		testutil.Job{Title: "Site Reliability Engineer", Location: "Remote, US", Description: "Run Go services on Kubernetes."},
+		testutil.Job{Title: "Platform Engineer", Location: "Austin, TX", Description: "Build the internal developer platform."},
+		testutil.Job{Title: "DevOps Engineer", Location: "New York, NY", Description: "Automate deployments with Terraform."},
+	)
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO user_jobs (user_id, job_id, content_hash, stage)
-		SELECT $1, id, content_hash, 'scored' FROM jobs
-		WHERE closed_at IS NULL ORDER BY id LIMIT 5`, u.ID); err != nil {
+		SELECT $1, id, content_hash, 'scored' FROM jobs WHERE id = ANY($2)`, u.ID, testJobIDs); err != nil {
 		t.Fatalf("seed test matches: %v", err)
 	}
 	token, hash, err := auth.NewToken()
@@ -150,7 +156,7 @@ func TestHealthzAndJobsEndpoints(t *testing.T) {
 		t.Fatalf("decode /api/jobs: %v", err)
 	}
 	if len(list.Jobs) == 0 {
-		t.Skip("no jobs in test database to assert against")
+		t.Fatal("no jobs listed; testServer seeds three")
 	}
 	job := list.Jobs[0]
 	if job.ID == 0 || job.Title == "" || job.Company == "" {

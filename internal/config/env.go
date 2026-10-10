@@ -3,10 +3,13 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"wera/internal/buildinfo"
 )
 
 // Env holds environment-derived configuration with the defaults from
@@ -30,15 +33,16 @@ type Env struct {
 	MaxMonthlyCostUSD  float64 // all users together, per calendar month
 
 	// Accounts and browser security.
-	SignupEnabled bool     // POST /api/auth/signup open to anyone
-	CookieSecure  bool     // set Secure on the session cookie (HTTPS only)
-	PublicOrigins []string // extra origins allowed to send state-changing requests
-	TrustProxy    bool     // take the client IP from proxy headers
+	SignupEnabled  bool     // POST /api/auth/signup open to anyone
+	SignupsPerHour int      // sign-ups allowed per client IP per hour
+	CookieSecure   bool     // set Secure on the session cookie (HTTPS only)
+	PublicOrigins  []string // extra origins allowed to send state-changing requests
+	TrustProxy     bool     // take the client IP from proxy headers
 }
 
 // LoadEnv builds an Env from the process environment with defaults.
 func LoadEnv() (*Env, error) {
-	e := &Env{
+	e := &Env{ //nolint:gosec // DatabaseURL is a local development default; deployments set DATABASE_URL
 		DatabaseURL:        "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
 		CoralBaseURL:       "https://inference.coralbricks.ai/v1",
 		CoralModel:         "deepseek-v4.1-flash-fast",
@@ -48,11 +52,12 @@ func LoadEnv() (*Env, error) {
 		RunInterval:        30 * time.Minute,
 		HTTPAddr:           "127.0.0.1:8080",
 		LogFormat:          "text",
-		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
+		UserAgent:          "Wera/" + strings.TrimPrefix(buildinfo.Version, "v") + " (personal job tracker; contact: jessechumo@gmail.com)",
 		MaxCostPerRunUSD:   1.00,
 		UserBudgetUSD:      10,
 		MaxMonthlyCostUSD:  100,
 		SignupEnabled:      true,
+		SignupsPerHour:     5,
 	}
 
 	var errs []string
@@ -126,6 +131,7 @@ func LoadEnv() (*Env, error) {
 	floatVal("USER_MONTHLY_BUDGET_USD", &e.UserBudgetUSD)
 	floatVal("MAX_MONTHLY_COST_USD", &e.MaxMonthlyCostUSD)
 	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
+	intVal("SIGNUPS_PER_HOUR", &e.SignupsPerHour)
 	boolVal("COOKIE_SECURE", &e.CookieSecure)
 	boolVal("TRUST_PROXY", &e.TrustProxy)
 	for _, o := range strings.Split(os.Getenv("PUBLIC_ORIGINS"), ",") {
@@ -152,6 +158,9 @@ func LoadEnv() (*Env, error) {
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))
 	}
+	if !secureURL(e.CoralBaseURL) {
+		errs = append(errs, fmt.Sprintf("CORAL_BASE_URL must use https (or http to localhost), got %q", e.CoralBaseURL))
+	}
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("invalid environment:\n  - %s", strings.Join(errs, "\n  - "))
 	}
@@ -165,4 +174,19 @@ func NewLogger(e *Env) *slog.Logger {
 		return slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	}
 	return slog.New(slog.NewTextHandler(os.Stdout, nil))
+}
+
+// secureURL accepts https URLs, and plain http only to this machine
+// (a local mock). The API key and resumes must never cross a network in
+// the clear.
+func secureURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	h := u.Hostname()
+	return u.Scheme == "http" && (h == "localhost" || h == "127.0.0.1" || h == "::1")
 }

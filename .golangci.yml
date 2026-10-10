@@ -1,0 +1,44 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose     # HTTP response bodies are closed
+    - errorlint     # errors are compared with errors.Is/As
+    - gosec         # security problems
+    - misspell
+    - nilerr        # returning nil after checking err != nil
+    - noctx         # HTTP requests carry a context
+    - unconvert
+    - usestdlibvars
+  settings:
+    errcheck:
+      exclude-functions:
+        # Deferred cleanups whose failure has no useful handling.
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (*github.com/jackc/pgx/v5/pgxpool.Conn).Release
+        - (io.Closer).Close
+        - (*database/sql.DB).Close
+        - (net/http.ResponseWriter).Write
+    gosec:
+      excludes:
+        - G104 # unchecked errors: errcheck covers these
+        - G115 # integer conversions: values are bounded by the schema
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Test cleanups and fakes may ignore errors.
+      - path: _test\.go|internal/testutil/
+        linters: [errcheck, gosec, bodyclose, noctx, usestdlibvars]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: [wera]

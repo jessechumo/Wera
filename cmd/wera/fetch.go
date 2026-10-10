@@ -96,7 +96,7 @@ func runFetch(ctx context.Context, args []string) error {
 		totals.Error = err.Error()
 	}
 	if ferr := store.FinishRun(ctx, pool, runID, totals); ferr != nil {
-		return fmt.Errorf("recording run: %v (fetch error: %v)", ferr, err)
+		return fmt.Errorf("recording run: %w (fetch error: %w)", ferr, err)
 	}
 	if err != nil {
 		return err

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"wera/internal/config"
 )
@@ -123,6 +124,17 @@ func compileAll(pats []string) ([]*regexp.Regexp, error) {
 //     sponsorship:explicit_no (+ sentence)
 //  5. else keep for scoring, record categories and flags
 func (e *Engine) Apply(p *config.Preferences, title, location, description string) Result {
+	r := e.ApplyTitle(p, title, location)
+	if r.Stage == StageExcluded {
+		return r
+	}
+	return e.ApplyDescription(p, r, description)
+}
+
+// ApplyTitle runs steps 0-3, which need only the title and location. A
+// result that is not excluded must be finished with ApplyDescription; the
+// split lets callers load descriptions only for jobs that get that far.
+func (e *Engine) ApplyTitle(p *config.Preferences, title, location string) Result {
 	result := Result{Categories: []string{}, Flags: []string{}}
 	selected := make(map[string]bool, len(p.RoleFamilies))
 	for _, f := range p.RoleFamilies {
@@ -167,22 +179,90 @@ func (e *Engine) Apply(p *config.Preferences, title, location, description strin
 	if p.USOnly && e.looksNonUS(location) {
 		return excluded(result, "location:non_us", location)
 	}
+	result.Stage = StagePendingScore
+	result.Categories = cats
+	return result
+}
 
+// sponsorWords and flagWords appear in every sentence the sponsorship
+// exclude and flag patterns can match; sentences without them are skipped.
+var (
+	sponsorWords = []string{"sponsor", "visa", "citizen", "clearance"}
+	flagWords    = []string{"itar", "person", "export"}
+)
+
+// keyWindow is how much text around a keyword the patterns can need
+// (the longest refusal pattern spans ~150 characters).
+const keyWindow = 250
+
+// keySentences returns the parts of text within keyWindow of one of words
+// (overlapping windows merged), or "" when no word occurs. Running the
+// patterns on these instead of the whole posting makes the description
+// rules several times faster: most postings never mention sponsorship.
+// Windows (not sentences) keep phrases that wrap across lines intact.
+func keySentences(text, lower string, words []string) string {
+	if len(lower) != len(text) {
+		// Lowercasing changed byte lengths (rare Unicode); offsets in lower
+		// would not line up with text, so check the whole posting.
+		for _, w := range words {
+			if strings.Contains(lower, w) {
+				return text
+			}
+		}
+		return ""
+	}
+	var spans [][2]int
+	for _, w := range words {
+		for from := 0; ; {
+			i := strings.Index(lower[from:], w)
+			if i < 0 {
+				break
+			}
+			i += from
+			spans = append(spans, [2]int{max(0, i-keyWindow), min(len(text), i+len(w)+keyWindow)})
+			from = i + len(w)
+		}
+	}
+	if len(spans) == 0 {
+		return ""
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i][0] < spans[j][0] })
+	var b strings.Builder
+	cur := spans[0]
+	for _, sp := range spans[1:] {
+		if sp[0] <= cur[1] {
+			cur[1] = max(cur[1], sp[1])
+			continue
+		}
+		b.WriteString(text[cur[0]:cur[1]])
+		b.WriteString(" \n ")
+		cur = sp
+	}
+	b.WriteString(text[cur[0]:cur[1]])
+	return b.String()
+}
+
+// ApplyDescription runs steps 4-5 on a result that passed ApplyTitle.
+func (e *Engine) ApplyDescription(p *config.Preferences, result Result, description string) Result {
+	lower := strings.ToLower(description)
 	// Step 4: explicit sponsorship refusals.
 	if p.NeedsSponsorship {
-		for _, re := range e.sponsorNo {
-			if re.MatchString(description) {
-				return excluded(result, "sponsorship:explicit_no", sentenceFor(re, description))
+		if text := keySentences(description, lower, sponsorWords); text != "" {
+			for _, re := range e.sponsorNo {
+				if re.MatchString(text) {
+					return excluded(result, "sponsorship:explicit_no", sentenceFor(re, text))
+				}
 			}
 		}
 	}
 
-	// Step 5: keep, collect all matched categories and ITAR-like flags.
+	// Step 5: keep, with categories and ITAR-like flags.
 	result.Stage = StagePendingScore
-	result.Categories = cats
-	for _, re := range e.sponsorFlag {
-		if m := re.FindString(description); m != "" {
-			result.Flags = append(result.Flags, Tag(m))
+	if text := keySentences(description, lower, flagWords); text != "" {
+		for _, re := range e.sponsorFlag {
+			if m := re.FindString(text); m != "" {
+				result.Flags = append(result.Flags, Tag(m))
+			}
 		}
 	}
 	return result

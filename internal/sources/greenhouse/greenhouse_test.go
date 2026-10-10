@@ -2,6 +2,7 @@ package greenhouse
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,11 +19,16 @@ func newTestAdapter(t *testing.T) (*Adapter, *httptest.Server) {
 			http.NotFound(w, r)
 			return
 		}
+		if r.Header.Get("If-None-Match") == `W/"v1"` {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		data, err := os.ReadFile("testdata/board.json")
 		if err != nil {
 			t.Fatalf("read fixture: %v", err)
 		}
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("ETag", `W/"v1"`)
 		w.Write(data)
 	}))
 	t.Cleanup(srv.Close)
@@ -173,4 +179,16 @@ func mustTime(t *testing.T, s string) *time.Time {
 		t.Fatal(err)
 	}
 	return &tt
+}
+
+func TestFetchIfChanged(t *testing.T) {
+	adapter, _ := newTestAdapter(t)
+	jobs, etag, err := adapter.FetchIfChanged(context.Background(), "testco", "")
+	if err != nil || len(jobs) != 3 || etag != `W/"v1"` {
+		t.Fatalf("first fetch: %d jobs, etag %q, %v", len(jobs), etag, err)
+	}
+	jobs, etag, err = adapter.FetchIfChanged(context.Background(), "testco", etag)
+	if !errors.Is(err, sources.ErrNotModified) || jobs != nil || etag != `W/"v1"` {
+		t.Fatalf("unchanged board: want ErrNotModified, got %d jobs, etag %q, %v", len(jobs), etag, err)
+	}
 }

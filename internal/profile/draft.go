@@ -92,10 +92,10 @@ Return GitHub-flavored markdown only (no code fences, no preamble), under 700 wo
 // resume text, the questionnaire, and the chosen preferences.
 func DraftMessages(resume string, a Answers, prefs config.Preferences, roles *config.Roles, industries []config.Industry) []scoring.Message {
 	var b strings.Builder
-	b.WriteString("CANDIDATE ANSWERS:\n")
+	b.WriteString("<answers>\n")
 	line := func(label, v string) {
 		if v = strings.TrimSpace(v); v != "" {
-			fmt.Fprintf(&b, "- %s: %s\n", label, v)
+			fmt.Fprintf(&b, "- %s: %s\n", label, scoring.Fence(v))
 		}
 	}
 	line("Current or most recent title", a.CurrentTitle)
@@ -115,14 +115,15 @@ func DraftMessages(resume string, a Answers, prefs config.Preferences, roles *co
 	line("Wants to avoid", a.Avoid)
 	line("Other notes", a.Notes)
 
-	b.WriteString("\nRESUME:\n")
+	b.WriteString("</answers>\n\n<resume>\n")
 	if strings.TrimSpace(resume) == "" {
 		b.WriteString("(no resume provided; rely on the answers)\n")
 	} else {
-		b.WriteString(resume)
+		b.WriteString(scoring.Fence(resume))
 	}
+	b.WriteString("\n</resume>")
 	return []scoring.Message{
-		{Role: "system", Content: draftInstructions},
+		{Role: "system", Content: draftInstructions + "\n\n" + scoring.Untrusted},
 		{Role: "user", Content: b.String()},
 	}
 }

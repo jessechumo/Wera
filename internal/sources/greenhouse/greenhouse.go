@@ -59,12 +59,20 @@ type boardJob struct {
 	} `json:"departments"`
 }
 
-// Fetch implements sources.Source: it returns all open jobs on the board.
+// Fetch implements sources.Source.
 func (a *Adapter) Fetch(ctx context.Context, token string) ([]sources.RawJob, error) {
+	jobs, _, err := a.FetchIfChanged(ctx, token, "")
+	return jobs, err
+}
+
+// FetchIfChanged implements sources.ConditionalSource: with the ETag of the
+// previous fetch, an unchanged board answers 304 and costs no download.
+func (a *Adapter) FetchIfChanged(ctx context.Context, token, etag string) ([]sources.RawJob, string, error) {
 	endpoint := fmt.Sprintf("%s/v1/boards/%s/jobs?content=true", a.baseURL, url.PathEscape(token))
 	var resp boardResponse
-	if err := a.http.GetJSON(ctx, endpoint, &resp); err != nil {
-		return nil, err
+	newETag, err := a.http.GetJSONIfChanged(ctx, endpoint, etag, &resp)
+	if err != nil {
+		return nil, newETag, err
 	}
 
 	jobs := make([]sources.RawJob, 0, len(resp.Jobs))
@@ -87,7 +95,7 @@ func (a *Adapter) Fetch(ctx context.Context, token string) ([]sources.RawJob, er
 		}
 		jobs = append(jobs, raw)
 	}
-	return jobs, nil
+	return jobs, newETag, nil
 }
 
 // ParseTimestamp parses a Greenhouse timestamp ("2026-09-01T12:00:00Z" and

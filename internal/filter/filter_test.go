@@ -2,6 +2,7 @@ package filter
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"wera/internal/config"
@@ -179,5 +180,20 @@ func TestApplyOtherUsers(t *testing.T) {
 				t.Fatalf("categories %v missing %q", res.Categories, tc.category)
 			}
 		})
+	}
+}
+
+func TestKeySentences(t *testing.T) {
+	text := "We love Go.\nUnfortunately we will not provide\nvisa sponsorship for this role. Perks include snacks."
+	got := keySentences(text, strings.ToLower(text), sponsorWords)
+	if !strings.Contains(got, "will not provide\nvisa sponsorship") {
+		t.Errorf("a refusal wrapped across lines must stay intact: %q", got)
+	}
+	if keySentences("No mention here.", "no mention here.", sponsorWords) != "" {
+		t.Error("text without keywords should give nothing to scan")
+	}
+	odd := "İstanbul office. We do not sponsor visas."
+	if got := keySentences(odd, strings.ToLower(odd), sponsorWords); got != odd {
+		t.Errorf("byte-length change must fall back to the whole text, got %q", got)
 	}
 }

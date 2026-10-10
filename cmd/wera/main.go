@@ -10,6 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"wera/internal/buildinfo"
 	"wera/internal/store"
 )
 
@@ -30,6 +31,7 @@ Usage:
   wera deep [--top N]           deep review of top-scored jobs
   wera users <list|create|passwd|admin>   manage accounts (see wera users)
   wera healthcheck              exit 0 if the database is reachable (container healthchecks)
+  wera version                  print the version and commit
 `
 
 func main() {
@@ -89,6 +91,9 @@ func main() {
 	case "healthcheck":
 		err = runHealthcheck(ctx, args)
 
+	case "version", "--version":
+		fmt.Println("wera", buildinfo.String())
+		return
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 

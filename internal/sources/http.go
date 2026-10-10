@@ -10,12 +10,22 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // ErrBoardNotFound signals a permanent 404 for a board token. It is never
 // retried and is recorded as last_fetch_error = "404 token not found".
 var ErrBoardNotFound = errors.New("404 token not found")
+
+// ErrUnavailable signals that the job board is down for maintenance (it
+// redirected to a maintenance page). It is not retried; the fetcher
+// defers the company instead of counting a failure.
+var ErrUnavailable = errors.New("job board is down for maintenance")
+
+// maxRetryAfter is the longest Retry-After the client waits out; a longer
+// one ends the attempt (the next run tries again).
+const maxRetryAfter = time.Minute
 
 // maxBodyBytes caps one response. Boards with descriptions inline get big
 // (Anduril's Greenhouse board was 43 MB in October 2026).
@@ -44,7 +54,19 @@ func NewHTTP(ua string) *HTTP {
 
 // GetJSON performs GET url and unmarshals the JSON body into out.
 func (h *HTTP) GetJSON(ctx context.Context, url string, out any) error {
-	return h.doJSON(ctx, http.MethodGet, url, nil, out)
+	_, err := h.doJSON(ctx, http.MethodGet, url, nil, "", out)
+	return err
+}
+
+// ErrNotModified is returned by GetJSONIfChanged when the server answered
+// 304: the content behind the ETag has not changed.
+var ErrNotModified = errors.New("not modified")
+
+// GetJSONIfChanged is GetJSON with a conditional request: when etag is
+// set it is sent as If-None-Match, and a 304 answer returns
+// ErrNotModified without a body. It returns the response's ETag.
+func (h *HTTP) GetJSONIfChanged(ctx context.Context, url, etag string, out any) (string, error) {
+	return h.doJSON(ctx, http.MethodGet, url, nil, etag, out)
 }
 
 // PostJSON sends payload as a JSON POST body to url and unmarshals the
@@ -54,11 +76,13 @@ func (h *HTTP) PostJSON(ctx context.Context, url string, payload, out any) error
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
 	}
-	return h.doJSON(ctx, http.MethodPost, url, body, out)
+	_, err = h.doJSON(ctx, http.MethodPost, url, body, "", out)
+	return err
 }
 
-// doJSON performs one request with the retry policy described on HTTP.
-func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, out any) error {
+// doJSON performs one request with the retry policy described on HTTP and
+// returns the response ETag.
+func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, etag string, out any) (string, error) {
 	maxAttempts := h.MaxRetries + 1
 	delay := h.BaseDelay
 	var lastErr error
@@ -70,61 +94,75 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 		}
 		req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 		if err != nil {
-			return fmt.Errorf("build request: %w", err)
+			return "", fmt.Errorf("build request: %w", err)
 		}
 		req.Header.Set("User-Agent", h.UA)
 		req.Header.Set("Accept", "application/json")
 		if payload != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
+		}
 
 		resp, err := h.Client.Do(req)
+		if err == nil && redirectedToMaintenance(resp) {
+			resp.Body.Close()
+			return "", fmt.Errorf("%w (redirected to %s)", ErrUnavailable, resp.Request.URL)
+		}
 		if err != nil {
 			lastErr = fmt.Errorf("request: %w", err)
 		} else {
 			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
-			closeErr := resp.Body.Close()
+			resp.Body.Close()
 			switch {
+			case readErr != nil:
+				// The connection broke mid-body: retry like a 5xx.
+				lastErr = fmt.Errorf("read response from %s: %w", url, readErr)
 			case len(body) > maxBodyBytes:
-				return fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
+				return "", fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
 			case resp.StatusCode == http.StatusNotFound:
-				return fmt.Errorf("%w: %s", ErrBoardNotFound, url)
+				return "", fmt.Errorf("%w: %s", ErrBoardNotFound, url)
+			case resp.StatusCode == http.StatusNotModified && etag != "":
+				return etag, ErrNotModified
 			case resp.StatusCode == http.StatusOK:
 				if err := json.Unmarshal(body, out); err != nil {
-					return fmt.Errorf("decode response from %s: %w", url, err)
+					return "", fmt.Errorf("decode response from %s: %w", url, err)
 				}
-				return nil
+				return resp.Header.Get("ETag"), nil
 			case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 				lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 				if resp.StatusCode == http.StatusTooManyRequests {
 					if secs, perr := strconv.Atoi(resp.Header.Get("Retry-After")); perr == nil && secs > 0 {
-						if d := time.Duration(secs) * time.Second; d > delay {
+						d := time.Duration(secs) * time.Second
+						if d > maxRetryAfter {
+							// The board asked us to back off for a while: stop
+							// now and try again next run instead of waiting.
+							return "", fmt.Errorf("%w (retry after %s)", lastErr, d)
+						}
+						if d > delay {
 							delay = d
 						}
 					}
 				}
 			default:
-				return fmt.Errorf("unexpected HTTP %d from %s: %s", resp.StatusCode, url, truncate(body, 200))
+				return "", fmt.Errorf("unexpected HTTP %d from %s: %s", resp.StatusCode, url, truncate(body, 200))
 			}
-			if closeErr != nil && lastErr == nil {
-				lastErr = closeErr
-			}
-			_ = readErr
 		}
 
 		if attempt == maxAttempts {
 			break
 		}
 		// Exponential backoff with jitter: [delay, delay*1.5).
-		sleep := delay + time.Duration(rand.Int63n(int64(delay/2)+1))
+		sleep := delay + time.Duration(rand.Int63n(int64(delay/2)+1)) //nolint:gosec // jitter, not security
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", ctx.Err()
 		}
 		delay *= 2
 	}
-	return fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
+	return "", fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
 }
 
 func truncate(b []byte, n int) string {
@@ -132,4 +170,12 @@ func truncate(b []byte, n int) string {
 		return string(b[:n]) + "..."
 	}
 	return string(b)
+}
+
+// redirectedToMaintenance reports whether the request ended on a
+// maintenance page after redirects (Workday sends every tenant to
+// community.workday.com/maintenance-page during its weekly window).
+func redirectedToMaintenance(resp *http.Response) bool {
+	final := resp.Request.URL
+	return final != nil && strings.Contains(strings.ToLower(final.Path), "maintenance")
 }

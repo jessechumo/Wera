@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="800" viewBox="0 0 1240 800" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Wera: system architecture</title>
+<defs>
+<filter id="shadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#1F2328" flood-opacity=".07"/></filter>
+<marker id="arrow-1A7F37" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1A7F37"/></marker><marker id="arrow-57606A" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606A"/></marker><marker id="arrow-7C3AED" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7C3AED"/></marker><marker id="arrow-B76E00" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#B76E00"/></marker><marker id="arrow-D9572B" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#D9572B"/></marker>
+</defs>
+<rect width="100%" height="100%" rx="18" fill="#FBFAF7"/>
+<text x="32" y="44" font-size="20" font-weight="700" fill="#1F2328">Wera: system architecture</text>
+<text x="32" y="66" font-size="12.5" fill="#57606A">Three containers and PostgreSQL on one host; public job boards and an LLM API outside. Arrows show who calls whom.</text>
+<rect x="28" y="108" width="220" height="300" rx="16" fill="#57606A08" stroke="#57606A8C" stroke-width="1.3" stroke-dasharray="6 5"/>
+<rect x="44" y="97" width="64.0" height="22" rx="11" fill="#FBFAF7" stroke="#57606A8C" stroke-width="1"/>
+<text x="54" y="112" font-size="11.5" font-weight="600" letter-spacing=".04em" fill="#57606A">USERS</text>
+<rect x="280" y="108" width="640" height="640" rx="16" fill="#2F6FEB08" stroke="#2F6FEB8C" stroke-width="1.3" stroke-dasharray="6 5"/>
+<rect x="296" y="97" width="114.4" height="22" rx="11" fill="#FBFAF7" stroke="#2F6FEB8C" stroke-width="1"/>
+<text x="306" y="112" font-size="11.5" font-weight="600" letter-spacing=".04em" fill="#2F6FEB">DOCKER HOST</text>
+<text x="904" y="736" font-size="11" fill="#8C959F" text-anchor="end">only the web server is reachable from the network</text>
+<rect x="952" y="108" width="260" height="640" rx="16" fill="#7C3AED08" stroke="#7C3AED8C" stroke-width="1.3" stroke-dasharray="6 5"/>
+<rect x="968" y="97" width="89.2" height="22" rx="11" fill="#FBFAF7" stroke="#7C3AED8C" stroke-width="1"/>
+<text x="978" y="112" font-size="11.5" font-weight="600" letter-spacing=".04em" fill="#7C3AED">INTERNET</text>
+<g filter="url(#shadow)"><rect x="48" y="150" width="180" height="112" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="48" y="150" width="4" height="112" rx="2" fill="#57606A"/>
+<rect x="62" y="163" width="32" height="32" rx="8" fill="#57606A19"/>
+<g transform="translate(66 167) scale(1)" fill="none" stroke="#57606A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><circle cx="6.5" cy="6.5" r=".6"/><circle cx="9" cy="6.5" r=".6"/></g>
+<text x="104" y="177" font-size="14" font-weight="650" fill="#1F2328">Browser</text>
+<text x="64" y="208" font-size="11.5" fill="#57606A">React SPA</text>
+<text x="64" y="224" font-size="11.5" fill="#57606A">session cookie (HttpOnly)</text>
+<text x="64" y="240" font-size="11.5" fill="#57606A">light &amp; dark themes</text>
+<g filter="url(#shadow)"><rect x="48" y="282" width="180" height="96" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="48" y="282" width="4" height="96" rx="2" fill="#57606A"/>
+<rect x="62" y="295" width="32" height="32" rx="8" fill="#57606A19"/>
+<g transform="translate(66 299) scale(1)" fill="none" stroke="#57606A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14a5.5 5.5 0 0 1 3 5"/></g>
+<text x="104" y="309" font-size="14" font-weight="650" fill="#1F2328">Members</text>
+<text x="64" y="340" font-size="11.5" fill="#57606A">job seekers, mobile</text>
+<text x="64" y="356" font-size="11.5" fill="#57606A">and desktop</text>
+<g filter="url(#shadow)"><rect x="310" y="150" width="280" height="120" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="310" y="150" width="4" height="120" rx="2" fill="#D9572B"/>
+<rect x="324" y="163" width="32" height="32" rx="8" fill="#D9572B19"/>
+<g transform="translate(328 167) scale(1)" fill="none" stroke="#D9572B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></g>
+<text x="366" y="177" font-size="14" font-weight="650" fill="#1F2328">wera-web</text>
+<text x="366" y="192" font-size="10.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" fill="#D9572B">nginx · :3000</text>
+<text x="326" y="212" font-size="11.5" fill="#57606A">serves the built SPA</text>
+<text x="326" y="228" font-size="11.5" fill="#57606A">proxies /api to wera-api</text>
+<text x="326" y="244" font-size="11.5" fill="#57606A">CSP, HSTS, nosniff, no framing</text>
+<g filter="url(#shadow)"><rect x="310" y="330" width="280" height="168" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="310" y="330" width="4" height="168" rx="2" fill="#2F6FEB"/>
+<rect x="324" y="343" width="32" height="32" rx="8" fill="#2F6FEB19"/>
+<g transform="translate(328 347) scale(1)" fill="none" stroke="#2F6FEB" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></g>
+<text x="366" y="357" font-size="14" font-weight="650" fill="#1F2328">wera-api</text>
+<text x="366" y="372" font-size="10.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" fill="#2F6FEB">Go · 127.0.0.1:8080</text>
+<text x="326" y="392" font-size="11.5" fill="#57606A">REST API (chi): auth, jobs, tracker</text>
+<text x="326" y="408" font-size="11.5" fill="#57606A">rate limits per IP and account</text>
+<text x="326" y="424" font-size="11.5" fill="#57606A">settings, profile, avatars, resumes</text>
+<text x="326" y="440" font-size="11.5" fill="#57606A">cover letters, community, interview</text>
+<text x="326" y="456" font-size="11.5" fill="#57606A">moderation before publishing</text>
+<g filter="url(#shadow)"><rect x="620" y="330" width="280" height="168" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="620" y="330" width="4" height="168" rx="2" fill="#0E7C86"/>
+<rect x="634" y="343" width="32" height="32" rx="8" fill="#0E7C8619"/>
+<g transform="translate(638 347) scale(1)" fill="none" stroke="#0E7C86" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></g>
+<text x="676" y="357" font-size="14" font-weight="650" fill="#1F2328">wera-worker</text>
+<text x="676" y="372" font-size="10.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" fill="#0E7C86">Go · same binary</text>
+<text x="636" y="392" font-size="11.5" fill="#57606A">scheduled runs (RUN_SCHEDULE)</text>
+<text x="636" y="408" font-size="11.5" fill="#57606A">fetch → filter → rank → score</text>
+<text x="636" y="424" font-size="11.5" fill="#57606A">pauses during Workday maintenance</text>
+<text x="636" y="440" font-size="11.5" fill="#57606A">catch-up run afterwards</text>
+<text x="636" y="456" font-size="11.5" fill="#57606A">advisory lock: one run at a time</text>
+<g filter="url(#shadow)"><rect x="450" y="560" width="310" height="136" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="450" y="560" width="4" height="136" rx="2" fill="#1A7F37"/>
+<rect x="464" y="573" width="32" height="32" rx="8" fill="#1A7F3719"/>
+<g transform="translate(468 577) scale(1)" fill="none" stroke="#1A7F37" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8v-13"/><path d="M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></g>
+<text x="506" y="587" font-size="14" font-weight="650" fill="#1F2328">PostgreSQL 16</text>
+<text x="506" y="602" font-size="10.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" fill="#1A7F37">127.0.0.1:5433 · goose migrations</text>
+<text x="466" y="622" font-size="11.5" fill="#57606A">jobs (shared) · user_jobs (per user)</text>
+<text x="466" y="638" font-size="11.5" fill="#57606A">job_facts (shared) · analyses</text>
+<text x="466" y="654" font-size="11.5" fill="#57606A">users, sessions, settings, files</text>
+<text x="466" y="670" font-size="11.5" fill="#57606A">posts, comments, questions</text>
+<g filter="url(#shadow)"><rect x="972" y="150" width="220" height="168" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="972" y="150" width="4" height="168" rx="2" fill="#B76E00"/>
+<rect x="986" y="163" width="32" height="32" rx="8" fill="#B76E0019"/>
+<g transform="translate(990 167) scale(1)" fill="none" stroke="#B76E00" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3 13h18"/></g>
+<text x="1028" y="177" font-size="14" font-weight="650" fill="#1F2328">Job boards</text>
+<text x="988" y="208" font-size="11.5" fill="#57606A">Greenhouse · Lever · Ashby</text>
+<text x="988" y="224" font-size="11.5" fill="#57606A">Workday · SmartRecruiters</text>
+<text x="988" y="240" font-size="11.5" fill="#57606A">Amazon · Eightfold</text>
+<text x="988" y="256" font-size="11.5" fill="#57606A">public JSON APIs</text>
+<text x="988" y="272" font-size="11.5" fill="#57606A">500+ companies</text>
+<g filter="url(#shadow)"><rect x="972" y="400" width="220" height="150" rx="12" fill="#FFFFFF" stroke="#D8DEE4"/></g>
+<rect x="972" y="400" width="4" height="150" rx="2" fill="#7C3AED"/>
+<rect x="986" y="413" width="32" height="32" rx="8" fill="#7C3AED19"/>
+<g transform="translate(990 417) scale(1)" fill="none" stroke="#7C3AED" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5a3 3 0 0 0-3 3v.2A3 3 0 0 0 4.5 13a3 3 0 0 0 2 4.6A3 3 0 0 0 12 18V6a2.5 2.5 0 0 0-3-1.5z"/><path d="M15 4.5a3 3 0 0 1 3 3v.2A3 3 0 0 1 19.5 13a3 3 0 0 1-2 4.6A3 3 0 0 1 12 18"/></g>
+<text x="1028" y="427" font-size="14" font-weight="650" fill="#1F2328">Inference API</text>
+<text x="1028" y="442" font-size="10.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" fill="#7C3AED">HTTPS only</text>
+<text x="988" y="462" font-size="11.5" fill="#57606A">Coral Bricks (OpenAI-style)</text>
+<text x="988" y="478" font-size="11.5" fill="#57606A">facts, fit scores</text>
+<text x="988" y="494" font-size="11.5" fill="#57606A">cover letters, drafts</text>
+<text x="988" y="510" font-size="11.5" fill="#57606A">moderation verdicts</text>
+<path d="M228 196 L310 196" fill="none" stroke="#57606A" stroke-width="1.6" marker-end="url(#arrow-57606A)"/>
+<rect x="246.75" y="174" width="42.5" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="268.0" y="186" font-size="10.5" fill="#57606A" text-anchor="middle">HTTPS</text>
+<path d="M450 270 L450 330" fill="none" stroke="#D9572B" stroke-width="1.6" marker-end="url(#arrow-D9572B)"/>
+<rect x="453.7" y="292" width="48.599999999999994" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="478.0" y="304" font-size="10.5" fill="#D9572B" text-anchor="middle">/api/*</text>
+<path d="M450 498 L520 560" fill="none" stroke="#1A7F37" stroke-width="1.6" marker-end="url(#arrow-1A7F37)"/>
+<rect x="418.55" y="526" width="66.9" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="452.0" y="538" font-size="10.5" fill="#1A7F37" text-anchor="middle">SQL (pgx)</text>
+<path d="M760 498 L690 560" fill="none" stroke="#1A7F37" stroke-width="1.6" marker-end="url(#arrow-1A7F37)"/>
+<rect x="736.85" y="526" width="30.299999999999997" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="752.0" y="538" font-size="10.5" fill="#1A7F37" text-anchor="middle">SQL</text>
+<path d="M900 360 L936 360 L936 234 L972 234" fill="none" stroke="#B76E00" stroke-width="1.6" marker-end="url(#arrow-B76E00)"/>
+<rect x="893.5" y="278" width="73.0" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="930.0" y="290" font-size="10.5" fill="#B76E00" text-anchor="middle">ETag / 304</text>
+<rect x="890.45" y="293" width="79.1" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="930.0" y="305" font-size="10.5" fill="#B76E00" text-anchor="middle">incremental</text>
+<rect x="896.55" y="308" width="66.9" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="930.0" y="320" font-size="10.5" fill="#B76E00" text-anchor="middle">throttled</text>
+<path d="M900 450 L972 450" fill="none" stroke="#7C3AED" stroke-width="1.6" marker-end="url(#arrow-7C3AED)"/>
+<rect x="899.5" y="458" width="73.0" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="936.0" y="470" font-size="10.5" fill="#7C3AED" text-anchor="middle">facts once</text>
+<rect x="896.45" y="473" width="79.1" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="936.0" y="485" font-size="10.5" fill="#7C3AED" text-anchor="middle">per posting</text>
+<path d="M380 498 L380 716 L1082 716 L1082 550" fill="none" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrow-7C3AED)"/>
+<rect x="477.45000000000005" y="700" width="445.09999999999997" height="15" rx="4" fill="#FBFAF7" opacity=".92"/>
+<text x="700.0" y="712" font-size="10.5" fill="#7C3AED" text-anchor="middle">on a user's request: score now, cover letter, profile draft, moderation</text>
+<rect x="290" y="768" width="116.8" height="20" rx="10" fill="#57606A14" stroke="#57606A4C"/>
+<text x="298" y="782" font-size="10.5" fill="#57606A">solid: scheduled</text>
+<rect x="416.8" y="768" width="186.1" height="20" rx="10" fill="#57606A14" stroke="#57606A4C"/>
+<text x="424.8" y="782" font-size="10.5" fill="#57606A">dashed: on a user's request</text>
+<text x="1212" y="782" font-size="11" font-weight="400" fill="#8C959F" text-anchor="end">Data stays on the host; secrets in .env (600)</text>
+</svg>

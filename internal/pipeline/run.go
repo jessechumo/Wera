@@ -27,6 +27,11 @@ type Pipeline struct {
 	Companies []config.Company
 	Engine    *filter.Engine
 	Metrics   *metrics.Registry // optional
+
+	// CatchUpAt is set by RunOnce when companies were deferred for job
+	// board maintenance: the time a catch-up run can fetch them (zero
+	// otherwise).
+	CatchUpAt time.Time
 }
 
 // RunOnce executes a single pipeline run under the Postgres advisory
@@ -66,6 +71,10 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 
 	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
 	fstats, fetchErr := fetcher.Run(ctx, p.Companies, "")
+	p.CatchUpAt = time.Time{}
+	if fstats != nil {
+		p.CatchUpAt = fstats.RetryAt
+	}
 
 	var excluded int
 	var sstats *ScoreStats
@@ -107,6 +116,7 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 
 	p.Log.Info("pipeline run finished", "run_id", runID, "status", totals.Status,
 		"companies_ok", totals.CompaniesOK, "companies_failed", totals.CompaniesFailed,
+		"companies_deferred", deferredOf(fstats),
 		"jobs_seen", totals.JobsSeen, "jobs_new", totals.JobsNew,
 		"jobs_excluded", totals.JobsExcluded, "jobs_scored", totals.JobsScored,
 		"prompt_tokens", totals.PromptTokens, "cached_tokens", totals.CachedTokens,
@@ -176,6 +186,32 @@ func (p *Pipeline) MatchUser(ctx context.Context, prof *store.Profile) (excluded
 		p.Log.Warn("not scoring: "+why, "user_id", prof.UserID)
 		return fst.Excluded, nil, nil
 	}
-	st, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, allowance, p.Metrics)
+	st, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 0, nil, allowance, p.Metrics)
 	return fst.Excluded, st, err
+}
+
+func deferredOf(s *FetchStats) int {
+	if s == nil {
+		return 0
+	}
+	return s.CompaniesDeferred
+}
+
+// ScoreNow scores one of the user's unscored jobs right away (the user
+// opened it), within the user's allowance. Already-scored jobs and jobs
+// the user has no match for are left alone.
+func (p *Pipeline) ScoreNow(ctx context.Context, userID, jobID int64) error {
+	prof, err := store.GetProfile(ctx, p.Pool, userID)
+	if err != nil || prof == nil || !prof.Ready() {
+		return err
+	}
+	allowance, why, err := Allowance(ctx, p.Pool, p.Env, userID)
+	if err != nil {
+		return err
+	}
+	if allowance <= 0 {
+		return fmt.Errorf("not scoring: %s", why)
+	}
+	_, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 1, []int64{jobID}, allowance, p.Metrics)
+	return err
 }

@@ -57,6 +57,9 @@ type JobView struct {
 	Reason          *string    `json:"reason"`
 	AppStatus       *string    `json:"application_status"`
 	AppNotes        *string    `json:"application_notes"`
+	// EstimatedScore is the local relevance estimate (35..85), shown
+	// until the LLM fit score arrives.
+	EstimatedScore *int `json:"estimated_score"`
 }
 
 // jobViewSelect selects one user's view of jobs: their rule outcome,
@@ -70,13 +73,15 @@ const jobViewSelect = `
 	       a.fit_score, a.verdict, a.seniority, a.years_required,
 	       a.sponsorship, a.work_mode, a.location_summary,
 	       a.skills_matched, a.skills_missing, a.reason,
-	       ap.status, ap.notes
+	       ap.status, ap.notes, uj.estimated_score
 	FROM user_jobs uj
 	JOIN jobs j ON j.id = uj.job_id
 	JOIN companies c ON c.id = j.company_id
 	LEFT JOIN analyses a ON a.id = uj.analysis_id
 	LEFT JOIN applications ap ON ap.job_id = j.id AND ap.user_id = uj.user_id
-	WHERE uj.user_id = $1`
+	WHERE uj.user_id = $1
+	  AND NOT EXISTS (SELECT 1 FROM user_hidden_companies h
+	                  WHERE h.user_id = uj.user_id AND h.company_id = j.company_id)`
 
 // jobViewScan lists the scan targets shared by every JobView query.
 func jobViewScan(v *JobView) []any {
@@ -87,7 +92,7 @@ func jobViewScan(v *JobView) []any {
 		&v.FitScore, &v.Verdict, &v.Seniority, &v.YearsRequired,
 		&v.Sponsorship, &v.WorkMode, &v.LocationSummary,
 		&v.SkillsMatched, &v.SkillsMissing, &v.Reason,
-		&v.AppStatus, &v.AppNotes}
+		&v.AppStatus, &v.AppNotes, &v.EstimatedScore}
 }
 
 // normalizeLimit clamps a page size for API queries.
@@ -145,7 +150,7 @@ func ListJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, q JobQuery)
 		where = append(where, fmt.Sprintf("j.first_seen_at >= $%d", len(args)))
 	}
 
-	orderBy := "a.fit_score DESC NULLS LAST, j.first_seen_at DESC"
+	orderBy := "a.fit_score DESC NULLS LAST, uj.estimated_score DESC NULLS LAST, j.first_seen_at DESC"
 	if q.Sort == "newest" {
 		orderBy = "j.first_seen_at DESC"
 	}

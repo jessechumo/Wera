@@ -3,6 +3,8 @@ package workday
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -90,5 +92,79 @@ func TestParseToken(t *testing.T) {
 		if _, err := parseToken(bad); err == nil {
 			t.Errorf("%q: expected an error", bad)
 		}
+	}
+}
+
+func TestMaintenanceWindow(t *testing.T) {
+	a := New(sources.NewHTTP("Wera/test"))
+	pt := func(day, h, min int) time.Time { return time.Date(2026, 10, day, h, min, 0, 0, pacific) }
+	end := pt(10, 3, 0) // Saturday 3 a.m.
+	tests := []struct {
+		now     time.Time
+		inside  bool
+		wantEnd time.Time
+	}{
+		{pt(9, 22, 59), false, time.Time{}}, // Friday before 11 p.m.
+		{pt(9, 23, 0), true, end},           // Friday 11 p.m.
+		{pt(10, 0, 30), true, end},          // Saturday 12:30 a.m.
+		{pt(10, 2, 59), true, end},
+		{pt(10, 3, 0), false, time.Time{}},  // Saturday 3 a.m.: open again
+		{pt(8, 23, 30), false, time.Time{}}, // Thursday night
+	}
+	for _, tc := range tests {
+		got, inside := a.MaintenanceUntil(tc.now.UTC())
+		if inside != tc.inside || !got.Equal(tc.wantEnd) {
+			t.Errorf("%s: got %v %v, want %v %v", tc.now, got, inside, tc.wantEnd, tc.inside)
+		}
+	}
+}
+
+func TestMaintenanceRedirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/maintenance-page" {
+			w.Write([]byte("<html>down</html>"))
+			return
+		}
+		http.Redirect(w, r, "/maintenance-page", http.StatusSeeOther)
+	}))
+	t.Cleanup(srv.Close)
+	a := NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
+	if _, err := a.List(context.Background(), "acme.wd5/Careers"); !errors.Is(err, sources.ErrUnavailable) {
+		t.Errorf("want ErrUnavailable, got %v", err)
+	}
+}
+
+// A board of 45 postings, newest first; pages of 20.
+func boardServer(t *testing.T, pages *int) *Adapter {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req searchRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		*pages++
+		var items []string
+		for id := req.Offset + 1; id <= min(req.Offset+req.Limit, 45); id++ {
+			items = append(items, fmt.Sprintf(`{"title":"Job %d","externalPath":"/job/%d"}`, id, id))
+		}
+		fmt.Fprintf(w, `{"total":45,"jobPostings":[%s]}`, strings.Join(items, ","))
+	}))
+	t.Cleanup(srv.Close)
+	return NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
+}
+
+func TestListNewStopsAtKnownPostings(t *testing.T) {
+	known := map[string]bool{}
+	for id := 4; id <= 45; id++ {
+		known[fmt.Sprintf("/job/%d", id)] = true // only 1-3 are new
+	}
+	pages := 0
+	jobs, complete, err := boardServer(t, &pages).ListNew(context.Background(), "acme.wd5/Careers", known)
+	if err != nil || complete || pages != 2 || len(jobs) != 40 {
+		t.Fatalf("got %d jobs, complete=%v, %d pages, %v; want 40 jobs from 2 pages, incomplete", len(jobs), complete, pages, err)
+	}
+
+	pages = 0
+	jobs, complete, err = boardServer(t, &pages).ListNew(context.Background(), "acme.wd5/Careers", map[string]bool{})
+	if err != nil || !complete || pages != 3 || len(jobs) != 45 {
+		t.Fatalf("all new: got %d jobs, complete=%v, %d pages, %v; want the whole board", len(jobs), complete, pages, err)
 	}
 }

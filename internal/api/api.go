@@ -18,8 +18,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/auth"
+	"wera/internal/buildinfo"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/moderation"
 	"wera/internal/store"
 )
 
@@ -42,26 +44,42 @@ type Server struct {
 
 	// Accounts and browser security (see config.Env).
 	SignupEnabled bool
-	UserBudgetUSD float64 // monthly inference budget for new accounts
-	CookieSecure  bool
-	PublicOrigins []string
-	TrustProxy    bool
+	// SignupsPerHour caps sign-ups per client IP (0 means the default, 5).
+	SignupsPerHour int
+	UserBudgetUSD  float64 // monthly inference budget for new accounts
+	CookieSecure   bool
+	PublicOrigins  []string
+	TrustProxy     bool
 
 	// Profiles: the role catalog the forms offer, Coral settings for AI
 	// drafts, and the background matcher run after a profile is saved.
 	Roles     *config.Roles
 	Env       *config.Env
 	MatchUser func(ctx context.Context, userID int64)
+	// PrepareUser filters and ranks a user's jobs (no LLM, a few seconds)
+	// so the dashboard has estimated matches the moment a save returns.
+	PrepareUser func(ctx context.Context, userID int64) error
+	// Moderator replaces the AI moderation call (tests).
+	Moderator func(ctx context.Context, kind moderation.Kind, title, body string) (moderation.Verdict, error)
 
-	signupLimit *auth.Limiter
-	loginLimit  *auth.Limiter
-	draftLimit  *auth.Limiter
+	// ScoreNow scores one unscored job immediately (set by `wera serve`).
+	ScoreNow func(ctx context.Context, userID, jobID int64) error
+
+	signupLimit  *auth.Limiter
+	loginLimit   *auth.Limiter
+	accountLimit *auth.Limiter
+	draftLimit   *auth.Limiter
+	scoreLimit   *auth.Limiter
+	letterLimit  *auth.Limiter
+	postLimit    *auth.Limiter
+	commentLimit *auth.Limiter
 }
 
 // Handler builds the router with all routes.
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 	r.Use(s.cors)
 
 	r.Get("/healthz", s.healthz)
@@ -69,9 +87,18 @@ func (s *Server) Handler() http.Handler {
 		r.Handle("/metrics", s.Metrics.HTTPHandler())
 	}
 
-	s.signupLimit = auth.NewLimiter(5, time.Hour)
+	signups := s.SignupsPerHour
+	if signups <= 0 {
+		signups = 5
+	}
+	s.signupLimit = auth.NewLimiter(signups, time.Hour)
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
+	s.accountLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.draftLimit = auth.NewLimiter(10, time.Hour)
+	s.scoreLimit = auth.NewLimiter(120, time.Hour)
+	s.letterLimit = auth.NewLimiter(20, time.Hour)
+	s.postLimit = auth.NewLimiter(5, time.Hour)
+	s.commentLimit = auth.NewLimiter(30, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -84,10 +111,33 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.requireUser)
 			r.Get("/auth/me", s.me)
 			r.Put("/auth/password", s.changePassword)
+			r.Delete("/auth/account", s.deleteAccount)
+			r.Get("/settings", s.getSettings)
+			r.Put("/settings", s.putSettings)
+			r.Put("/companies/{id}/hidden", s.hideCompany)
+			r.Delete("/companies/{id}/hidden", s.hideCompany)
 
 			r.Get("/jobs", s.listJobs)
 			r.Get("/jobs/{id}", s.getJob)
 			r.Put("/jobs/{id}/application", s.putApplication)
+			r.Post("/jobs/{id}/score", s.scoreJob)
+			r.Get("/jobs/{id}/cover-letter", s.getCoverLetter)
+			r.Post("/jobs/{id}/cover-letter", s.generateCoverLetter)
+			r.Put("/jobs/{id}/cover-letter", s.putCoverLetter)
+
+			r.Get("/posts", s.listPosts)
+			r.Post("/posts", s.createPost)
+			r.Get("/posts/{id}", s.getPost)
+			r.Delete("/posts/{id}", s.deletePost)
+			r.Post("/posts/{id}/comments", s.createComment)
+			r.Delete("/posts/{id}/comments/{commentID}", s.deleteComment)
+			r.Put("/posts/{id}/reactions/{kind}", s.react)
+			r.Delete("/posts/{id}/reactions/{kind}", s.react)
+
+			r.Get("/interview/domains", s.interviewDomains)
+			r.Get("/interview/quiz", s.interviewQuiz)
+			r.Post("/interview/questions/{id}/answer", s.interviewAnswer)
+			r.Get("/sponsorship", s.sponsorship)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)
@@ -102,6 +152,11 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/profile/resume", s.uploadResume)
 			r.Post("/profile/draft", s.draftProfile)
 			r.Post("/profile/suggest", s.suggestPreferences)
+			r.Get("/profile/resume/file", s.getResumeFile)
+			r.Get("/profile/avatar", s.getAvatar)
+			r.Put("/profile/avatar", s.putAvatar)
+			r.Delete("/profile/avatar", s.deleteAvatar)
+			r.Get("/users/{id}/avatar", s.getUserAvatar)
 
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireAdmin)
@@ -154,7 +209,9 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusServiceUnavailable, "database unreachable")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	s.writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok", "version": buildinfo.Version, "commit": buildinfo.Commit,
+	})
 }
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {

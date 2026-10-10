@@ -1,16 +1,30 @@
-.PHONY: build test lint migrate fetch score pipeline serve worker bench deep clean
+.PHONY: build test cover lint vuln migrate fetch score pipeline serve worker bench deep clean
 
 # All configuration comes from the environment or a local .env file,
 # which the binary loads itself. Nothing secret belongs in this Makefile.
 
-build:
-	go build -o bin/wera ./cmd/wera
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+LDFLAGS := -s -w -X wera/internal/buildinfo.Version=$(VERSION) -X wera/internal/buildinfo.Commit=$(COMMIT)
 
+build:
+	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/wera ./cmd/wera
+
+# Database tests need WERA_TEST_DATABASE_URL (a copy such as wera_dev,
+# never the live database). Packages run one at a time because they share
+# that database.
 test:
-	go test ./...
+	go test -p 1 -race ./...
+
+cover:
+	go test -p 1 -coverpkg=./internal/... -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | tail -1
 
 lint:
-	go vet ./...
+	golangci-lint run ./...
+
+vuln:
+	govulncheck ./...
 
 migrate:
 	go run ./cmd/wera migrate

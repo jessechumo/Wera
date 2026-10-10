@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -22,10 +23,27 @@ import (
 
 // FetchStats summarizes one fetch pass.
 type FetchStats struct {
-	CompaniesOK     int
-	CompaniesFailed int
-	JobsSeen        int
-	JobsNew         int
+	CompaniesOK        int
+	CompaniesFailed    int
+	CompaniesDeferred  int // board down for maintenance; retried later
+	CompaniesUnchanged int // answered 304 Not Modified (counted in CompaniesOK)
+	JobsSeen           int
+	JobsNew            int
+	// RetryAt is when deferred companies can be fetched again (zero when
+	// nothing was deferred).
+	RetryAt time.Time
+}
+
+// unscheduledRetry is when to retry a board that redirected to a
+// maintenance page outside any known window.
+const unscheduledRetry = time.Hour
+
+// deferUntil records a company skipped for maintenance until retryAt.
+func (s *FetchStats) deferUntil(retryAt time.Time) {
+	s.CompaniesDeferred++
+	if s.RetryAt.IsZero() || retryAt.After(s.RetryAt) {
+		s.RetryAt = retryAt
+	}
 }
 
 // Fetcher coordinates fetching all enabled companies concurrently.
@@ -69,8 +87,18 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(f.Env.FetchConcurrency)
+	now := time.Now()
 	for _, c := range todo {
 		c := c
+		// Known maintenance window: skip without a request.
+		if ma, ok := f.Sources[c.ATS].(sources.MaintenanceAware); ok {
+			if end, in := ma.MaintenanceUntil(now); in {
+				mu.Lock()
+				stats.deferUntil(end)
+				mu.Unlock()
+				continue
+			}
+		}
 		g.Go(func() error {
 			f.fetchCompany(gctx, c, ids[c.Name], stats, &mu)
 			return nil
@@ -82,8 +110,18 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	if f.Metrics != nil {
 		f.Metrics.JobsNewTotal.Add(float64(stats.JobsNew))
 	}
+	if stats.CompaniesUnchanged > 0 {
+		f.Log.Info("boards unchanged since last fetch (304)", "companies", stats.CompaniesUnchanged)
+	}
+	if stats.CompaniesDeferred > 0 {
+		f.Log.Info("companies deferred for job board maintenance",
+			"companies", stats.CompaniesDeferred, "retry_at", stats.RetryAt.Format(time.RFC3339))
+	}
 	return stats, nil
 }
+
+// fullSweepEvery is how often an IncrementalLister board is listed in full.
+const fullSweepEvery = 20 * time.Hour
 
 // maxDetailsPerRun bounds how many new postings of one company a
 // detail-per-job source fetches in a run; the rest follow next run.
@@ -99,14 +137,27 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 		var listed int
 		var seen, newly int
 		start := time.Now()
-		if ds, ok := src.(sources.DetailSource); ok {
+		if cs, ok := src.(sources.ConditionalSource); ok {
+			var unchanged bool
+			listed, seen, newly, unchanged, err = f.fetchConditional(ctx, c, cs, companyID)
+			if err == nil && unchanged {
+				if uerr := store.UpdateFetchStatus(ctx, f.Pool, companyID, true, ""); uerr != nil {
+					f.Log.Error("recording fetch status failed", "company", c.Name, "err", uerr.Error())
+				}
+				mu.Lock()
+				stats.CompaniesOK++
+				stats.CompaniesUnchanged++
+				mu.Unlock()
+				return
+			}
+		} else if ds, ok := src.(sources.DetailSource); ok {
 			listed, seen, newly, err = f.fetchIncremental(ctx, c, ds, companyID)
 		} else {
 			var raw []sources.RawJob
 			raw, err = src.Fetch(ctx, c.Token)
 			listed = len(raw)
 			if err == nil {
-				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil)
+				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
 			}
 		}
 		if f.Metrics != nil {
@@ -127,6 +178,15 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 		}
 	}
 
+	// A board down for maintenance is retried later, not a failure.
+	if errors.Is(err, sources.ErrUnavailable) {
+		f.Log.Info("board down for maintenance; deferred", "company", c.Name, "ats", c.ATS)
+		mu.Lock()
+		stats.deferUntil(time.Now().Add(unscheduledRetry))
+		mu.Unlock()
+		return
+	}
+
 	// Any failure here is recorded and never fails the run.
 	f.Log.Warn("fetch failed", "company", c.Name, "ats", c.ATS, "err", err.Error())
 	if f.Metrics != nil {
@@ -140,19 +200,61 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 	mu.Unlock()
 }
 
+// fetchConditional fetches a board with the ETag of its last successful
+// fetch. A 304 means nothing changed: no download, no writes (unchanged =
+// true). Otherwise the jobs are saved and only then the new ETag stored,
+// so a failed save never hides changes from the next run.
+func (f *Fetcher) fetchConditional(ctx context.Context, c config.Company, src sources.ConditionalSource, companyID int64) (listed, seen, newly int, unchanged bool, err error) {
+	etag, err := store.CompanyETag(ctx, f.Pool, companyID)
+	if err != nil {
+		return 0, 0, 0, false, err
+	}
+	raw, newETag, err := src.FetchIfChanged(ctx, c.Token, etag)
+	if errors.Is(err, sources.ErrNotModified) {
+		return 0, 0, 0, true, nil
+	}
+	if err != nil {
+		return 0, 0, 0, false, err
+	}
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
+	if err != nil {
+		return len(raw), seen, newly, false, err
+	}
+	if err := store.SetCompanyETag(ctx, f.Pool, companyID, newETag); err != nil {
+		f.Log.Warn("storing etag failed", "company", c.Name, "err", err)
+	}
+	return len(raw), seen, newly, false, nil
+}
+
 // fetchIncremental lists a detail-per-job board, fetches details for up to
 // maxDetailsPerRun postings it has not stored yet, saves those, and marks
 // the already-stored ones as still listed. A posting whose detail request
 // fails is skipped this run (and retried next run) without failing the
 // company.
 func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src sources.DetailSource, companyID int64) (listed, seen, newly int, err error) {
-	jobs, err := src.List(ctx, c.Token)
+	known, err := store.KnownExtIDs(ctx, f.Pool, companyID)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	known, err := store.KnownExtIDs(ctx, f.Pool, companyID)
+	// Boards that can list just their new postings do so on most runs;
+	// a full sweep (which detects closed postings) runs once a day.
+	var jobs []sources.RawJob
+	complete := true
+	il, incremental := src.(sources.IncrementalLister)
+	if incremental {
+		last, lerr := store.LastFullFetch(ctx, f.Pool, companyID)
+		if lerr != nil {
+			return 0, 0, 0, lerr
+		}
+		incremental = time.Since(last) < fullSweepEvery
+	}
+	if incremental {
+		jobs, complete, err = il.ListNew(ctx, c.Token, known)
+	} else {
+		jobs, err = src.List(ctx, c.Token)
+	}
 	if err != nil {
-		return len(jobs), 0, 0, err
+		return 0, 0, 0, err
 	}
 	limit := maxDetailsPerRun
 	if dl, ok := src.(sources.DetailLimiter); ok {
@@ -181,7 +283,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 				mu.Lock()
 				failed++
 				mu.Unlock()
-				return nil
+				return nil //nolint:nilerr // a failed detail is skipped and retried next run, not fatal
 			}
 			mu.Lock()
 			detailed = append(detailed, j)
@@ -203,15 +305,24 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	if err := store.TouchJobs(ctx, f.Pool, companyID, stillListed); err != nil {
 		return len(jobs), 0, 0, err
 	}
-	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs)
+	if !complete {
+		allIDs = nil // a partial listing must not close anything
+	}
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs, complete)
+	if err == nil && complete {
+		if merr := store.MarkFullFetch(ctx, f.Pool, companyID); merr != nil {
+			f.Log.Warn("recording full sweep failed", "company", c.Name, "err", merr)
+		}
+	}
 	return len(jobs), seen + len(stillListed), newly, err
 }
 
 // saveCompanyJobs upserts the fetched postings, closes postings that
-// disappeared, and marks the fetch as successful. openIDs lists every
-// posting still on the board (nil = exactly the saved ones). It returns
+// disappeared (when closeMissing; only after a complete listing), and
+// marks the fetch as successful. openIDs lists every posting still on the
+// board (nil = exactly the saved ones). It returns
 // the number of jobs seen and newly inserted.
-func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string) (seen, newly int, err error) {
+func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string, closeMissing bool) (seen, newly int, err error) {
 	inputs := make([]store.JobInput, 0, len(raw))
 	collectIDs := openIDs == nil
 	for _, rj := range raw {
@@ -236,8 +347,11 @@ func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sou
 	if err != nil {
 		return seen, newly, fmt.Errorf("save jobs: %w", err)
 	}
-	if _, err := store.CloseMissingJobs(ctx, f.Pool, companyID, openIDs); err != nil {
-		return seen, newly, fmt.Errorf("close missing: %w", err)
+	// After a partial listing, postings not listed may still be open.
+	if closeMissing {
+		if _, err := store.CloseMissingJobs(ctx, f.Pool, companyID, openIDs); err != nil {
+			return seen, newly, fmt.Errorf("close missing: %w", err)
+		}
 	}
 	if err := store.UpdateFetchStatus(ctx, f.Pool, companyID, true, ""); err != nil {
 		return seen, newly, fmt.Errorf("update status: %w", err)

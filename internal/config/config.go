@@ -59,7 +59,7 @@ func LoadCompanies(path string) (*Companies, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // config file path from the operator
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
@@ -137,7 +137,7 @@ func (in *Industries) IDs() map[string]bool {
 
 // LoadIndustries reads and validates an industries.yaml file.
 func LoadIndustries(path string) (*Industries, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // config file path from the operator
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}

@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/config"
 	"wera/internal/filter"
 	"wera/internal/metrics"
+	"wera/internal/relevance"
 	"wera/internal/scoring"
 	"wera/internal/store"
 )
@@ -32,7 +34,79 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, pro
 			m.JobsExcluded.WithLabelValues(reason).Add(float64(n))
 		}
 	}
-	return &FilterStats{Excluded: excluded, Pending: pending}, nil
+	// Jobs this exact profile text was already scored for (before a
+	// refilter or a profile save that kept the text) get their score back
+	// now, for free, so lists never show them as unscored.
+	pendingCached, err := store.PendingWithCachedAnalysis(ctx, pool, prof.UserID, prof.ProfileHash)
+	if err != nil {
+		return nil, err
+	}
+	rules := ExclusionsFor(&prof.Preferences)
+	for _, pj := range pendingCached {
+		if err := linkCached(ctx, pool, prof.UserID, pj, rules); err != nil {
+			return nil, err
+		}
+	}
+	pending -= len(pendingCached)
+	byFacts, err := excludeByKnownFacts(ctx, pool, prof)
+	if err != nil {
+		return nil, err
+	}
+	if err := RankPending(ctx, pool, prof); err != nil {
+		return nil, err
+	}
+	return &FilterStats{Excluded: excluded + byFacts, Pending: pending - byFacts}, nil
+}
+
+// excludeByKnownFacts applies the user's rules to unscored matches whose
+// shared facts already exist (extracted for another user): jobs asking
+// for too many years, refusing sponsorship, outside the US or too senior
+// drop out at filter time, before they are ranked or shown, at no cost.
+func excludeByKnownFacts(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile) (int, error) {
+	ids, err := store.PendingJobIDs(ctx, pool, prof.UserID)
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	facts, err := store.FactsFor(ctx, pool, ids)
+	if err != nil {
+		return 0, err
+	}
+	rules := ExclusionsFor(&prof.Preferences)
+	n := 0
+	for id, f := range facts {
+		if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
+			if err := store.ExcludeUserJob(ctx, pool, prof.UserID, id, reason, evidence); err != nil {
+				return n, err
+			}
+			n++
+		}
+	}
+	return n, nil
+}
+
+// linkCached attaches an existing analysis to one of the user's jobs,
+// applying their post-scoring rules (an unparseable stored reply counts as
+// a failed score).
+func linkCached(ctx context.Context, pool *pgxpool.Pool, userID int64, pj store.PendingJob, rules scoring.Exclusions) error {
+	stage, reason, evidence := scoring.StageFailed, "", ""
+	if pj.Cached.Analysis != nil {
+		stage = scoring.StageScored
+		if reason, evidence = scoring.PostLLMExclusion(pj.Cached.Analysis, rules); reason != "" {
+			stage = scoring.StageExcluded
+		}
+	}
+	return store.LinkAnalysis(ctx, pool, userID, pj.Job.ID, pj.Cached.ID, stage, reason, evidence)
+}
+
+// RankPending re-ranks the user's unscored matches against their profile
+// with the local relevance model (no LLM). The estimates order the LLM
+// queue and preview jobs on the dashboard until real scores arrive.
+func RankPending(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile) error {
+	docs, err := store.RankDocs(ctx, pool, prof.UserID)
+	if err != nil {
+		return err
+	}
+	return store.SetEstimates(ctx, pool, prof.UserID, relevance.Rank(prof.Markdown, docs))
 }
 
 // ExclusionsFor maps a user's preferences to their post-LLM rules.
@@ -52,6 +126,8 @@ type ScoreStats struct {
 	Failed           int // score_failed (invalid JSON twice)
 	Skipped          int // left pending: budget guard or call error
 	Reused           int // linked to an existing analysis, no LLM call
+	FactsExtracted   int // postings whose shared facts were extracted now
+	ExcludedByFacts  int // excluded from shared facts, no per-user LLM call
 	PromptTokens     int64
 	CachedTokens     int64
 	CompletionTokens int64
@@ -68,6 +144,8 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 	s.Failed += o.Failed
 	s.Skipped += o.Skipped
 	s.Reused += o.Reused
+	s.FactsExtracted += o.FactsExtracted
+	s.ExcludedByFacts += o.ExcludedByFacts
 	s.PromptTokens += o.PromptTokens
 	s.CachedTokens += o.CachedTokens
 	s.CompletionTokens += o.CompletionTokens
@@ -79,7 +157,9 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 // have an analysis for the user's exact profile text reuse it for free.
 // It returns (nil, nil) when CORAL_API_KEY is not set, so the pipeline
 // simply skips the LLM stage.
-func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, prof *store.Profile, limit int, maxCostUSD float64, m *metrics.Registry) (*ScoreStats, error) {
+// onlyIDs, when not empty, scores just those jobs (on-demand scoring of
+// a job the user opened).
+func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, prof *store.Profile, limit int, onlyIDs []int64, maxCostUSD float64, m *metrics.Registry) (*ScoreStats, error) {
 	if env.CoralAPIKey == "" {
 		log.Info("CORAL_API_KEY not set; skipping scoring stage")
 		return nil, nil
@@ -87,7 +167,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	if prof.Markdown == "" {
 		return nil, scoring.ErrNoProfile
 	}
-	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, prof.ProfileHash, limit)
+	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, prof.ProfileHash, limit, onlyIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -101,14 +181,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			jobs = append(jobs, pj.Job)
 			continue
 		}
-		stage, reason, evidence := scoring.StageFailed, "", ""
-		if pj.Cached.Analysis != nil {
-			stage = scoring.StageScored
-			if reason, evidence = scoring.PostLLMExclusion(pj.Cached.Analysis, rules); reason != "" {
-				stage = scoring.StageExcluded
-			}
-		}
-		if err := store.LinkAnalysis(ctx, pool, prof.UserID, pj.Job.ID, pj.Cached.ID, stage, reason, evidence); err != nil {
+		if err := linkCached(ctx, pool, prof.UserID, pj, rules); err != nil {
 			return st, err
 		}
 		st.Reused++
@@ -138,10 +211,10 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		"model", env.CoralModel, "concurrency", env.ScoringConcurrency,
 		"max_cost_usd", fmt.Sprintf("%.4f", maxCostUSD))
 
-	outcomes := scorer.Score(ctx, jobs)
-
-	st.CostUSD = scorer.Spent()
-	for _, out := range outcomes {
+	// Each outcome is saved as soon as it arrives, so the dashboard shows
+	// scores while the rest of the batch is still running.
+	var mu sync.Mutex
+	scorer.OnOutcome = func(out scoring.Outcome) {
 		if m != nil {
 			m.LLMTokens.WithLabelValues("prompt").Add(float64(out.Usage.PromptTokens))
 			m.LLMTokens.WithLabelValues("cached").Add(float64(out.Usage.CachedTokens))
@@ -157,13 +230,15 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		if out.Stage != "" {
 			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.CoralModel, prof.ProfileHash, out); err != nil {
 				log.Error("saving analysis failed", "job_id", out.JobID, "err", err)
-				continue
+			} else {
+				log.Debug("job scored", "user_id", prof.UserID, "job_id", out.JobID,
+					"stage", out.Stage, "fit_score", scoreInt(out.Analysis),
+					"tokens", out.Usage.PromptTokens, "cached", out.Usage.CachedTokens,
+					"cost", fmt.Sprintf("%.6f", out.CostUSD), "ms", out.LatencyMS)
 			}
-			log.Info("job scored", "user_id", prof.UserID, "job_id", out.JobID, "model", env.CoralModel,
-				"stage", out.Stage, "fit_score", scoreInt(out.Analysis),
-				"tokens", out.Usage.PromptTokens, "cached", out.Usage.CachedTokens,
-				"cost", fmt.Sprintf("%.6f", out.CostUSD), "ms", out.LatencyMS)
 		}
+		mu.Lock()
+		defer mu.Unlock()
 		st.PromptTokens += out.Usage.PromptTokens
 		st.CachedTokens += out.Usage.CachedTokens
 		st.CompletionTokens += out.Usage.CompletionTokens
@@ -181,9 +256,94 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			}
 		}
 	}
+	extractor := &scoring.Extractor{
+		Client:      client,
+		Model:       env.CoralModel,
+		Concurrency: env.ScoringConcurrency,
+		Log:         log,
+		OnResult: func(r scoring.FactsResult) {
+			if r.Usage.PromptTokens > 0 {
+				if err := store.RecordLLMUsage(ctx, pool, prof.UserID, "facts", env.CoralModel,
+					r.Usage.PromptTokens, r.Usage.CachedTokens, r.Usage.CompletionTokens, r.CostUSD); err != nil {
+					log.Warn("recording facts usage failed", "err", err)
+				}
+				mu.Lock()
+				st.FactsExtracted++
+				st.PromptTokens += r.Usage.PromptTokens
+				st.CachedTokens += r.Usage.CachedTokens
+				st.CompletionTokens += r.Usage.CompletionTokens
+				mu.Unlock()
+			}
+			if r.Facts != nil {
+				if err := store.SaveFacts(ctx, pool, r, env.CoralModel); err != nil {
+					log.Warn("saving facts failed", "job_id", r.JobID, "err", err)
+				}
+			}
+		},
+	}
+
+	// Work through the queue (best estimates first) in small chunks:
+	// shared facts (reused, or extracted once for everyone), exclusions
+	// from facts without an LLM call, then compact fit scoring. The first
+	// scores land after two quick round trips instead of after the batch.
+	const chunk = 24
+	for start := 0; start < len(jobs) && ctx.Err() == nil; start += chunk {
+		part := jobs[start:min(start+chunk, len(jobs))]
+		remaining := maxCostUSD - extractor.Spent() - scorer.Spent()
+		if remaining <= 0 {
+			st.Skipped += len(jobs) - start
+			break
+		}
+		ids := make([]int64, len(part))
+		for i, j := range part {
+			ids[i] = j.ID
+		}
+		facts, err := store.FactsFor(ctx, pool, ids)
+		if err != nil {
+			return st, err
+		}
+		var missing []scoring.Job
+		for _, j := range part {
+			if facts[j.ID] == nil {
+				missing = append(missing, j)
+			}
+		}
+		if len(missing) > 0 {
+			extractor.MaxCostUSD = extractor.Spent() + remaining
+			for _, r := range extractor.Extract(ctx, missing) {
+				if r.Facts != nil {
+					facts[r.JobID] = r.Facts
+				}
+			}
+		}
+
+		var toScore []scoring.Job
+		for _, j := range part {
+			f := facts[j.ID]
+			if f != nil {
+				if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
+					if err := store.ExcludeUserJob(ctx, pool, prof.UserID, j.ID, reason, evidence); err != nil {
+						log.Warn("excluding job failed", "job_id", j.ID, "err", err)
+					}
+					st.ExcludedByFacts++
+					continue
+				}
+			}
+			toScore = append(toScore, j)
+		}
+		if len(toScore) == 0 {
+			continue
+		}
+		scorer.Facts = facts
+		scorer.MaxCostUSD = scorer.Spent() + (maxCostUSD - extractor.Spent() - scorer.Spent())
+		scorer.Score(ctx, toScore)
+	}
+	st.CostUSD = scorer.Spent() + extractor.Spent()
+
 	log.Info("scoring pass finished", "user_id", prof.UserID,
 		"scored", st.Scored, "excluded", st.Excluded, "score_failed", st.Failed,
 		"skipped", st.Skipped, "reused", st.Reused,
+		"facts_extracted", st.FactsExtracted, "excluded_by_facts", st.ExcludedByFacts,
 		"prompt_tokens", st.PromptTokens, "cached_tokens", st.CachedTokens,
 		"completion_tokens", st.CompletionTokens, "cost_usd", fmt.Sprintf("%.6f", st.CostUSD))
 	return st, nil

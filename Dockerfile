@@ -2,14 +2,18 @@
 # a static binary. The runtime image is Alpine rather than distroless so it
 # can ship poppler's pdftotext for reading uploaded resumes. Secrets
 # (CORAL_API_KEY) come from the environment at runtime.
-FROM golang:1.25-alpine AS build
+FROM golang:1.27.2-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/wera ./cmd/wera
+ARG VERSION=dev
+ARG COMMIT=unknown
+RUN CGO_ENABLED=0 go build -trimpath \
+      -ldflags="-s -w -X wera/internal/buildinfo.Version=${VERSION} -X wera/internal/buildinfo.Commit=${COMMIT}" \
+      -o /out/wera ./cmd/wera
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache poppler-utils ca-certificates tzdata \
  && adduser -D -H -u 65532 nonroot
 WORKDIR /app

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -36,6 +37,15 @@ func (s *replyScript) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	content, _ := json.Marshal(reply)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"choices":[{"message":{"content":` + string(content) + `}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}}}`))
+}
+
+func (s *replyScript) lastMessages() []Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.messages) == 0 {
+		return nil
+	}
+	return s.messages[len(s.messages)-1]
 }
 
 func (s *replyScript) requestCount() int {
@@ -115,7 +125,7 @@ func TestScorerRetriesInvalidJSONOnce(t *testing.T) {
 		t.Errorf("retry messages: %+v", retryMsgs)
 	}
 	// Prefix still intact on the retry.
-	if retryMsgs[0].Content != systemPrompt || retryMsgs[1].Content != "CANDIDATE PROFILE:\n"+testProfile {
+	if retryMsgs[0].Content != systemPrompt || retryMsgs[1].Content != "<profile>\n"+testProfile+"\n</profile>" {
 		t.Error("retry broke the cached prefix")
 	}
 }
@@ -128,5 +138,36 @@ func TestScorerScoreFailedAfterTwoBadReplies(t *testing.T) {
 	}
 	if outs[0].Raw != "still garbage" {
 		t.Errorf("raw: got %q", outs[0].Raw)
+	}
+}
+
+func TestScorerStreamsOutcomesInOrder(t *testing.T) {
+	s, _ := newTestScorer(t, validReply, validReply, validReply)
+	var got []int64
+	var mu sync.Mutex
+	s.OnOutcome = func(o Outcome) {
+		mu.Lock()
+		got = append(got, o.JobID)
+		mu.Unlock()
+	}
+	outs := s.Score(context.Background(), testJobs(3)) // Concurrency 1
+	if len(outs) != 3 || len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 3 {
+		t.Fatalf("streamed %v, want 1,2,3 in order", got)
+	}
+}
+
+func TestScorerCompactPathUsesFacts(t *testing.T) {
+	s, script := newTestScorer(t, `{"fit_score":77,"verdict":"good","skills_matched":["Linux"],"skills_missing":["Go"],"reason":"Solid."}`)
+	years := 2
+	s.Facts = map[int64]*Facts{1: {Seniority: "junior", YearsRequired: &years, Sponsorship: "unknown",
+		WorkMode: "remote", LocationSummary: "Remote, US", SkillsRequired: []string{"Linux", "Go"}, Digest: "Run Linux fleets."}}
+	out := s.Score(context.Background(), testJobs(1))[0]
+	if out.Stage != StageScored || out.Analysis.FitScore != 77 || out.Analysis.Seniority != "junior" ||
+		*out.Analysis.YearsRequired != 2 || out.Analysis.WorkMode != "remote" {
+		t.Fatalf("merged analysis: stage %q %+v", out.Stage, out.Analysis)
+	}
+	msgs := script.lastMessages()
+	if len(msgs) != 3 || !strings.HasPrefix(msgs[1].Content, "<profile>") || !strings.Contains(msgs[2].Content, "Run Linux fleets.") {
+		t.Errorf("compact prompt not used: %+v", msgs)
 	}
 }

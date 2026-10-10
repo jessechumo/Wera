@@ -42,10 +42,11 @@ func SuggestMessages(resume string, roles *config.Roles) []scoring.Message {
 	for _, l := range roles.Levels {
 		fmt.Fprintf(&b, "- %s: %s\n", l.ID, l.Label)
 	}
-	b.WriteString("\nRESUME:\n")
-	b.WriteString(resume)
+	b.WriteString("\n<resume>\n")
+	b.WriteString(scoring.Fence(resume))
+	b.WriteString("\n</resume>")
 	return []scoring.Message{
-		{Role: "system", Content: suggestInstructions},
+		{Role: "system", Content: suggestInstructions + "\n\n" + scoring.Untrusted},
 		{Role: "user", Content: b.String()},
 	}
 }

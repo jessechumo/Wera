@@ -14,6 +14,7 @@ import (
 	"wera/internal/api"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/pipeline"
 	"wera/internal/store"
 )
 
@@ -72,27 +73,60 @@ func runServe(ctx context.Context, args []string) error {
 		}
 		log.Info("matched after profile save", "user_id", userID, "excluded", ex, "scored", scored)
 	}
+	// "Run now" from the dashboard. If it deferred companies for job board
+	// maintenance, one catch-up run follows when the window ends (the
+	// advisory lock keeps it from overlapping a worker run).
+	runNow := func(ctx context.Context) (bool, error) {
+		ran, err := p.RunOnce(ctx)
+		if at := p.CatchUpAt; !at.IsZero() {
+			log.Info("catch-up run after job board maintenance", "at", at.Add(2*time.Minute).Format(time.RFC3339))
+			go func() { //nolint:gosec // a one-off catch-up run after the maintenance window
+				time.Sleep(time.Until(at) + 2*time.Minute)
+				if _, err := p.RunOnce(context.Background()); err != nil {
+					log.Error("catch-up run failed", "err", err)
+				}
+			}()
+		}
+		return ran, err
+	}
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
 		Metrics:     reg,
 		Industries:  inds.Industries,
-		RunPipeline: p.RunOnce,
+		RunPipeline: runNow,
 		Roles:       roles,
 		Env:         env,
 		MatchUser:   matchUser,
+		PrepareUser: func(ctx context.Context, userID int64) error {
+			prof, err := store.GetProfile(ctx, pool, userID)
+			if err != nil || prof == nil || !prof.Ready() {
+				return err
+			}
+			_, err = pipeline.FilterUser(ctx, pool, p.Engine, prof, reg)
+			return err
+		},
+		ScoreNow: p.ScoreNow,
 
-		SignupEnabled: env.SignupEnabled,
-		UserBudgetUSD: env.UserBudgetUSD,
-		CookieSecure:  env.CookieSecure,
-		PublicOrigins: env.PublicOrigins,
-		TrustProxy:    env.TrustProxy,
+		SignupEnabled:  env.SignupEnabled,
+		SignupsPerHour: env.SignupsPerHour,
+		UserBudgetUSD:  env.UserBudgetUSD,
+		CookieSecure:   env.CookieSecure,
+		PublicOrigins:  env.PublicOrigins,
+		TrustProxy:     env.TrustProxy,
 	}
 
 	httpServer := &http.Server{
 		Addr:              env.HTTPAddr,
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// Slow clients cannot hold connections open forever. Reads cover a
+		// resume upload on a slow link; writes cover the slowest handler
+		// (a profile save that filters and ranks ~40k jobs, or an LLM call).
+		ReadTimeout:    60 * time.Second,
+		WriteTimeout:   120 * time.Second,
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 64 << 10,
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.

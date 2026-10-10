@@ -31,6 +31,14 @@ type Source interface {
 	Fetch(ctx context.Context, token string) ([]RawJob, error)
 }
 
+// ConditionalSource is a Source whose board supports ETags: FetchIfChanged
+// sends the ETag from the previous fetch and returns ErrNotModified when
+// nothing changed (a 304 with no body). Greenhouse, Lever and Ashby do.
+type ConditionalSource interface {
+	Source
+	FetchIfChanged(ctx context.Context, token, etag string) (jobs []RawJob, newETag string, err error)
+}
+
 // DetailSource is an ATS whose list endpoint has no job descriptions;
 // each posting needs its own request. The fetcher lists the board every
 // run but requests details only for postings it has not stored yet, so a
@@ -42,6 +50,14 @@ type DetailSource interface {
 	List(ctx context.Context, token string) ([]RawJob, error)
 	// Detail completes one listed posting (description, dates, ...).
 	Detail(ctx context.Context, token string, j *RawJob) error
+}
+
+// IncrementalLister is a DetailSource that can stop listing early: its
+// board is ordered newest first, so ListNew pages until a page holds no
+// posting in known and reports complete=false when it stopped before the
+// end. An incomplete listing must not be used to close postings.
+type IncrementalLister interface {
+	ListNew(ctx context.Context, token string, known map[string]bool) (jobs []RawJob, complete bool, err error)
 }
 
 // FetchAll is Fetch for a DetailSource: list, then every detail.

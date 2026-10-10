@@ -161,7 +161,7 @@ func runUsers(ctx context.Context, args []string) error {
 		} else if err != nil {
 			return err
 		}
-		md, err := os.ReadFile(*file)
+		md, err := os.ReadFile(*file) //nolint:gosec // an admin CLI flag naming a local file
 		if err != nil {
 			return fmt.Errorf("--file: %w", err)
 		}

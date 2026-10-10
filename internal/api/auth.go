@@ -86,7 +86,7 @@ func (s *Server) sameOrigin(next http.Handler) http.Handler {
 			return
 		}
 		origin := r.Header.Get("Origin")
-		if origin != "" && !s.originAllowed(r, origin) {
+		if (origin != "" && !s.originAllowed(r, origin)) || (origin == "" && crossSite(r)) {
 			s.writeError(w, http.StatusForbidden, "cross-origin request refused")
 			return
 		}
@@ -118,13 +118,19 @@ func (s *Server) originAllowed(r *http.Request, origin string) bool {
 // header when TrustProxy is set (behind cloudflared / Vercel / nginx).
 func (s *Server) clientIP(r *http.Request) string {
 	if s.TrustProxy {
-		for _, h := range []string{"CF-Connecting-IP", "X-Real-IP"} {
+		// X-Real-IP is set by our own proxy (nginx overwrites any value a
+		// client sends), so it comes first; CF-Connecting-IP only counts
+		// when that proxy forwards it. For X-Forwarded-For the last hop is
+		// the one the proxy appended: earlier entries are client-supplied
+		// and would let an attacker pick a fresh rate-limit bucket per try.
+		for _, h := range []string{"X-Real-IP", "CF-Connecting-IP"} {
 			if v := strings.TrimSpace(r.Header.Get(h)); v != "" {
 				return v
 			}
 		}
 		if v := r.Header.Get("X-Forwarded-For"); v != "" {
-			return strings.TrimSpace(strings.Split(v, ",")[0])
+			parts := strings.Split(v, ",")
+			return strings.TrimSpace(parts[len(parts)-1])
 		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -135,7 +141,9 @@ func (s *Server) clientIP(r *http.Request) string {
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
+	// Secure is configurable: the LAN deployment is plain HTTP; set
+	// COOKIE_SECURE=true behind TLS.
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // see above
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
@@ -147,7 +155,7 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
 }
 
 func (s *Server) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure follows COOKIE_SECURE, as above
 		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: s.CookieSecure, SameSite: http.SameSiteLaxMode,
 	})
@@ -240,6 +248,11 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad JSON body")
 		return
 	}
+	// Per account too, so guesses spread over many IPs still hit a wall.
+	if !s.accountLimit.Allow(strings.ToLower(strings.TrimSpace(c.Email))) {
+		s.writeError(w, http.StatusTooManyRequests, "too many login attempts; try again in a few minutes")
+		return
+	}
 	u, hash, err := store.UserCredentials(r.Context(), s.Pool, strings.TrimSpace(c.Email))
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		s.Log.Error("login lookup failed", "err", err)
@@ -271,7 +284,12 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, http.StatusOK, map[string]any{"user": currentUser(r)})
+	u := currentUser(r)
+	v, err := store.AvatarVersion(r.Context(), s.Pool, u.ID)
+	if err != nil {
+		s.Log.Warn("avatar lookup failed", "err", err)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"user": u, "avatar_version": v})
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {

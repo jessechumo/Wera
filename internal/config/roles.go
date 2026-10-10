@@ -69,7 +69,7 @@ func (r *Roles) LevelIDs() map[string]bool {
 
 // LoadRoles reads, parses and validates a roles.yaml file.
 func LoadRoles(path string) (*Roles, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // config file path from the operator
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
