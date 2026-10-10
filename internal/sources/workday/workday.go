@@ -49,6 +49,32 @@ func NewWithBaseURL(h *sources.HTTP, baseURL string) *Adapter {
 // Name implements sources.Source.
 func (a *Adapter) Name() string { return name }
 
+// pacific is where Workday schedules its weekly maintenance.
+var pacific = mustLoad("America/Los_Angeles")
+
+func mustLoad(name string) *time.Location {
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		panic(err)
+	}
+	return loc
+}
+
+// MaintenanceUntil implements sources.MaintenanceAware: Workday's weekly
+// maintenance runs Friday 11 p.m. to Saturday 3 a.m. Pacific, when every
+// career site redirects to a maintenance page.
+func (a *Adapter) MaintenanceUntil(now time.Time) (time.Time, bool) {
+	t := now.In(pacific)
+	y, m, d := t.Date()
+	switch {
+	case t.Weekday() == time.Friday && t.Hour() >= 23:
+		return time.Date(y, m, d+1, 3, 0, 0, 0, pacific), true
+	case t.Weekday() == time.Saturday && t.Hour() < 3:
+		return time.Date(y, m, d, 3, 0, 0, 0, pacific), true
+	}
+	return time.Time{}, false
+}
+
 // MaxDetailsPerRun implements sources.DetailLimiter.
 func (a *Adapter) MaxDetailsPerRun() int { return maxDetails }
 

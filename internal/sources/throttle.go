@@ -49,6 +49,13 @@ func (t *Throttle) Do(ctx context.Context, fn func() error) error {
 	return fn()
 }
 
+// MaintenanceAware is implemented by a source with a known maintenance
+// window. While MaintenanceUntil reports true, the fetcher skips its
+// companies and plans a catch-up run for when the window ends.
+type MaintenanceAware interface {
+	MaintenanceUntil(now time.Time) (end time.Time, inWindow bool)
+}
+
 // DetailLimiter is implemented by a DetailSource that wants fewer new
 // postings detailed per company per run than the fetcher's default.
 type DetailLimiter interface {

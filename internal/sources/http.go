@@ -10,12 +10,18 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // ErrBoardNotFound signals a permanent 404 for a board token. It is never
 // retried and is recorded as last_fetch_error = "404 token not found".
 var ErrBoardNotFound = errors.New("404 token not found")
+
+// ErrUnavailable signals that the job board is down for maintenance (it
+// redirected to a maintenance page). It is not retried; the fetcher
+// defers the company instead of counting a failure.
+var ErrUnavailable = errors.New("job board is down for maintenance")
 
 // maxBodyBytes caps one response. Boards with descriptions inline get big
 // (Anduril's Greenhouse board was 43 MB in October 2026).
@@ -79,6 +85,10 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 		}
 
 		resp, err := h.Client.Do(req)
+		if err == nil && redirectedToMaintenance(resp) {
+			resp.Body.Close()
+			return fmt.Errorf("%w (redirected to %s)", ErrUnavailable, resp.Request.URL)
+		}
 		if err != nil {
 			lastErr = fmt.Errorf("request: %w", err)
 		} else {
@@ -132,4 +142,12 @@ func truncate(b []byte, n int) string {
 		return string(b[:n]) + "..."
 	}
 	return string(b)
+}
+
+// redirectedToMaintenance reports whether the request ended on a
+// maintenance page after redirects (Workday sends every tenant to
+// community.workday.com/maintenance-page during its weekly window).
+func redirectedToMaintenance(resp *http.Response) bool {
+	final := resp.Request.URL
+	return final != nil && strings.Contains(strings.ToLower(final.Path), "maintenance")
 }

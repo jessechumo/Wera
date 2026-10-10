@@ -3,6 +3,7 @@ package workday
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -90,5 +91,44 @@ func TestParseToken(t *testing.T) {
 		if _, err := parseToken(bad); err == nil {
 			t.Errorf("%q: expected an error", bad)
 		}
+	}
+}
+
+func TestMaintenanceWindow(t *testing.T) {
+	a := New(sources.NewHTTP("Wera/test"))
+	pt := func(day, h, min int) time.Time { return time.Date(2026, 10, day, h, min, 0, 0, pacific) }
+	end := pt(10, 3, 0) // Saturday 3 a.m.
+	tests := []struct {
+		now     time.Time
+		inside  bool
+		wantEnd time.Time
+	}{
+		{pt(9, 22, 59), false, time.Time{}}, // Friday before 11 p.m.
+		{pt(9, 23, 0), true, end},           // Friday 11 p.m.
+		{pt(10, 0, 30), true, end},          // Saturday 12:30 a.m.
+		{pt(10, 2, 59), true, end},
+		{pt(10, 3, 0), false, time.Time{}},  // Saturday 3 a.m.: open again
+		{pt(8, 23, 30), false, time.Time{}}, // Thursday night
+	}
+	for _, tc := range tests {
+		got, inside := a.MaintenanceUntil(tc.now.UTC())
+		if inside != tc.inside || !got.Equal(tc.wantEnd) {
+			t.Errorf("%s: got %v %v, want %v %v", tc.now, got, inside, tc.wantEnd, tc.inside)
+		}
+	}
+}
+
+func TestMaintenanceRedirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/maintenance-page" {
+			w.Write([]byte("<html>down</html>"))
+			return
+		}
+		http.Redirect(w, r, "/maintenance-page", http.StatusSeeOther)
+	}))
+	t.Cleanup(srv.Close)
+	a := NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
+	if _, err := a.List(context.Background(), "acme.wd5/Careers"); !errors.Is(err, sources.ErrUnavailable) {
+		t.Errorf("want ErrUnavailable, got %v", err)
 	}
 }
