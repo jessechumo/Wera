@@ -133,3 +133,19 @@ func TestLoadRoles(t *testing.T) {
 		t.Error("invalid preferences accepted")
 	}
 }
+
+func TestSecureURL(t *testing.T) {
+	for raw, want := range map[string]bool{
+		"https://inference.coralbricks.ai/v1": true,
+		"http://127.0.0.1:9999/v1":            true,
+		"http://localhost/v1":                 true,
+		"http://inference.coralbricks.ai/v1":  false,
+		"http://192.168.1.5/v1":               false,
+		"ftp://example.com":                   false,
+		"not a url":                           false,
+	} {
+		if got := secureURL(raw); got != want {
+			t.Errorf("secureURL(%q) = %v, want %v", raw, got, want)
+		}
+	}
+}

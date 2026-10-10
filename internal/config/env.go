@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -152,6 +153,9 @@ func LoadEnv() (*Env, error) {
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))
 	}
+	if !secureURL(e.CoralBaseURL) {
+		errs = append(errs, fmt.Sprintf("CORAL_BASE_URL must use https (or http to localhost), got %q", e.CoralBaseURL))
+	}
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("invalid environment:\n  - %s", strings.Join(errs, "\n  - "))
 	}
@@ -165,4 +169,19 @@ func NewLogger(e *Env) *slog.Logger {
 		return slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	}
 	return slog.New(slog.NewTextHandler(os.Stdout, nil))
+}
+
+// secureURL accepts https URLs, and plain http only to this machine
+// (a local mock). The API key and resumes must never cross a network in
+// the clear.
+func secureURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	h := u.Hostname()
+	return u.Scheme == "http" && (h == "localhost" || h == "127.0.0.1" || h == "::1")
 }
