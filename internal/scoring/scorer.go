@@ -48,6 +48,11 @@ type Scorer struct {
 	Concurrency int        // SCORING_CONCURRENCY
 	Log         *slog.Logger
 
+	// Facts holds shared job facts by job id. A job with facts is scored
+	// with the compact fit prompt (profile + job card, ~10x fewer
+	// uncached tokens); one without falls back to the full posting.
+	Facts map[int64]*Facts
+
 	// OnOutcome, when set, is called with each outcome as soon as it is
 	// ready (from several goroutines at once), so callers can persist and
 	// show scores while the rest of the batch is still running.
@@ -108,6 +113,9 @@ func (s *Scorer) emit(o Outcome) {
 func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 	out := Outcome{JobID: j.ID}
 
+	if f := s.Facts[j.ID]; f != nil {
+		return s.scoreCompact(ctx, j, f)
+	}
 	messages := BuildMessages(s.Profile, j)
 	start := time.Now()
 	comp, err := s.Client.Chat(ctx, CacheKey(s.ProfileHash), messages)
@@ -266,3 +274,54 @@ func (s *Scorer) Spent() float64 {
 
 // ErrNoProfile is returned when the profile file is missing or empty.
 var ErrNoProfile = errors.New("candidate profile is missing or empty")
+
+// scoreCompact scores a job from its shared facts: the fit prompt sees the
+// profile and a short job card, and the result merges facts and fit.
+func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
+	out := Outcome{JobID: j.ID}
+	messages := BuildFitMessages(s.Profile, f.Card(j))
+	start := time.Now()
+	comp, err := s.Client.Chat(ctx, CacheKey(s.ProfileHash), messages)
+	if err != nil {
+		out.Stage, out.Err = StageSkipped, err
+		return out
+	}
+	out.Usage = comp.Usage
+	out.LatencyMS = time.Since(start).Milliseconds()
+	out.CostUSD = s.callCost(comp)
+	s.addCost(out.CostUSD)
+
+	fit, err := ParseFit(comp.Content)
+	raw := StripFences(comp.Content)
+	if err != nil {
+		retry, cerr := s.Client.Chat(ctx, CacheKey(s.ProfileHash),
+			append(append([]Message{}, messages...), Message{Role: "user", Content: retryNote}))
+		if cerr == nil {
+			out.CostUSD += s.callCost(retry)
+			s.addCost(s.callCost(retry))
+			raw = StripFences(retry.Content)
+			fit, err = ParseFit(retry.Content)
+		}
+	}
+	out.Raw = raw
+	if err != nil {
+		out.Stage = StageFailed
+		return out
+	}
+	out.Analysis = Merge(f, fit)
+	if reason, evidence := PostLLMExclusion(out.Analysis, s.Rules); reason != "" {
+		out.Stage, out.ExcludeReason, out.ExcludeEvidence = StageExcluded, reason, evidence
+	} else {
+		out.Stage = StageScored
+	}
+	return out
+}
+
+// callCost is the provider-reported cost, or the price table estimate.
+func (s *Scorer) callCost(c *Completion) float64 {
+	if c.CostUSD != nil && *c.CostUSD > 0 {
+		return *c.CostUSD
+	}
+	prices, _ := PriceFor(s.Model)
+	return prices.CostUSD(c.Usage.PromptTokens, c.Usage.CachedTokens, c.Usage.CompletionTokens)
+}

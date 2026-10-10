@@ -68,6 +68,8 @@ type ScoreStats struct {
 	Failed           int // score_failed (invalid JSON twice)
 	Skipped          int // left pending: budget guard or call error
 	Reused           int // linked to an existing analysis, no LLM call
+	FactsExtracted   int // postings whose shared facts were extracted now
+	ExcludedByFacts  int // excluded from shared facts, no per-user LLM call
 	PromptTokens     int64
 	CachedTokens     int64
 	CompletionTokens int64
@@ -84,6 +86,8 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 	s.Failed += o.Failed
 	s.Skipped += o.Skipped
 	s.Reused += o.Reused
+	s.FactsExtracted += o.FactsExtracted
+	s.ExcludedByFacts += o.ExcludedByFacts
 	s.PromptTokens += o.PromptTokens
 	s.CachedTokens += o.CachedTokens
 	s.CompletionTokens += o.CompletionTokens
@@ -201,12 +205,94 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			}
 		}
 	}
-	scorer.Score(ctx, jobs)
-	st.CostUSD = scorer.Spent()
+	extractor := &scoring.Extractor{
+		Client:      client,
+		Model:       env.CoralModel,
+		Concurrency: env.ScoringConcurrency,
+		Log:         log,
+		OnResult: func(r scoring.FactsResult) {
+			if r.Usage.PromptTokens > 0 {
+				if err := store.RecordLLMUsage(ctx, pool, prof.UserID, "facts", env.CoralModel,
+					r.Usage.PromptTokens, r.Usage.CachedTokens, r.Usage.CompletionTokens, r.CostUSD); err != nil {
+					log.Warn("recording facts usage failed", "err", err)
+				}
+				mu.Lock()
+				st.FactsExtracted++
+				st.PromptTokens += r.Usage.PromptTokens
+				st.CachedTokens += r.Usage.CachedTokens
+				st.CompletionTokens += r.Usage.CompletionTokens
+				mu.Unlock()
+			}
+			if r.Facts != nil {
+				if err := store.SaveFacts(ctx, pool, r, env.CoralModel); err != nil {
+					log.Warn("saving facts failed", "job_id", r.JobID, "err", err)
+				}
+			}
+		},
+	}
+
+	// Work through the queue (best estimates first) in small chunks:
+	// shared facts (reused, or extracted once for everyone), exclusions
+	// from facts without an LLM call, then compact fit scoring. The first
+	// scores land after two quick round trips instead of after the batch.
+	const chunk = 24
+	for start := 0; start < len(jobs) && ctx.Err() == nil; start += chunk {
+		part := jobs[start:min(start+chunk, len(jobs))]
+		remaining := maxCostUSD - extractor.Spent() - scorer.Spent()
+		if remaining <= 0 {
+			st.Skipped += len(jobs) - start
+			break
+		}
+		ids := make([]int64, len(part))
+		for i, j := range part {
+			ids[i] = j.ID
+		}
+		facts, err := store.FactsFor(ctx, pool, ids)
+		if err != nil {
+			return st, err
+		}
+		var missing []scoring.Job
+		for _, j := range part {
+			if facts[j.ID] == nil {
+				missing = append(missing, j)
+			}
+		}
+		if len(missing) > 0 {
+			extractor.MaxCostUSD = extractor.Spent() + remaining
+			for _, r := range extractor.Extract(ctx, missing) {
+				if r.Facts != nil {
+					facts[r.JobID] = r.Facts
+				}
+			}
+		}
+
+		var toScore []scoring.Job
+		for _, j := range part {
+			f := facts[j.ID]
+			if f != nil {
+				if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
+					if err := store.ExcludeUserJob(ctx, pool, prof.UserID, j.ID, reason, evidence); err != nil {
+						log.Warn("excluding job failed", "job_id", j.ID, "err", err)
+					}
+					st.ExcludedByFacts++
+					continue
+				}
+			}
+			toScore = append(toScore, j)
+		}
+		if len(toScore) == 0 {
+			continue
+		}
+		scorer.Facts = facts
+		scorer.MaxCostUSD = scorer.Spent() + (maxCostUSD - extractor.Spent() - scorer.Spent())
+		scorer.Score(ctx, toScore)
+	}
+	st.CostUSD = scorer.Spent() + extractor.Spent()
 
 	log.Info("scoring pass finished", "user_id", prof.UserID,
 		"scored", st.Scored, "excluded", st.Excluded, "score_failed", st.Failed,
 		"skipped", st.Skipped, "reused", st.Reused,
+		"facts_extracted", st.FactsExtracted, "excluded_by_facts", st.ExcludedByFacts,
 		"prompt_tokens", st.PromptTokens, "cached_tokens", st.CachedTokens,
 		"completion_tokens", st.CompletionTokens, "cost_usd", fmt.Sprintf("%.6f", st.CostUSD))
 	return st, nil

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -36,6 +37,15 @@ func (s *replyScript) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	content, _ := json.Marshal(reply)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"choices":[{"message":{"content":` + string(content) + `}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}}}`))
+}
+
+func (s *replyScript) lastMessages() []Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.messages) == 0 {
+		return nil
+	}
+	return s.messages[len(s.messages)-1]
 }
 
 func (s *replyScript) requestCount() int {
@@ -143,5 +153,21 @@ func TestScorerStreamsOutcomesInOrder(t *testing.T) {
 	outs := s.Score(context.Background(), testJobs(3)) // Concurrency 1
 	if len(outs) != 3 || len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 3 {
 		t.Fatalf("streamed %v, want 1,2,3 in order", got)
+	}
+}
+
+func TestScorerCompactPathUsesFacts(t *testing.T) {
+	s, script := newTestScorer(t, `{"fit_score":77,"verdict":"good","skills_matched":["Linux"],"skills_missing":["Go"],"reason":"Solid."}`)
+	years := 2
+	s.Facts = map[int64]*Facts{1: {Seniority: "junior", YearsRequired: &years, Sponsorship: "unknown",
+		WorkMode: "remote", LocationSummary: "Remote, US", SkillsRequired: []string{"Linux", "Go"}, Digest: "Run Linux fleets."}}
+	out := s.Score(context.Background(), testJobs(1))[0]
+	if out.Stage != StageScored || out.Analysis.FitScore != 77 || out.Analysis.Seniority != "junior" ||
+		*out.Analysis.YearsRequired != 2 || out.Analysis.WorkMode != "remote" {
+		t.Fatalf("merged analysis: stage %q %+v", out.Stage, out.Analysis)
+	}
+	msgs := script.lastMessages()
+	if len(msgs) != 3 || !strings.HasPrefix(msgs[1].Content, "<profile>") || !strings.Contains(msgs[2].Content, "Run Linux fleets.") {
+		t.Errorf("compact prompt not used: %+v", msgs)
 	}
 }
