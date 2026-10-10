@@ -42,6 +42,8 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"\n\nSincerely,\nTest User"
 	case strings.HasPrefix(system, "You write a candidate profile"):
 		content = "# Candidate Profile\n## Target roles\nSite reliability engineering."
+	case strings.HasPrefix(system, "You read a resume and pull out contact"):
+		content = `{"school":"UT Austin","degree":"B.S.","phone":"+1 000 000 0000"}`
 	case strings.HasPrefix(system, "You read a resume"):
 		content = `{"role_families":["sre","made_up"],"levels":["entry"],"years_experience":1,"current_title":"SRE Intern","locations":["Dallas, TX"],"target_roles":"SRE"}`
 	case strings.HasPrefix(system, "You moderate"):
@@ -50,6 +52,16 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			content = `{"allowed":true,"categories":[],"reason":""}`
 		}
+	case strings.HasPrefix(system, "You read the text of one web page"):
+		content = `{"is_job_posting":true,"company":"Acme Robotics","title":"Site Reliability Engineer","location":"Austin, TX","work_mode":"onsite","industry":"robotics","description_start":"About the role: keep our robot fleet","description_end":"Kubernetes and Go every day."}`
+	case strings.HasPrefix(system, "You draft the candidate's answer"):
+		if strings.Contains(req.Messages[1].Content, "salary") {
+			content = "NEEDS_INPUT: your expected salary"
+		} else {
+			content = "I want to keep robots online — because reliability work is what I do best."
+		}
+	case strings.HasPrefix(system, "You tailor the candidate's resume"):
+		content = `{"headline":"Site Reliability Engineer","summary":"SRE intern focused on reliability.","skills":[{"group":"Infra","items":["Go","Kubernetes"]}],"experience":[{"title":"SRE Intern","company":"Acme","dates":"2024","bullets":["Kept services healthy","Cut costs by 87%"]}],"projects":[],"education":["B.S. CS"],"changes":["Led with reliability"],"missing_keywords":["Terraform"]}`
 	default:
 		http.Error(w, "unexpected prompt", http.StatusBadRequest)
 		return

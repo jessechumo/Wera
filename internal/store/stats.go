@@ -75,8 +75,9 @@ func ListCompanies(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]Com
 		       count(j.id) FILTER (WHERE j.closed_at IS NULL),
 		       count(j.id) FILTER (WHERE uj.stage = 'scored' AND j.closed_at IS NULL)
 		FROM companies c
-		LEFT JOIN jobs j ON j.company_id = c.id
+		LEFT JOIN jobs j ON j.company_id = c.id AND j.added_by IS NULL
 		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
+		WHERE c.ats <> 'manual' -- companies users typed in stay private
 		GROUP BY c.id
 		ORDER BY c.industry, c.name`, userID)
 	if err != nil {

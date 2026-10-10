@@ -31,3 +31,4 @@ industries:
   - { id: security,     label: "Cybersecurity",                 description: "Security products, identity, and compliance." }
   - { id: real_estate,  label: "Real Estate & PropTech",        description: "Home buying, rentals, construction, and property software." }
   - { id: nonprofit,    label: "Nonprofit & Civic Tech",        description: "Nonprofits, open-source foundations, and civic technology." }
+  - { id: other,        label: "Other",                         description: "Companies outside the list above, including jobs you added yourself." }

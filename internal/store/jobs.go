@@ -139,6 +139,7 @@ func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, 
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
 		WHERE j.closed_at IS NULL
+		  AND j.added_by IS NULL -- jobs a user added are theirs alone and never filtered
 		  AND (uj.job_id IS NULL OR uj.content_hash <> j.content_hash)`, userID)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("load jobs to filter: %w", err)

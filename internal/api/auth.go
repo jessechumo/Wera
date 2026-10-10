@@ -44,6 +44,22 @@ func sessionHash(r *http.Request) string {
 // requireUser rejects requests without a live session (401).
 func (s *Server) requireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The extension authenticates with a bearer token; when one is
+		// present the cookie is ignored.
+		if bh := bearerHash(r); bh != "" {
+			u, err := store.APITokenUser(r.Context(), s.Pool, bh)
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.writeError(w, http.StatusUnauthorized, "this extension was disconnected; sign in again")
+				return
+			}
+			if err != nil {
+				s.Log.Error("token lookup failed", "err", err)
+				s.writeError(w, http.StatusInternalServerError, "token lookup failed")
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
+			return
+		}
 		h := sessionHash(r)
 		if h == "" {
 			s.writeError(w, http.StatusUnauthorized, "not logged in")
@@ -82,6 +98,14 @@ func (s *Server) sameOrigin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Bearer tokens are never attached by a browser on its own, so these
+		// requests cannot be forged cross-site; the extension's origin is
+		// chrome-extension://. Signing in for a token needs the password,
+		// which a forged request does not have.
+		if bearerHash(r) != "" || (r.Method == http.MethodPost && r.URL.Path == "/api/ext/tokens") {
 			next.ServeHTTP(w, r)
 			return
 		}

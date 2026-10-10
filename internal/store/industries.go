@@ -24,7 +24,7 @@ func CountByIndustry(ctx context.Context, pool *pgxpool.Pool, userID int64) (map
 		       count(j.id) FILTER (WHERE j.closed_at IS NULL AND uj.stage = 'scored'),
 		       max(a.fit_score) FILTER (WHERE j.closed_at IS NULL AND uj.stage = 'scored')
 		FROM companies c
-		LEFT JOIN jobs j ON j.company_id = c.id
+		LEFT JOIN jobs j ON j.company_id = c.id AND (j.added_by IS NULL OR j.added_by = $1)
 		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
 		LEFT JOIN analyses a ON a.id = uj.analysis_id
 		GROUP BY c.industry`, userID)

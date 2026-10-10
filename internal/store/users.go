@@ -84,7 +84,7 @@ func PasswordHash(ctx context.Context, pool *pgxpool.Pool, userID int64) (string
 }
 
 // SetPassword replaces a user's password hash and ends their other
-// sessions (keepTokenHash, when set, survives).
+// sessions (keepTokenHash, when set, survives) and extension tokens.
 func SetPassword(ctx context.Context, pool *pgxpool.Pool, userID int64, hash, keepTokenHash string) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -100,6 +100,10 @@ func SetPassword(ctx context.Context, pool *pgxpool.Pool, userID int64, hash, ke
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2`, userID, keepTokenHash); err != nil {
 		return fmt.Errorf("end sessions: %w", err)
+	}
+	// A new password also disconnects the browser extension(s).
+	if _, err := tx.Exec(ctx, `DELETE FROM api_tokens WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("revoke extension tokens: %w", err)
 	}
 	return tx.Commit(ctx)
 }
