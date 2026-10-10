@@ -73,6 +73,7 @@ type Server struct {
 	letterLimit  *auth.Limiter
 	postLimit    *auth.Limiter
 	commentLimit *auth.Limiter
+	extAILimit   *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -99,12 +100,14 @@ func (s *Server) Handler() http.Handler {
 	s.letterLimit = auth.NewLimiter(20, time.Hour)
 	s.postLimit = auth.NewLimiter(5, time.Hour)
 	s.commentLimit = auth.NewLimiter(30, time.Hour)
+	s.extAILimit = auth.NewLimiter(120, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
 		r.Post("/auth/signup", s.signup)
 		r.Post("/auth/login", s.login)
 		r.Post("/auth/logout", s.logout)
+		r.Post("/ext/tokens", s.createExtToken)
 
 		// Everything else needs a session.
 		r.Group(func(r chi.Router) {
@@ -138,6 +141,18 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/interview/quiz", s.interviewQuiz)
 			r.Post("/interview/questions/{id}/answer", s.interviewAnswer)
 			r.Get("/sponsorship", s.sponsorship)
+
+			// Chrome extension (bearer token or session).
+			r.Get("/ext/tokens", s.listExtTokens)
+			r.Delete("/ext/tokens/{id}", s.deleteExtToken)
+			r.Get("/applicant", s.getApplicant)
+			r.Put("/applicant", s.putApplicant)
+			r.Post("/applicant/suggest", s.suggestApplicant)
+			r.Post("/ext/extract", s.extractJob)
+			r.Get("/ext/jobs/lookup", s.lookupJob)
+			r.Post("/ext/jobs", s.addJob)
+			r.Post("/ext/answer", s.answerQuestion)
+			r.Post("/jobs/{id}/tailored-resume", s.tailorResume)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)
