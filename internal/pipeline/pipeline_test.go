@@ -179,6 +179,23 @@ func TestMatchingEndToEnd(t *testing.T) {
 		t.Errorf("LLM calls: %d facts, %d fits", coral.facts.Load(), coral.fits.Load())
 	}
 
+	// A refilter puts scored jobs back in the queue; filtering again links
+	// the analysis this profile text already has, with no LLM call.
+	if _, err := pool.Exec(ctx, `UPDATE user_jobs SET stage = 'pending_score', analysis_id = NULL
+		WHERE user_id = $1 AND job_id = $2`, u1.ID, good); err != nil {
+		t.Fatal(err)
+	}
+	callsBefore := coral.facts.Load() + coral.fits.Load()
+	if _, err := FilterUser(ctx, pool, eng, p1, nil); err != nil {
+		t.Fatalf("refilter: %v", err)
+	}
+	if stage, _ := stageOf(t, pool, u1.ID, good); stage != "scored" {
+		t.Errorf("cached analysis not relinked at filter time: %s", stage)
+	}
+	if coral.facts.Load()+coral.fits.Load() != callsBefore {
+		t.Error("relinking a cached analysis must not call the LLM")
+	}
+
 	// A second user with the same preferences: facts are shared, so the
 	// too-senior job drops out at filter time and only one fit call is made.
 	u2 := testutil.User(t, pool, false)

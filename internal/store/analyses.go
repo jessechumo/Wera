@@ -30,16 +30,31 @@ type CachedAnalysis struct {
 // reusable analysis for profileHash. limit <= 0 means no limit.
 // onlyIDs, when not empty, restricts the result to those jobs.
 func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int, onlyIDs []int64) ([]PendingJob, error) {
+	return pendingJobs(ctx, pool, userID, profileHash, limit, onlyIDs, false)
+}
+
+// PendingWithCachedAnalysis lists the user's pending jobs that already
+// have an analysis for this exact profile text (without descriptions):
+// they can be linked for free instead of scored.
+func PendingWithCachedAnalysis(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string) ([]PendingJob, error) {
+	return pendingJobs(ctx, pool, userID, profileHash, 0, nil, true)
+}
+
+func pendingJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int, onlyIDs []int64, cachedOnly bool) ([]PendingJob, error) {
+	desc, join := "COALESCE(j.description, '')", "LEFT JOIN"
+	if cachedOnly {
+		desc, join = "''", "JOIN"
+	}
 	q := `
 		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
-		       COALESCE(j.description, ''),
+		       ` + desc + `,
 		       a.id, a.fit_score, a.verdict, a.seniority, a.years_required,
 		       a.sponsorship, a.sponsorship_quote, a.work_mode, a.us_eligible,
 		       a.location_summary, a.skills_matched, a.skills_missing, a.reason
 		FROM user_jobs uj
 		JOIN jobs j ON j.id = uj.job_id
 		JOIN companies c ON c.id = j.company_id
-		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
+		` + join + ` analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
 		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL
 		  AND (cardinality($3::bigint[]) = 0 OR j.id = ANY($3::bigint[]))
 		  AND NOT EXISTS (SELECT 1 FROM user_hidden_companies h

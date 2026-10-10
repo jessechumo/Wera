@@ -34,6 +34,20 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, pro
 			m.JobsExcluded.WithLabelValues(reason).Add(float64(n))
 		}
 	}
+	// Jobs this exact profile text was already scored for (before a
+	// refilter or a profile save that kept the text) get their score back
+	// now, for free, so lists never show them as unscored.
+	pendingCached, err := store.PendingWithCachedAnalysis(ctx, pool, prof.UserID, prof.ProfileHash)
+	if err != nil {
+		return nil, err
+	}
+	rules := ExclusionsFor(&prof.Preferences)
+	for _, pj := range pendingCached {
+		if err := linkCached(ctx, pool, prof.UserID, pj, rules); err != nil {
+			return nil, err
+		}
+	}
+	pending -= len(pendingCached)
 	byFacts, err := excludeByKnownFacts(ctx, pool, prof)
 	if err != nil {
 		return nil, err
@@ -68,6 +82,20 @@ func excludeByKnownFacts(ctx context.Context, pool *pgxpool.Pool, prof *store.Pr
 		}
 	}
 	return n, nil
+}
+
+// linkCached attaches an existing analysis to one of the user's jobs,
+// applying their post-scoring rules (an unparseable stored reply counts as
+// a failed score).
+func linkCached(ctx context.Context, pool *pgxpool.Pool, userID int64, pj store.PendingJob, rules scoring.Exclusions) error {
+	stage, reason, evidence := scoring.StageFailed, "", ""
+	if pj.Cached.Analysis != nil {
+		stage = scoring.StageScored
+		if reason, evidence = scoring.PostLLMExclusion(pj.Cached.Analysis, rules); reason != "" {
+			stage = scoring.StageExcluded
+		}
+	}
+	return store.LinkAnalysis(ctx, pool, userID, pj.Job.ID, pj.Cached.ID, stage, reason, evidence)
 }
 
 // RankPending re-ranks the user's unscored matches against their profile
@@ -153,14 +181,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			jobs = append(jobs, pj.Job)
 			continue
 		}
-		stage, reason, evidence := scoring.StageFailed, "", ""
-		if pj.Cached.Analysis != nil {
-			stage = scoring.StageScored
-			if reason, evidence = scoring.PostLLMExclusion(pj.Cached.Analysis, rules); reason != "" {
-				stage = scoring.StageExcluded
-			}
-		}
-		if err := store.LinkAnalysis(ctx, pool, prof.UserID, pj.Job.ID, pj.Cached.ID, stage, reason, evidence); err != nil {
+		if err := linkCached(ctx, pool, prof.UserID, pj, rules); err != nil {
 			return st, err
 		}
 		st.Reused++
