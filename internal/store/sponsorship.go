@@ -37,7 +37,8 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		  LEFT JOIN LATERAL (
 		    SELECT sponsorship, sponsorship_quote FROM analyses
 		    WHERE job_id = j.id AND kind = 'score' AND sponsorship IS NOT NULL
-		    ORDER BY created_at DESC LIMIT 1) a ON f.job_id IS NULL)
+		    ORDER BY created_at DESC LIMIT 1) a ON f.job_id IS NULL
+		  WHERE j.added_by IS NULL)
 		SELECT c.id, c.name, c.industry,
 		       count(*) FILTER (WHERE p.open),
 		       count(p.s),
