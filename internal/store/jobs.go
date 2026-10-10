@@ -27,7 +27,8 @@ type JobInput struct {
 	PostedAt    *time.Time
 }
 
-// SaveJobs upserts jobs by (source, ext_id) using one batch. It returns
+// SaveJobs upserts one company's jobs by (source, ext_id) using one batch,
+// writing only new or changed postings. It returns
 // the number of jobs seen and how many were new insertions.
 //
 // Reappearance: an upsert clears closed_at and refreshes last_seen_at, so
@@ -38,6 +39,29 @@ type JobInput struct {
 func SaveJobs(ctx context.Context, pool *pgxpool.Pool, jobs []JobInput) (seen, newly int, err error) {
 	if len(jobs) == 0 {
 		return 0, 0, nil
+	}
+	// Only new or changed postings are written; unchanged ones (same
+	// content hash) just get last_seen_at in one statement.
+	stored, err := storedHashes(ctx, pool, jobs[0].CompanyID)
+	if err != nil {
+		return 0, 0, err
+	}
+	var changed []JobInput
+	var unchangedIDs []string
+	for _, j := range jobs {
+		if h, ok := stored[j.Source+"\x00"+j.ExtID]; ok && h == j.ContentHash {
+			unchangedIDs = append(unchangedIDs, j.ExtID)
+		} else {
+			changed = append(changed, j)
+		}
+	}
+	if err := TouchJobs(ctx, pool, jobs[0].CompanyID, unchangedIDs); err != nil {
+		return 0, 0, err
+	}
+	seen = len(unchangedIDs)
+	jobs = changed
+	if len(jobs) == 0 {
+		return seen, 0, nil
 	}
 	const q = `
 		INSERT INTO jobs (company_id, source, ext_id, title, location_raw,
@@ -200,4 +224,23 @@ func TouchJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, extIDs 
 		return fmt.Errorf("touch jobs for company %d: %w", companyID, err)
 	}
 	return nil
+}
+
+// storedHashes maps source+NUL+ext_id to the stored content hash for a
+// company's jobs.
+func storedHashes(ctx context.Context, pool *pgxpool.Pool, companyID int64) (map[string]string, error) {
+	rows, err := pool.Query(ctx, `SELECT source, ext_id, content_hash FROM jobs WHERE company_id = $1`, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("load stored hashes for company %d: %w", companyID, err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var src, id, h string
+		if err := rows.Scan(&src, &id, &h); err != nil {
+			return nil, err
+		}
+		out[src+"\x00"+id] = h
+	}
+	return out, rows.Err()
 }
