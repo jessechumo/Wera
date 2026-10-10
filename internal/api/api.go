@@ -44,10 +44,12 @@ type Server struct {
 
 	// Accounts and browser security (see config.Env).
 	SignupEnabled bool
-	UserBudgetUSD float64 // monthly inference budget for new accounts
-	CookieSecure  bool
-	PublicOrigins []string
-	TrustProxy    bool
+	// SignupsPerHour caps sign-ups per client IP (0 means the default, 5).
+	SignupsPerHour int
+	UserBudgetUSD  float64 // monthly inference budget for new accounts
+	CookieSecure   bool
+	PublicOrigins  []string
+	TrustProxy     bool
 
 	// Profiles: the role catalog the forms offer, Coral settings for AI
 	// drafts, and the background matcher run after a profile is saved.
@@ -85,7 +87,11 @@ func (s *Server) Handler() http.Handler {
 		r.Handle("/metrics", s.Metrics.HTTPHandler())
 	}
 
-	s.signupLimit = auth.NewLimiter(5, time.Hour)
+	signups := s.SignupsPerHour
+	if signups <= 0 {
+		signups = 5
+	}
+	s.signupLimit = auth.NewLimiter(signups, time.Hour)
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.accountLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.draftLimit = auth.NewLimiter(10, time.Hour)

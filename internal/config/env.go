@@ -33,10 +33,11 @@ type Env struct {
 	MaxMonthlyCostUSD  float64 // all users together, per calendar month
 
 	// Accounts and browser security.
-	SignupEnabled bool     // POST /api/auth/signup open to anyone
-	CookieSecure  bool     // set Secure on the session cookie (HTTPS only)
-	PublicOrigins []string // extra origins allowed to send state-changing requests
-	TrustProxy    bool     // take the client IP from proxy headers
+	SignupEnabled  bool     // POST /api/auth/signup open to anyone
+	SignupsPerHour int      // sign-ups allowed per client IP per hour
+	CookieSecure   bool     // set Secure on the session cookie (HTTPS only)
+	PublicOrigins  []string // extra origins allowed to send state-changing requests
+	TrustProxy     bool     // take the client IP from proxy headers
 }
 
 // LoadEnv builds an Env from the process environment with defaults.
@@ -56,6 +57,7 @@ func LoadEnv() (*Env, error) {
 		UserBudgetUSD:      10,
 		MaxMonthlyCostUSD:  100,
 		SignupEnabled:      true,
+		SignupsPerHour:     5,
 	}
 
 	var errs []string
@@ -129,6 +131,7 @@ func LoadEnv() (*Env, error) {
 	floatVal("USER_MONTHLY_BUDGET_USD", &e.UserBudgetUSD)
 	floatVal("MAX_MONTHLY_COST_USD", &e.MaxMonthlyCostUSD)
 	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
+	intVal("SIGNUPS_PER_HOUR", &e.SignupsPerHour)
 	boolVal("COOKIE_SECURE", &e.CookieSecure)
 	boolVal("TRUST_PROXY", &e.TrustProxy)
 	for _, o := range strings.Split(os.Getenv("PUBLIC_ORIGINS"), ",") {

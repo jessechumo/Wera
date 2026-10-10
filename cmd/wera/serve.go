@@ -108,11 +108,12 @@ func runServe(ctx context.Context, args []string) error {
 		},
 		ScoreNow: p.ScoreNow,
 
-		SignupEnabled: env.SignupEnabled,
-		UserBudgetUSD: env.UserBudgetUSD,
-		CookieSecure:  env.CookieSecure,
-		PublicOrigins: env.PublicOrigins,
-		TrustProxy:    env.TrustProxy,
+		SignupEnabled:  env.SignupEnabled,
+		SignupsPerHour: env.SignupsPerHour,
+		UserBudgetUSD:  env.UserBudgetUSD,
+		CookieSecure:   env.CookieSecure,
+		PublicOrigins:  env.PublicOrigins,
+		TrustProxy:     env.TrustProxy,
 	}
 
 	httpServer := &http.Server{
