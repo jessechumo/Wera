@@ -1,13 +1,45 @@
 # Wera
 
+[![CI](https://github.com/jessechumo/wera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jessechumo/wera/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jessechumo/wera/badges/coverage.json)](https://github.com/jessechumo/wera/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jessechumo/wera?sort=semver&display_name=tag)](https://github.com/jessechumo/wera/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/jessechumo/wera?logo=go)](go.mod)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
+[![License](https://img.shields.io/github/license/jessechumo/wera)](LICENSE)
+
 **Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
-## How it works
+The dashboard lives in [wera-frontend](https://github.com/jessechumo/wera-frontend).
 
-1. **Fetch** jobs once from each company's public job board, for everyone.
-2. **Filter** per user with the rules in `config/roles.yaml` and that user's preferences: role families, seniority levels, US-only, and whether they need visa sponsorship. No LLM cost.
-3. **Score** each user's remaining jobs in parallel against their profile: fit score, seniority, years required, sponsorship status with the exact quote, and skills matched and missing. The profile is sent as a cached prefix, so repeated calls cost very little, and users with identical profile text share scores.
-4. **Serve** each user their own matches, tracker, run history, and metrics over a REST API.
+## Architecture
+
+![Wera system architecture: browser, nginx, API, worker and PostgreSQL on one host; job boards and the inference API on the internet](docs/architecture.svg)
+
+Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) is the only service reachable from the network; it serves the dashboard and proxies `/api` to `wera-api`. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
+
+## How matching works
+
+![The matching pipeline: fetch, store, rule filter, local ranking, shared facts, fact exclusions, fit score](docs/pipeline.svg)
+
+1. **Fetch** each company's board once, for everyone. Boards that support ETags answer `304 Not Modified` when nothing changed; Workday boards list only new postings, with a full sweep once a day. A shared throttle keeps requests few and spaced out.
+2. **Store** only new or changed postings (by content hash), with a bulk `COPY`.
+3. **Filter** per user with `config/roles.yaml` and their preferences: role families, seniority, US-only, and explicit sponsorship refusals. No LLM cost; a new user's 40,000 jobs take about 4 seconds.
+4. **Rank locally** with TF-IDF against the user's profile. These estimates show a new user ranked matches within seconds of signing up and decide which jobs the LLM scores first.
+5. **Extract shared facts** once per posting with the LLM: seniority, years required, sponsorship (the quote must appear verbatim in the posting), work mode and a short digest. Every user reuses them.
+6. **Exclude on facts** at no cost: jobs needing too many years, refusing sponsorship, outside the US or too senior never reach a per-user call.
+7. **Score fit** per user from a compact job card plus their profile, sent as a cached prompt prefix. Opening an unscored job scores it immediately.
+
+Measured on the development data: a new account is ready in about 5 seconds (previously 5 minutes), a fit call costs $0.00038 against $0.00075 for a full-posting call, and about half of a user's candidates are excluded from shared facts without any per-user call.
+
+## Features
+
+- **Matching:** per-user filters, local estimates, shared facts, and fit scores with reasons, skills matched and missing, and the sponsorship quote
+- **Cover letters:** written for one job from the user's profile and resume without repeating the resume; editable, with dashes cleaned out
+- **Community:** a blog for offers, interview experiences and tips, with comments and reactions; every post and comment is reviewed by an AI moderator first (violence, harassment, cheating or faked credentials, spam, off-topic) and refused with a reason
+- **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
+- **Sponsorship:** what each company's postings say about visa sponsorship, built from data already extracted while scoring
+- **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
+- **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
 
 ## Make it yours
 
@@ -17,11 +49,11 @@ Wera is driven by configuration and per-user profiles:
 - `config/roles.yaml`: the catalog of role families and seniority levels users pick from, plus location and sponsorship rules
 - Each user's profile (stored in the database): the text the LLM scores against and their filter preferences
 
-New users build their profile in the dashboard: they upload a resume PDF (or paste the text), answer a short questionnaire (experience, work authorization, locations, work modes, industries, target roles) and pick role families and seniority levels. The LLM drafts the profile from the resume and answers, the user reviews and edits it, and saving it starts matching right away. Only the resume's extracted text is kept, not the file.
+New users build their profile in the dashboard: they upload a resume PDF (or paste the text), answer a short questionnaire (experience, work authorization, locations, work modes, industries, target roles) and pick role families and seniority levels. The LLM drafts the profile from the resume and answers, the user reviews and edits it, and saving it filters and ranks their jobs on the spot.
 
 ## Quick start
 
-Requirements: Go 1.23+, Docker, and a Coral Bricks API key.
+Requirements: Go 1.27+, Docker, and a Coral Bricks API key.
 
 ```bash
 cp .env.example .env                               # add CORAL_API_KEY
@@ -30,7 +62,7 @@ make migrate                                       # create tables
 go run ./cmd/wera serve                            # API on http://localhost:8080
 ```
 
-Then run the dashboard (`../wera-frontend`, `npm run dev`), sign up, and set up your profile; saving it matches and scores your jobs. `go run ./cmd/wera pipeline` runs one full fetch, filter, and score for every user.
+Then run the dashboard (`../wera-frontend`, `npm run dev`), sign up, and set up your profile. `go run ./cmd/wera pipeline` runs one full fetch, filter, and score for every user.
 
 To use an existing `profile/profile.md` instead of the setup flow, create an account and import it:
 
@@ -38,8 +70,6 @@ To use an existing `profile/profile.md` instead of the setup flow, create an acc
 go run ./cmd/wera users create --email you@example.com --admin
 go run ./cmd/wera users import-profile --email you@example.com --file profile/profile.md
 ```
-
-The profile still needs role families and levels, which you pick on the dashboard's Profile page.
 
 ## Run as a server
 
@@ -56,31 +86,45 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
 
+Released images are published to `ghcr.io/jessechumo/wera:<version>`.
+
 ### Public access
 
-To let people outside your network use Wera, host the dashboard on Vercel (see the frontend README) and give the API a public HTTPS address without opening router ports, for example with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to `http://localhost:8080`. Then set `COOKIE_SECURE=true`, `TRUST_PROXY=true`, and `PUBLIC_ORIGINS=https://<your-app>.vercel.app` in `.env` and restart the API.
-
-### Upgrading from single-user Wera
-
-Migration 0004 moves existing jobs, scores, and tracker statuses to an admin account named `owner@wera.local` with no password. Claim it:
-
-```bash
-docker exec wera-api /app/wera users update --email owner@wera.local --new-email you@example.com --name You
-docker exec wera-api /app/wera users passwd --email you@example.com        # prints a password
-docker exec wera-api /app/wera users import-profile --email you@example.com --file /app/profile/profile.md
-```
-
-Importing the same `profile.md` keeps every existing score: scores are keyed by the profile text, so nothing is rescored.
+To let people outside your network use Wera, give it a public HTTPS address without opening router ports, for example with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to `http://localhost:3000` (or host the dashboard on Vercel and tunnel the API). Then set `COOKIE_SECURE=true`, `TRUST_PROXY=true`, and `PUBLIC_ORIGINS=https://<your-domain>` in `.env` and restart. Served over HTTPS, the dashboard's HSTS header stops downgrade attacks.
 
 ### Accounts
 
-Every API route except signup and login needs a session. People sign up in the dashboard (turn this off with `SIGNUP_ENABLED=false`), or you create accounts from the shell; `create` and `passwd` print a generated password:
+Every API route except signup and login needs a session. People sign up in the dashboard (turn this off with `SIGNUP_ENABLED=false`; `SIGNUPS_PER_HOUR` limits sign-ups per IP), or you create accounts from the shell; `create` and `passwd` print a generated password:
 
 ```bash
 docker exec wera-api /app/wera users create --email you@example.com --name You --admin
 ```
 
-Admins can trigger runs and see overall usage and each user's spend. Everyone shares one Coral Bricks key, so spending is capped three ways: per user per run (`MAX_COST_PER_RUN_USD`), per user per month (`USER_MONTHLY_BUDGET_USD`, default $10; change one user's with `wera users budget`), and for all users together per month (`MAX_MONTHLY_COST_USD`). Jobs over a limit stay pending until the next month or a higher budget. Sessions are HTTP-only, `SameSite=Lax` cookies that last 30 days; only a hash of each token is stored. Signup and login are rate-limited per IP.
+Admins can trigger runs and see overall usage and each user's spend. Everyone shares one Coral Bricks key, so spending is capped three ways: per user per run (`MAX_COST_PER_RUN_USD`), per user per month (`USER_MONTHLY_BUDGET_USD`, default $10; change one user's with `wera users budget`), and for all users together per month (`MAX_MONTHLY_COST_USD`). Jobs over a limit stay pending until the next month or a higher budget.
+
+## Being a good citizen to job boards
+
+Wera reads the same public JSON endpoints the companies' own career pages use, and it keeps its footprint small: conditional requests (ETags, so unchanged boards cost a `304`), incremental listing on Workday with one full sweep a day, details fetched only for postings it has not seen, a shared throttle (a few concurrent requests, spaced out), per-run caps, an identifying User-Agent with a contact address, backing off when a board asks (`Retry-After`), and a pause during Workday's weekly maintenance window. Each board is fetched once for all users. If you run Wera publicly, review each provider's terms of use and keep `RUN_SCHEDULE` modest.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report a vulnerability and a summary of the protections: hashed sessions, per-IP and per-account rate limits, origin checks, a strict Content-Security-Policy, upload limits, and prompt-injection defenses for every AI feature (untrusted text is fenced and model output must match a fixed schema). CI runs `govulncheck` on every change.
+
+## Development
+
+```bash
+make build      # bin/wera with the version stamped in
+make lint       # golangci-lint
+make test       # unit and integration tests (needs WERA_TEST_DATABASE_URL)
+make cover      # coverage of internal/...
+make vuln       # govulncheck
+```
+
+Integration tests need a PostgreSQL database other than the live one (`WERA_TEST_DATABASE_URL`, for example a `wera_test` database migrated with `wera migrate`); they create and clean up their own users, companies and jobs, and refuse to run against a database named `wera`. Without the variable they are skipped locally; in CI they must run. The LLM is replaced by a fake inference server in tests.
+
+## Releases and versioning
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `perf:`, `docs:`, ...), checked on every pull request. [release-please](https://github.com/googleapis/release-please) turns them into a release PR with the next [semantic version](https://semver.org) and a `CHANGELOG.md`; merging it tags `vX.Y.Z`, attaches Linux binaries, and pushes the Docker image. Until 1.0, a `feat` bumps the minor version and a `fix` the patch. `wera version` and `/healthz` report the running version.
 
 ## Commands
 
@@ -96,6 +140,7 @@ Admins can trigger runs and see overall usage and each user's spend. Everyone sh
 | `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
 | `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
+| `wera version` | Print the version and commit |
 
 ## Extending
 
@@ -103,28 +148,33 @@ Admins can trigger runs and see overall usage and each user's spend. Everyone sh
 - **Add a role type:** add a family and patterns to `config/roles.yaml`; users can then pick it.
 - **Add an industry:** add it to `config/industries.yaml` and tag companies with it.
 - **Add a company on Workday:** its token is `tenant.wdN/site` from the career site URL, e.g. `https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite` is `nvidia.wd5/NVIDIAExternalCareerSite`. SmartRecruiters takes the company identifier, Eightfold `host/domain`.
-- **Add a job board provider:** implement the `Source` interface in `internal/sources` (or `DetailSource` when the list has no descriptions, so only new postings are fetched in detail) and register it.
+- **Add a job board provider:** implement the `Source` interface in `internal/sources` (`ConditionalSource` when it supports ETags, `DetailSource` when the list has no descriptions) and register it.
+- **Add interview questions:** insert rows into `interview_questions` (four choices, the index of the answer, and an explanation).
 
 ## Project layout
 
 ```
-cmd/wera            Single binary with subcommands
-internal/sources    Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters
-internal/normalize  HTML to text, content hashing
-internal/filter     Rule engine driven by config/roles.yaml
-internal/scoring    Coral Bricks client, prompt, cost accounting
-internal/store      Postgres repository (pgx)
-internal/pipeline   Fetch, filter, and score orchestration
-internal/api        REST handlers (chi)
-config/             Companies, industries, and the role catalog (YAML)
-internal/auth       Password hashing, session tokens, rate limiting
-internal/profile    Resume text extraction and the profile-drafting prompt
-profile/            Optional profile.md to import (gitignored)
-migrations/         Embedded SQL migrations (goose)
+cmd/wera              Single binary with subcommands
+internal/api          REST handlers (chi), security headers, rate limits
+internal/auth         Password hashing, session tokens, rate limiter
+internal/buildinfo    Version and commit stamped in at build time
+internal/config       Environment, companies, industries and the role catalog
+internal/filter       Rule engine driven by config/roles.yaml
+internal/moderation   Community moderation: rule checks and the AI review
+internal/normalize    HTML to text, content hashing
+internal/pipeline     Fetch, filter, rank and score orchestration
+internal/profile      Resume text, avatars, profile drafts, cover letters
+internal/relevance    Local TF-IDF ranking (estimated scores)
+internal/scoring      Coral Bricks client, prompts, facts, fit, cost accounting
+internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters
+internal/store        PostgreSQL repository (pgx)
+internal/testutil     Test database and fixtures
+migrations/           Embedded SQL migrations (goose)
+docs/                 Architecture diagrams (generated from docs/diagrams)
 ```
 
 ## Stack
 
-Go, PostgreSQL, Coral Bricks (`glm-5.3-flash-fast`), Prometheus metrics, Docker Compose.
+Go 1.27, chi, pgx, PostgreSQL 16, goose, Coral Bricks (`deepseek-v4.1-flash-fast`, `glm-5.3-fast` for deep reviews), Prometheus, Docker Compose, GitHub Actions, release-please.
 
-See `PLAN.md` for the full design.
+See `PLAN.md` for the original design.
