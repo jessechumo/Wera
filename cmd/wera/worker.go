@@ -42,12 +42,11 @@ func buildPipeline(ctx context.Context) (*pipeline.Pipeline, error) {
 	}
 
 	return &pipeline.Pipeline{
-		Pool:        pool,
-		Env:         env,
-		Log:         log,
-		Companies:   comps.Companies,
-		Engine:      eng,
-		ProfilePath: config.DefaultProfilePath,
+		Pool:      pool,
+		Env:       env,
+		Log:       log,
+		Companies: comps.Companies,
+		Engine:    eng,
 	}, nil
 }
 
@@ -76,8 +75,9 @@ func runPipeline(ctx context.Context, args []string) error {
 	return nil
 }
 
-// runWorker implements `wera worker`: it loops the pipeline every
-// RUN_INTERVAL and shuts down gracefully on SIGINT/SIGTERM.
+// runWorker implements `wera worker`: it runs the pipeline at each
+// RUN_SCHEDULE time (or every RUN_INTERVAL when no schedule is set) and
+// shuts down gracefully on SIGINT/SIGTERM.
 func runWorker(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("worker", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
@@ -96,12 +96,32 @@ func runWorker(ctx context.Context, args []string) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	p.Log.Info("worker started", "interval", p.Env.RunInterval.String())
+	sched := p.Env.RunSchedule
+	if sched != nil {
+		p.Log.Info("worker started", "schedule", sched.String())
+	} else {
+		p.Log.Info("worker started", "interval", p.Env.RunInterval.String())
+	}
 	for {
+		// With a schedule, wait for the next slot first (a restart does
+		// not trigger an extra run); with an interval, run immediately.
+		if sched != nil {
+			next := sched.Next(time.Now())
+			p.Log.Info("next run scheduled", "at", next.Format(time.RFC3339))
+			select {
+			case <-ctx.Done():
+				p.Log.Info("shutdown signal received; worker stopping")
+				return nil
+			case <-time.After(time.Until(next)):
+			}
+		}
 		if _, err := p.RunOnce(ctx); err != nil {
 			// Log and keep looping: a failed run (e.g. one flaky board)
 			// must not kill the worker.
 			p.Log.Error("pipeline run failed", "err", err)
+		}
+		if sched != nil {
+			continue
 		}
 		select {
 		case <-ctx.Done():

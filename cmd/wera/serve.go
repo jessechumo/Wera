@@ -44,11 +44,49 @@ func runServe(ctx context.Context, args []string) error {
 	reg := metrics.New()
 	p.Metrics = reg
 
+	inds, err := config.LoadIndustries(config.DefaultIndustriesPath)
+	if err != nil {
+		return err
+	}
+	roles, err := config.LoadRoles(config.DefaultRolesPath)
+	if err != nil {
+		return err
+	}
+	// After a profile save, match that user's jobs right away instead of
+	// waiting for the next scheduled run.
+	matchUser := func(ctx context.Context, userID int64) {
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+		defer cancel()
+		prof, err := store.GetProfile(ctx, pool, userID)
+		if err != nil || prof == nil || !prof.Ready() {
+			return
+		}
+		ex, st, err := p.MatchUser(ctx, prof)
+		if err != nil {
+			log.Error("matching after profile save failed", "user_id", userID, "err", err)
+			return
+		}
+		scored := 0
+		if st != nil {
+			scored = st.Scored + st.Reused
+		}
+		log.Info("matched after profile save", "user_id", userID, "excluded", ex, "scored", scored)
+	}
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
 		Metrics:     reg,
+		Industries:  inds.Industries,
 		RunPipeline: p.RunOnce,
+		Roles:       roles,
+		Env:         env,
+		MatchUser:   matchUser,
+
+		SignupEnabled: env.SignupEnabled,
+		UserBudgetUSD: env.UserBudgetUSD,
+		CookieSecure:  env.CookieSecure,
+		PublicOrigins: env.PublicOrigins,
+		TrustProxy:    env.TrustProxy,
 	}
 
 	httpServer := &http.Server{
@@ -62,6 +100,22 @@ func runServe(ctx context.Context, args []string) error {
 	defer stop()
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- httpServer.ListenAndServe() }()
+
+	// Expired sessions are useless; sweep them hourly.
+	go func() {
+		for {
+			if n, err := store.DeleteExpiredSessions(ctx, pool); err != nil {
+				log.Warn("session cleanup failed", "err", err)
+			} else if n > 0 {
+				log.Info("expired sessions removed", "sessions", n)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Hour):
+			}
+		}
+	}()
 
 	log.Info("api listening", "addr", env.HTTPAddr)
 	select {

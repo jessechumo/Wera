@@ -14,21 +14,18 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"wera/internal/config"
-	"wera/internal/filter"
 	"wera/internal/metrics"
 	"wera/internal/normalize"
 	"wera/internal/sources"
 	"wera/internal/store"
 )
 
-// FetchStats summarizes one fetch + rule-filter pass.
+// FetchStats summarizes one fetch pass.
 type FetchStats struct {
 	CompaniesOK     int
 	CompaniesFailed int
 	JobsSeen        int
 	JobsNew         int
-	JobsExcluded    int
-	JobsPending     int
 }
 
 // Fetcher coordinates fetching all enabled companies concurrently.
@@ -43,9 +40,9 @@ type Fetcher struct {
 
 // Run fetches every company in the list (all enabled ones when only is
 // empty, otherwise the company matching only by name or token), upserts
-// their jobs, closes postings that disappeared, and applies the rule
-// filter to all stage='new' jobs.
-func (f *Fetcher) Run(ctx context.Context, companies []config.Company, eng *filter.Engine, only string) (*FetchStats, error) {
+// their jobs, and closes postings that disappeared. Rule filtering is per
+// user and happens afterwards (FilterUser).
+func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only string) (*FetchStats, error) {
 	ids, err := store.SyncCompanies(ctx, f.Pool, companies)
 	if err != nil {
 		return nil, fmt.Errorf("sync companies: %w", err)
@@ -82,18 +79,8 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, eng *filt
 	if err := g.Wait(); err != nil {
 		return stats, err
 	}
-
-	excluded, pending, byReason, err := store.ApplyFilters(ctx, f.Pool, eng)
-	if err != nil {
-		return stats, fmt.Errorf("apply filters: %w", err)
-	}
-	stats.JobsExcluded = excluded
-	stats.JobsPending = pending
 	if f.Metrics != nil {
 		f.Metrics.JobsNewTotal.Add(float64(stats.JobsNew))
-		for reason, n := range byReason {
-			f.Metrics.JobsExcluded.WithLabelValues(reason).Add(float64(n))
-		}
 	}
 	return stats, nil
 }

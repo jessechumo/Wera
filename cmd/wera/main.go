@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	_ "time/tzdata" // RUN_TIMEZONE works even on images without zoneinfo
 
 	"github.com/joho/godotenv"
 
@@ -21,12 +22,13 @@ Usage:
   wera fetch [--company X]      fetch + normalize + rule filter only (no LLM)
   wera score [--limit N]        score pending jobs
   wera pipeline                 one full run
-  wera worker                   loop pipeline every RUN_INTERVAL
+  wera worker                   run the pipeline at RUN_SCHEDULE times (or every RUN_INTERVAL)
   wera serve                    REST API
   wera bench [--n 200]          scoring benchmark
   wera rescore --all            requeue after profile change
   wera refilter --all           reapply roles.yaml rules to all open jobs (no LLM cost)
   wera deep [--top N]           deep review of top-scored jobs
+  wera users <list|create|passwd|admin>   manage accounts (see wera users)
   wera healthcheck              exit 0 if the database is reachable (container healthchecks)
 `
 
@@ -80,6 +82,9 @@ func main() {
 
 	case "deep":
 		err = runDeep(ctx, args)
+
+	case "users":
+		err = runUsers(ctx, args)
 
 	case "healthcheck":
 		err = runHealthcheck(ctx, args)

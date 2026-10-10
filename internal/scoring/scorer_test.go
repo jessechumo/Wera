@@ -55,7 +55,7 @@ func newTestScorer(t *testing.T, replies ...string) (*Scorer, *replyScript) {
 		Profile:     []byte(testProfile),
 		ProfileHash: ProfileHash([]byte(testProfile)),
 		Model:       "glm-5.3-flash-fast",
-		MaxYears:    3,
+		Rules:       Exclusions{MaxYears: 3, RequireSponsorship: true, USOnly: true},
 		Concurrency: 1,
 	}
 	return s, script

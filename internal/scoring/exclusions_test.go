@@ -65,7 +65,8 @@ func TestPostLLMExclusionUnit(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			reason, _ := PostLLMExclusion(tc.a, tc.maxYears)
+			rules := Exclusions{MaxYears: tc.maxYears, RequireSponsorship: true, USOnly: true}
+			reason, _ := PostLLMExclusion(tc.a, rules)
 			if tc.wantOrEmpty && reason != "" {
 				t.Errorf("want no exclusion, got %q", reason)
 			}
@@ -73,6 +74,20 @@ func TestPostLLMExclusionUnit(t *testing.T) {
 				t.Errorf("reason: got %q, want %q", reason, tc.wantReason)
 			}
 		})
+	}
+}
+
+func TestPostLLMExclusionFollowsPreferences(t *testing.T) {
+	no := false
+	five := 5
+	quote := "We do not sponsor visas."
+	a := &Analysis{Sponsorship: "no", SponsorshipQuote: &quote, YearsRequired: &five,
+		USEligible: &no, Seniority: "senior"}
+	if reason, _ := PostLLMExclusion(a, Exclusions{AllowSenior: true}); reason != "" {
+		t.Errorf("a user with no restrictions keeps the job, got %q", reason)
+	}
+	if reason, _ := PostLLMExclusion(a, Exclusions{MaxYears: 8}); reason != "llm:senior" {
+		t.Errorf("only the seniority rule applies, got %q", reason)
 	}
 }
 
@@ -110,7 +125,7 @@ func TestScorerUsesAPICostWhenPresent(t *testing.T) {
 
 	client := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "cb_test", Model: "glm-5.3-flash-fast"})
 	s := &Scorer{Client: client, Profile: []byte(testProfile),
-		ProfileHash: ProfileHash([]byte(testProfile)), Model: "glm-5.3-flash-fast", MaxYears: 3, Concurrency: 1}
+		ProfileHash: ProfileHash([]byte(testProfile)), Model: "glm-5.3-flash-fast", Rules: Exclusions{MaxYears: 3}, Concurrency: 1}
 	outs := s.Score(context.Background(), testJobs(1))
 	if outs[0].CostUSD != 0.00042 {
 		t.Errorf("cost: got %.6f, want 0.00042 (API-reported)", outs[0].CostUSD)

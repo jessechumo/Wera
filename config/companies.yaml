@@ -3,35 +3,500 @@
 # Adding a company here requires no code change.
 
 companies:
-  # ---------- AI inference / AI infrastructure ----------
-  - { name: Baseten,        ats: ashby,      token: baseten,          group: ai_infra, enabled: true }   # verified
-  - { name: Modal,          ats: ashby,      token: modal,            group: ai_infra, enabled: true }   # verified
-  - { name: Lambda,         ats: ashby,      token: lambda,           group: ai_infra, enabled: true }   # verified
-  - { name: Together AI,    ats: greenhouse, token: togetherai,       group: ai_infra, enabled: true }   # verified
-  - { name: CoreWeave,      ats: greenhouse, token: coreweave,        group: ai_infra, enabled: true }   # verified
-  - { name: Fireworks AI,   ats: ashby,      token: fireworks,        group: ai_infra, enabled: true }   # verified via discover
-  - { name: Groq,           ats: greenhouse, token: groq,             group: ai_infra, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Anyscale,       ats: ashby,      token: anyscale,         group: ai_infra, enabled: true }   # verified via discover
-  - { name: Replicate,      ats: ashby,      token: replicate,        group: ai_infra, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Cerebras,       ats: ashby,      token: cerebras,         group: ai_infra, enabled: true }   # verified via discover
-  - { name: Crusoe,         ats: ashby,      token: crusoe,           group: ai_infra, enabled: true }   # verified via discover
-  - { name: Nebius,         ats: greenhouse, token: nebius,           group: ai_infra, enabled: true }   # verified via discover
-  - { name: RunPod,         ats: ashby,      token: runpod,           group: ai_infra, enabled: true }   # verified via discover
+  # ---------- AI & Machine Learning (AI inference / AI infrastructure) ----------
+  - { name: Baseten,        ats: ashby,      token: baseten,          industry: ai_ml, enabled: true }   # verified
+  - { name: Modal,          ats: ashby,      token: modal,            industry: ai_ml, enabled: true }   # verified
+  - { name: Lambda,         ats: ashby,      token: lambda,           industry: ai_ml, enabled: true }   # verified
+  - { name: Together AI,    ats: greenhouse, token: togetherai,       industry: ai_ml, enabled: true }   # verified
+  - { name: CoreWeave,      ats: greenhouse, token: coreweave,        industry: ai_ml, enabled: true }   # verified
+  - { name: Fireworks AI,   ats: ashby,      token: fireworks,        industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Groq,           ats: greenhouse, token: groq,             industry: ai_ml, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Anyscale,       ats: ashby,      token: anyscale,         industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Replicate,      ats: ashby,      token: replicate,        industry: ai_ml, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Cerebras,       ats: ashby,      token: cerebras,         industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Crusoe,         ats: ashby,      token: crusoe,           industry: ai_ml, enabled: true }   # verified via discover
+  - { name: Nebius,         ats: greenhouse, token: nebius,           industry: ai_ml, enabled: true }   # verified via discover
+  - { name: RunPod,         ats: ashby,      token: runpod,           industry: ai_ml, enabled: true }   # verified via discover
 
   # ---------- Trading firms / exchanges ----------
-  - { name: DRW,                 ats: greenhouse, token: drweng,           group: trading, enabled: true }  # verified
-  - { name: Akuna Capital,       ats: greenhouse, token: akunacapital,     group: trading, enabled: true }  # verified
-  - { name: Hudson River Trading,ats: greenhouse, token: wehrtyou,         group: trading, enabled: true }  # verified
-  - { name: Optiver,             ats: greenhouse, token: optiverus,        group: trading, enabled: true }  # verified
-  - { name: IMC Trading,         ats: greenhouse, token: imc,              group: trading, enabled: true }  # verified
-  - { name: Belvedere Trading,   ats: lever,      token: belvederetrading, group: trading, enabled: true }  # verified
-  - { name: Wolverine Trading,   ats: greenhouse, token: wolverinetrading, group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: PEAK6,               ats: greenhouse, token: peak6,            group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
-  - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      group: trading, enabled: true }  # verified via discover
-  - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   group: trading, enabled: true }  # verified via discover
-  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,group: trading, enabled: true }  # verified via discover
-  - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, group: trading, enabled: true }  # verified via discover
-  - { name: Two Sigma,           ats: greenhouse, token: twosigma,         group: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: DRW,                 ats: greenhouse, token: drweng,           industry: trading, enabled: true }  # verified
+  - { name: Akuna Capital,       ats: greenhouse, token: akunacapital,     industry: trading, enabled: true }  # verified
+  - { name: Hudson River Trading,ats: greenhouse, token: wehrtyou,         industry: trading, enabled: true }  # verified
+  - { name: Optiver,             ats: greenhouse, token: optiverus,        industry: trading, enabled: true }  # verified
+  - { name: IMC Trading,         ats: greenhouse, token: imc,              industry: trading, enabled: true }  # verified
+  - { name: Belvedere Trading,   ats: lever,      token: belvederetrading, industry: trading, enabled: true }  # verified
+  - { name: Wolverine Trading,   ats: greenhouse, token: wolverinetrading, industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: PEAK6,               ats: greenhouse, token: peak6,            industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
+  - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      industry: trading, enabled: true }  # verified via discover
+  - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   industry: trading, enabled: true }  # verified via discover
+  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,industry: trading, enabled: true }  # verified via discover
+  - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, industry: trading, enabled: true }  # verified via discover
+  - { name: Two Sigma,           ats: greenhouse, token: twosigma,         industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
 
-# Companies on custom career sites (Citadel, Jane Street, CME, Cboe, etc.)
-# are out of scope until a public API is found. Do not scrape them.
+  # ---------- AI & Machine Learning (boards verified 2026-10-09) ----------
+  - { name: Abridge,                       ats: ashby,      token: abridge,             industry: ai_ml, enabled: true }
+  - { name: Anthropic,                     ats: greenhouse, token: anthropic,           industry: ai_ml, enabled: true }
+  - { name: Character.AI,                  ats: ashby,      token: character,           industry: ai_ml, enabled: true }
+  - { name: Cognition,                     ats: ashby,      token: cognition,           industry: ai_ml, enabled: true }
+  - { name: Cohere,                        ats: ashby,      token: cohere,              industry: ai_ml, enabled: true }
+  - { name: Cursor,                        ats: ashby,      token: cursor,              industry: ai_ml, enabled: true }
+  - { name: Databricks,                    ats: greenhouse, token: databricks,          industry: ai_ml, enabled: true }
+  - { name: Decagon,                       ats: ashby,      token: decagon,             industry: ai_ml, enabled: true }
+  - { name: ElevenLabs,                    ats: ashby,      token: elevenlabs,          industry: ai_ml, enabled: true }
+  - { name: Etched,                        ats: ashby,      token: etched,              industry: ai_ml, enabled: true }
+  - { name: Glean,                         ats: greenhouse, token: gleanwork,           industry: ai_ml, enabled: true }
+  - { name: Harvey,                        ats: ashby,      token: harvey,              industry: ai_ml, enabled: true }
+  - { name: LangChain,                     ats: ashby,      token: langchain,           industry: ai_ml, enabled: true }
+  - { name: OpenAI,                        ats: ashby,      token: openai,              industry: ai_ml, enabled: true }
+  - { name: Perplexity,                    ats: ashby,      token: perplexity,          industry: ai_ml, enabled: true }
+  - { name: Pinecone,                      ats: ashby,      token: pinecone,            industry: ai_ml, enabled: true }
+  - { name: SambaNova,                     ats: greenhouse, token: sambanovasystems,    industry: ai_ml, enabled: true }
+  - { name: Scale AI,                      ats: greenhouse, token: scaleai,             industry: ai_ml, enabled: true }
+  - { name: Sierra,                        ats: ashby,      token: sierra,              industry: ai_ml, enabled: true }
+  - { name: Snorkel AI,                    ats: greenhouse, token: snorkelai,           industry: ai_ml, enabled: true }
+  - { name: Weaviate,                      ats: ashby,      token: weaviate,            industry: ai_ml, enabled: true }
+  - { name: Writer,                        ats: ashby,      token: writer,              industry: ai_ml, enabled: true }
+
+  # ---------- Cloud & Developer Tools (boards verified 2026-10-09) ----------
+  - { name: CircleCI,                      ats: greenhouse, token: circleci,            industry: cloud, enabled: true }
+  - { name: ClickHouse,                    ats: ashby,      token: clickhouse,          industry: cloud, enabled: true }
+  - { name: Cloudflare,                    ats: greenhouse, token: cloudflare,          industry: cloud, enabled: true }
+  - { name: Cockroach Labs,                ats: greenhouse, token: cockroachlabs,       industry: cloud, enabled: true }
+  - { name: Confluent,                     ats: ashby,      token: confluent,           industry: cloud, enabled: true }
+  - { name: Datadog,                       ats: greenhouse, token: datadog,             industry: cloud, enabled: true }
+  - { name: DigitalOcean,                  ats: greenhouse, token: digitalocean98,      industry: cloud, enabled: true }
+  - { name: Docker,                        ats: ashby,      token: docker,              industry: cloud, enabled: true }
+  - { name: Elastic,                       ats: greenhouse, token: elastic,             industry: cloud, enabled: true }
+  - { name: Fastly,                        ats: greenhouse, token: fastly,              industry: cloud, enabled: true }
+  - { name: Fivetran,                      ats: greenhouse, token: fivetran,            industry: cloud, enabled: true }
+  - { name: Fly.io,                        ats: lever,      token: fly,                 industry: cloud, enabled: true }
+  - { name: GitLab,                        ats: greenhouse, token: gitlab,              industry: cloud, enabled: true }
+  - { name: Grafana Labs,                  ats: greenhouse, token: grafanalabs,         industry: cloud, enabled: true }
+  - { name: Harness,                       ats: greenhouse, token: harnessinc,          industry: cloud, enabled: true }
+  - { name: Honeycomb,                     ats: greenhouse, token: honeycomb,           industry: cloud, enabled: true }
+  - { name: Kong,                          ats: ashby,      token: kong,                industry: cloud, enabled: true }
+  - { name: MongoDB,                       ats: greenhouse, token: mongodb,             industry: cloud, enabled: true }
+  - { name: Netlify,                       ats: greenhouse, token: netlify,             industry: cloud, enabled: true }
+  - { name: New Relic,                     ats: greenhouse, token: newrelic,            industry: cloud, enabled: true }
+  - { name: PagerDuty,                     ats: greenhouse, token: pagerduty,           industry: cloud, enabled: true }
+  - { name: PlanetScale,                   ats: greenhouse, token: planetscale,         industry: cloud, enabled: true }
+  - { name: Railway,                       ats: ashby,      token: railway,             industry: cloud, enabled: true }
+  - { name: Redis,                         ats: ashby,      token: redis,               industry: cloud, enabled: true }
+  - { name: Render,                        ats: ashby,      token: render,              industry: cloud, enabled: true }
+  - { name: Snowflake,                     ats: ashby,      token: snowflake,           industry: cloud, enabled: true }
+  - { name: Sourcegraph,                   ats: greenhouse, token: sourcegraph91,       industry: cloud, enabled: true }
+  - { name: Supabase,                      ats: ashby,      token: supabase,            industry: cloud, enabled: true }
+  - { name: Tailscale,                     ats: greenhouse, token: tailscale,           industry: cloud, enabled: true }
+  - { name: Temporal,                      ats: ashby,      token: temporal,            industry: cloud, enabled: true }
+  - { name: Twilio,                        ats: greenhouse, token: twilio,              industry: cloud, enabled: true }
+  - { name: Vercel,                        ats: greenhouse, token: vercel,              industry: cloud, enabled: true }
+
+  # ---------- Trading & HFT (boards verified 2026-10-09) ----------
+  - { name: Aquatic Capital,               ats: greenhouse, token: aquaticcapitalmanagement, industry: trading, enabled: true }
+  - { name: Clear Street,                  ats: greenhouse, token: clearstreet,         industry: trading, enabled: true }
+  - { name: Eclipse Trading,               ats: greenhouse, token: eclipsetrading,      industry: trading, enabled: true }
+  - { name: Engineers Gate,                ats: greenhouse, token: engineersgate,       industry: trading, enabled: true }
+  - { name: Five Rings,                    ats: greenhouse, token: fiveringsllc,        industry: trading, enabled: true }
+  - { name: Flow Traders,                  ats: greenhouse, token: flowtraders,         industry: trading, enabled: true }
+  - { name: Geneva Trading,                ats: greenhouse, token: genevatrading,       industry: trading, enabled: true }
+  - { name: Jump Crypto,                   ats: greenhouse, token: jumpcrypto,          industry: trading, enabled: true }
+  - { name: Man Group,                     ats: greenhouse, token: mangroup,            industry: trading, enabled: true }
+  - { name: PDT Partners,                  ats: greenhouse, token: pdtpartners,         industry: trading, enabled: true }
+  - { name: Point72,                       ats: greenhouse, token: point72,             industry: trading, enabled: true }
+  - { name: Schonfeld,                     ats: greenhouse, token: schonfeld,           industry: trading, enabled: true }
+  - { name: Squarepoint Capital,           ats: greenhouse, token: squarepointcapital,  industry: trading, enabled: true }
+  - { name: Vatic Labs,                    ats: greenhouse, token: vaticlabs,           industry: trading, enabled: true }
+  - { name: Virtu Financial,               ats: greenhouse, token: virtu,               industry: trading, enabled: true }
+  - { name: Voleon,                        ats: ashby,      token: voleon,              industry: trading, enabled: true }
+  - { name: XTX Markets,                   ats: greenhouse, token: xtxmarketstechnologies, industry: trading, enabled: true }
+
+  # ---------- Fintech & Payments (boards verified 2026-10-09) ----------
+  - { name: Acorns,                        ats: ashby,      token: acorns,              industry: fintech, enabled: true }
+  - { name: Affirm,                        ats: greenhouse, token: affirm,              industry: fintech, enabled: true }
+  - { name: Alloy,                         ats: greenhouse, token: alloy,               industry: fintech, enabled: true }
+  - { name: Betterment,                    ats: greenhouse, token: betterment,          industry: fintech, enabled: true }
+  - { name: Block,                         ats: greenhouse, token: block,               industry: fintech, enabled: true }
+  - { name: Brex,                          ats: greenhouse, token: brex,                industry: fintech, enabled: true }
+  - { name: Carta,                         ats: greenhouse, token: carta,               industry: fintech, enabled: true }
+  - { name: Chime,                         ats: greenhouse, token: chime,               industry: fintech, enabled: true }
+  - { name: Current,                       ats: greenhouse, token: current,             industry: fintech, enabled: true }
+  - { name: Dave,                          ats: ashby,      token: dave,                industry: fintech, enabled: true }
+  - { name: Figure,                        ats: greenhouse, token: figure,              industry: fintech, enabled: true }
+  - { name: Gusto,                         ats: greenhouse, token: gusto,               industry: fintech, enabled: true }
+  - { name: Lithic,                        ats: greenhouse, token: lithic,              industry: fintech, enabled: true }
+  - { name: Mercury,                       ats: greenhouse, token: mercury,             industry: fintech, enabled: true }
+  - { name: Modern Treasury,               ats: ashby,      token: moderntreasury,      industry: fintech, enabled: true }
+  - { name: Navan,                         ats: greenhouse, token: tripactions,         industry: fintech, enabled: true }
+  - { name: Nubank,                        ats: ashby,      token: nubank,              industry: fintech, enabled: true }
+  - { name: Payoneer,                      ats: greenhouse, token: payoneer,            industry: fintech, enabled: true }
+  - { name: Plaid,                         ats: ashby,      token: plaid,               industry: fintech, enabled: true }
+  - { name: Public.com,                    ats: greenhouse, token: public,              industry: fintech, enabled: true }
+  - { name: Ramp,                          ats: ashby,      token: ramp,                industry: fintech, enabled: true }
+  - { name: Robinhood,                     ats: greenhouse, token: robinhood,           industry: fintech, enabled: true }
+  - { name: SoFi,                          ats: greenhouse, token: sofi,                industry: fintech, enabled: true }
+  - { name: Stripe,                        ats: greenhouse, token: stripe,              industry: fintech, enabled: true }
+  - { name: Toast,                         ats: greenhouse, token: toast,               industry: fintech, enabled: true }
+  - { name: Unit,                          ats: ashby,      token: unit,                industry: fintech, enabled: true }
+  - { name: Upstart,                       ats: greenhouse, token: upstart,             industry: fintech, enabled: true }
+  - { name: Wealthfront,                   ats: lever,      token: wealthfront,         industry: fintech, enabled: true }
+
+  # ---------- Crypto & Web3 (boards verified 2026-10-09) ----------
+  - { name: Alchemy,                       ats: ashby,      token: alchemy,             industry: crypto, enabled: true }
+  - { name: Anchorage Digital,             ats: lever,      token: anchorage,           industry: crypto, enabled: true }
+  - { name: Circle,                        ats: ashby,      token: circle,              industry: crypto, enabled: true }
+  - { name: Coinbase,                      ats: greenhouse, token: coinbase,            industry: crypto, enabled: true }
+  - { name: Consensys,                     ats: greenhouse, token: consensys,           industry: crypto, enabled: true }
+  - { name: Fireblocks,                    ats: greenhouse, token: fireblocks,          industry: crypto, enabled: true }
+  - { name: Gemini,                        ats: greenhouse, token: gemini,              industry: crypto, enabled: true }
+  - { name: OpenSea,                       ats: ashby,      token: opensea,             industry: crypto, enabled: true }
+  - { name: Paxos,                         ats: ashby,      token: paxos,               industry: crypto, enabled: true }
+  - { name: Ripple,                        ats: greenhouse, token: ripple,              industry: crypto, enabled: true }
+  - { name: Uniswap Labs,                  ats: ashby,      token: uniswap,             industry: crypto, enabled: true }
+
+  # ---------- Insurance (boards verified 2026-10-09) ----------
+  - { name: Coalition,                     ats: greenhouse, token: coalition,           industry: insurance, enabled: true }
+  - { name: Ethos,                         ats: greenhouse, token: ethoslife,           industry: insurance, enabled: true }
+  - { name: Kin Insurance,                 ats: ashby,      token: kin,                 industry: insurance, enabled: true }
+  - { name: Lemonade,                      ats: ashby,      token: lemonade,            industry: insurance, enabled: true }
+  - { name: Openly,                        ats: ashby,      token: openly,              industry: insurance, enabled: true }
+
+  # ---------- Healthcare & Health Tech (boards verified 2026-10-09) ----------
+  - { name: Aledade,                       ats: lever,      token: aledade,             industry: healthcare, enabled: true }
+  - { name: Ambience Healthcare,           ats: ashby,      token: ambiencehealthcare,  industry: healthcare, enabled: true }
+  - { name: Calm,                          ats: greenhouse, token: calm,                industry: healthcare, enabled: true }
+  - { name: Commure,                       ats: ashby,      token: commure,             industry: healthcare, enabled: true }
+  - { name: Doximity,                      ats: greenhouse, token: doximity,            industry: healthcare, enabled: true }
+  - { name: Elation Health,                ats: greenhouse, token: elationhealth,       industry: healthcare, enabled: true }
+  - { name: Flatiron Health,               ats: greenhouse, token: flatironhealth,      industry: healthcare, enabled: true }
+  - { name: Garner Health,                 ats: greenhouse, token: garnerhealth,        industry: healthcare, enabled: true }
+  - { name: Headway,                       ats: ashby,      token: headway,             industry: healthcare, enabled: true }
+  - { name: Healthie,                      ats: greenhouse, token: healthie,            industry: healthcare, enabled: true }
+  - { name: Included Health,               ats: lever,      token: includedhealth,      industry: healthcare, enabled: true }
+  - { name: Komodo Health,                 ats: greenhouse, token: komodohealth,        industry: healthcare, enabled: true }
+  - { name: Lyra Health,                   ats: lever,      token: lyrahealth,          industry: healthcare, enabled: true }
+  - { name: Maven Clinic,                  ats: greenhouse, token: mavenclinic,         industry: healthcare, enabled: true }
+  - { name: Modern Health,                 ats: greenhouse, token: modernhealth,        industry: healthcare, enabled: true }
+  - { name: Natera,                        ats: greenhouse, token: natera,              industry: healthcare, enabled: true }
+  - { name: Nuna,                          ats: ashby,      token: nuna,                industry: healthcare, enabled: true }
+  - { name: Omada Health,                  ats: greenhouse, token: omadahealth,         industry: healthcare, enabled: true }
+  - { name: Oscar Health,                  ats: greenhouse, token: oscar,               industry: healthcare, enabled: true }
+  - { name: Ro,                            ats: lever,      token: ro,                  industry: healthcare, enabled: true }
+  - { name: Rula,                          ats: ashby,      token: rula,                industry: healthcare, enabled: true }
+  - { name: Strive Health,                 ats: greenhouse, token: strivehealth,        industry: healthcare, enabled: true }
+  - { name: Suki,                          ats: greenhouse, token: suki,                industry: healthcare, enabled: true }
+  - { name: Sword Health,                  ats: greenhouse, token: swordhealth,         industry: healthcare, enabled: true }
+  - { name: Talkspace,                     ats: greenhouse, token: talkspace,           industry: healthcare, enabled: true }
+  - { name: Wheel,                         ats: ashby,      token: wheel,               industry: healthcare, enabled: true }
+  - { name: Zocdoc,                        ats: greenhouse, token: zocdoc,              industry: healthcare, enabled: true }
+  - { name: Zus Health,                    ats: lever,      token: zushealth,           industry: healthcare, enabled: true }
+
+  # ---------- Biotech & Life Sciences (boards verified 2026-10-09) ----------
+  - { name: Arcadia Science,               ats: greenhouse, token: arcadiascience,      industry: biotech, enabled: true }
+  - { name: Benchling,                     ats: ashby,      token: benchling,           industry: biotech, enabled: true }
+  - { name: Dyno Therapeutics,             ats: greenhouse, token: dynotherapeutics,    industry: biotech, enabled: true }
+  - { name: Freenome,                      ats: greenhouse, token: freenome,            industry: biotech, enabled: true }
+  - { name: Generate Biomedicines,         ats: greenhouse, token: generatebiomedicines, industry: biotech, enabled: true }
+  - { name: Ginkgo Bioworks,               ats: greenhouse, token: ginkgobioworks,      industry: biotech, enabled: true }
+  - { name: Grail,                         ats: lever,      token: grailbio,            industry: biotech, enabled: true }
+  - { name: Inceptive,                     ats: greenhouse, token: inceptive,           industry: biotech, enabled: true }
+  - { name: Insitro,                       ats: ashby,      token: insitro,             industry: biotech, enabled: true }
+  - { name: Isomorphic Labs,               ats: greenhouse, token: isomorphiclabs,      industry: biotech, enabled: true }
+  - { name: Recursion,                     ats: greenhouse, token: recursionpharmaceuticals, industry: biotech, enabled: true }
+  - { name: Twist Bioscience,              ats: greenhouse, token: twistbioscience,     industry: biotech, enabled: true }
+  - { name: Xaira Therapeutics,            ats: greenhouse, token: xairatherapeutics,   industry: biotech, enabled: true }
+
+  # ---------- Aviation & Aerospace (boards verified 2026-10-09) ----------
+  - { name: Archer Aviation,               ats: greenhouse, token: archer56,            industry: aerospace, enabled: true }
+  - { name: Astranis,                      ats: greenhouse, token: astranis,            industry: aerospace, enabled: true }
+  - { name: Axiom Space,                   ats: greenhouse, token: axiom,               industry: aerospace, enabled: true }
+  - { name: BlackSky,                      ats: greenhouse, token: blacksky,            industry: aerospace, enabled: true }
+  - { name: Boom Supersonic,               ats: ashby,      token: boom,                industry: aerospace, enabled: true }
+  - { name: Electra.aero,                  ats: greenhouse, token: electraaero,         industry: aerospace, enabled: true }
+  - { name: HawkEye 360,                   ats: greenhouse, token: hawkeye360,          industry: aerospace, enabled: true }
+  - { name: Heart Aerospace,               ats: greenhouse, token: heartaerospace,      industry: aerospace, enabled: true }
+  - { name: Hermeus,                       ats: lever,      token: hermeus,             industry: aerospace, enabled: true }
+  - { name: Merlin Labs,                   ats: lever,      token: merlinlabs,          industry: aerospace, enabled: true }
+  - { name: Muon Space,                    ats: greenhouse, token: muonspace,           industry: aerospace, enabled: true }
+  - { name: Planet Labs,                   ats: greenhouse, token: planetlabs,          industry: aerospace, enabled: true }
+  - { name: Radiant,                       ats: ashby,      token: radiant,             industry: aerospace, enabled: true }
+  - { name: Relativity Space,              ats: greenhouse, token: relativity,          industry: aerospace, enabled: true }
+  - { name: Rocket Lab,                    ats: greenhouse, token: rocketlab,           industry: aerospace, enabled: true }
+  - { name: Shield AI,                     ats: lever,      token: shieldai,            industry: aerospace, enabled: true }
+  - { name: Skydio,                        ats: ashby,      token: skydio,              industry: aerospace, enabled: true }
+  - { name: Skyryse,                       ats: greenhouse, token: skyryse,             industry: aerospace, enabled: true }
+  - { name: Slingshot Aerospace,           ats: greenhouse, token: slingshotaerospace,  industry: aerospace, enabled: true }
+  - { name: SpaceX,                        ats: greenhouse, token: spacex,              industry: aerospace, enabled: true }
+  - { name: Spire Global,                  ats: greenhouse, token: spire,               industry: aerospace, enabled: true }
+  - { name: Varda Space,                   ats: greenhouse, token: vardaspace,          industry: aerospace, enabled: true }
+  - { name: Vast,                          ats: greenhouse, token: vast,                industry: aerospace, enabled: true }
+  - { name: Zipline,                       ats: greenhouse, token: flyzipline,          industry: aerospace, enabled: true }
+
+  # ---------- Defense & Public Sector (boards verified 2026-10-09) ----------
+  - { name: Anduril,                       ats: greenhouse, token: andurilindustries,   industry: defense, enabled: true }
+  - { name: Code for America,              ats: greenhouse, token: codeforamerica,      industry: defense, enabled: true }
+  - { name: Epirus,                        ats: greenhouse, token: epirus,              industry: defense, enabled: true }
+  - { name: Nava PBC,                      ats: greenhouse, token: navapbc,             industry: defense, enabled: true }
+  - { name: Oddball,                       ats: greenhouse, token: oddball,             industry: defense, enabled: true }
+  - { name: Palantir,                      ats: lever,      token: palantir,            industry: defense, enabled: true }
+  - { name: Primer,                        ats: ashby,      token: primer,              industry: defense, enabled: true }
+  - { name: Saronic,                       ats: ashby,      token: saronic,             industry: defense, enabled: true }
+  - { name: Vannevar Labs,                 ats: greenhouse, token: vannevarlabs,        industry: defense, enabled: true }
+
+  # ---------- Automotive & Autonomy (boards verified 2026-10-09) ----------
+  - { name: Kodiak Robotics,               ats: greenhouse, token: kodiak,              industry: automotive, enabled: true }
+  - { name: Lucid Motors,                  ats: greenhouse, token: lucidmotors,         industry: automotive, enabled: true }
+  - { name: Lyft,                          ats: greenhouse, token: lyft,                industry: automotive, enabled: true }
+  - { name: May Mobility,                  ats: greenhouse, token: maymobility,         industry: automotive, enabled: true }
+  - { name: Motional,                      ats: greenhouse, token: motional,            industry: automotive, enabled: true }
+  - { name: Motive,                        ats: greenhouse, token: motive,              industry: automotive, enabled: true }
+  - { name: Nuro,                          ats: greenhouse, token: nuro,                industry: automotive, enabled: true }
+  - { name: Samsara,                       ats: greenhouse, token: samsara,             industry: automotive, enabled: true }
+  - { name: Stack AV,                      ats: greenhouse, token: stackav,             industry: automotive, enabled: true }
+  - { name: Waabi,                         ats: lever,      token: waabi,               industry: automotive, enabled: true }
+  - { name: Waymo,                         ats: greenhouse, token: waymo,               industry: automotive, enabled: true }
+  - { name: Wayve,                         ats: ashby,      token: wayve,               industry: automotive, enabled: true }
+  - { name: Zoox,                          ats: lever,      token: zoox,                industry: automotive, enabled: true }
+
+  # ---------- Robotics & Hardware (boards verified 2026-10-09) ----------
+  - { name: 1X Technologies,               ats: ashby,      token: 1x,                  industry: robotics, enabled: true }
+  - { name: Agility Robotics,              ats: greenhouse, token: agilityrobotics,     industry: robotics, enabled: true }
+  - { name: Apptronik,                     ats: greenhouse, token: apptronik,           industry: robotics, enabled: true }
+  - { name: Bright Machines,               ats: lever,      token: brightmachines,      industry: robotics, enabled: true }
+  - { name: Carbon Robotics,               ats: greenhouse, token: carbonrobotics,      industry: robotics, enabled: true }
+  - { name: Dexterity,                     ats: lever,      token: dexterity,           industry: robotics, enabled: true }
+  - { name: Figure AI,                     ats: greenhouse, token: figureai,            industry: robotics, enabled: true }
+  - { name: Formic,                        ats: greenhouse, token: formic,              industry: robotics, enabled: true }
+  - { name: IonQ,                          ats: greenhouse, token: ionq,                industry: robotics, enabled: true }
+  - { name: Lightmatter,                   ats: greenhouse, token: lightmatter,         industry: robotics, enabled: true }
+  - { name: Locus Robotics,                ats: greenhouse, token: locusrobotics,       industry: robotics, enabled: true }
+  - { name: Oura,                          ats: greenhouse, token: oura,                industry: robotics, enabled: true }
+  - { name: Path Robotics,                 ats: greenhouse, token: pathrobotics,        industry: robotics, enabled: true }
+  - { name: Physical Intelligence,         ats: ashby,      token: physicalintelligence, industry: robotics, enabled: true }
+  - { name: PsiQuantum,                    ats: greenhouse, token: psiquantum,          industry: robotics, enabled: true }
+  - { name: Rigetti Computing,             ats: lever,      token: rigetti,             industry: robotics, enabled: true }
+  - { name: Tenstorrent,                   ats: greenhouse, token: tenstorrent,         industry: robotics, enabled: true }
+  - { name: Whoop,                         ats: ashby,      token: whoop,               industry: robotics, enabled: true }
+
+  # ---------- Energy & Climate (boards verified 2026-10-09) ----------
+  - { name: Arcadia,                       ats: lever,      token: arcadia,             industry: energy, enabled: true }
+  - { name: Aurora Solar,                  ats: ashby,      token: aurorasolar,         industry: energy, enabled: true }
+  - { name: Commonwealth Fusion Systems,   ats: lever,      token: cfsenergy,           industry: energy, enabled: true }
+  - { name: Fervo Energy,                  ats: greenhouse, token: fervoenergy,         industry: energy, enabled: true }
+  - { name: Form Energy,                   ats: ashby,      token: formenergy,          industry: energy, enabled: true }
+  - { name: Heirloom,                      ats: ashby,      token: heirloomcarbon,      industry: energy, enabled: true }
+  - { name: Helion,                        ats: ashby,      token: helion,              industry: energy, enabled: true }
+  - { name: Kairos Power,                  ats: greenhouse, token: kairospower,         industry: energy, enabled: true }
+  - { name: Lunar Energy,                  ats: greenhouse, token: lunarenergy,         industry: energy, enabled: true }
+  - { name: Oklo,                          ats: greenhouse, token: oklo,                industry: energy, enabled: true }
+  - { name: Palmetto,                      ats: greenhouse, token: palmetto,            industry: energy, enabled: true }
+  - { name: Redwood Materials,             ats: greenhouse, token: redwoodmaterials,    industry: energy, enabled: true }
+  - { name: Span,                          ats: ashby,      token: span,                industry: energy, enabled: true }
+  - { name: Voltus,                        ats: lever,      token: voltus,              industry: energy, enabled: true }
+  - { name: Watershed,                     ats: ashby,      token: watershed,           industry: energy, enabled: true }
+
+  # ---------- Logistics & Supply Chain (boards verified 2026-10-09) ----------
+  - { name: Arrive Logistics,              ats: lever,      token: arrivelogistics,     industry: logistics, enabled: true }
+  - { name: Flexport,                      ats: greenhouse, token: flexport,            industry: logistics, enabled: true }
+  - { name: FourKites,                     ats: greenhouse, token: fourkites,           industry: logistics, enabled: true }
+  - { name: Gopuff,                        ats: lever,      token: gopuff,              industry: logistics, enabled: true }
+  - { name: Loadsmart,                     ats: lever,      token: loadsmart,           industry: logistics, enabled: true }
+  - { name: project44,                     ats: greenhouse, token: project44,           industry: logistics, enabled: true }
+  - { name: Uber Freight,                  ats: greenhouse, token: uberfreight,         industry: logistics, enabled: true }
+
+  # ---------- Retail & E-commerce (boards verified 2026-10-09) ----------
+  - { name: Attentive,                     ats: greenhouse, token: attentive,           industry: ecommerce, enabled: true }
+  - { name: DoorDash,                      ats: greenhouse, token: doordashusa,         industry: ecommerce, enabled: true }
+  - { name: Faire,                         ats: greenhouse, token: faire,               industry: ecommerce, enabled: true }
+  - { name: Fanatics,                      ats: greenhouse, token: fanaticsinc,         industry: ecommerce, enabled: true }
+  - { name: Glossier,                      ats: greenhouse, token: glossier,            industry: ecommerce, enabled: true }
+  - { name: Instacart,                     ats: greenhouse, token: instacart,           industry: ecommerce, enabled: true }
+  - { name: Klaviyo,                       ats: greenhouse, token: klaviyo,             industry: ecommerce, enabled: true }
+  - { name: Misfits Market,                ats: greenhouse, token: misfitsmarket,       industry: ecommerce, enabled: true }
+  - { name: Poshmark,                      ats: ashby,      token: poshmark,            industry: ecommerce, enabled: true }
+  - { name: Rent the Runway,               ats: greenhouse, token: renttherunway,       industry: ecommerce, enabled: true }
+  - { name: Squarespace,                   ats: greenhouse, token: squarespace,         industry: ecommerce, enabled: true }
+  - { name: StockX,                        ats: greenhouse, token: stockx,              industry: ecommerce, enabled: true }
+  - { name: Thrive Market,                 ats: greenhouse, token: thrivemarket,        industry: ecommerce, enabled: true }
+
+  # ---------- Consumer Tech & Social (boards verified 2026-10-09) ----------
+  - { name: Airbnb,                        ats: greenhouse, token: airbnb,              industry: consumer, enabled: true }
+  - { name: BeReal,                        ats: ashby,      token: bereal,              industry: consumer, enabled: true }
+  - { name: Discord,                       ats: greenhouse, token: discord,             industry: consumer, enabled: true }
+  - { name: Duolingo,                      ats: greenhouse, token: duolingo,            industry: consumer, enabled: true }
+  - { name: Hopper,                        ats: ashby,      token: hopper,              industry: consumer, enabled: true }
+  - { name: Life360,                       ats: greenhouse, token: life360,             industry: consumer, enabled: true }
+  - { name: Match Group,                   ats: lever,      token: matchgroup,          industry: consumer, enabled: true }
+  - { name: Nextdoor,                      ats: greenhouse, token: nextdoor,            industry: consumer, enabled: true }
+  - { name: Partiful,                      ats: ashby,      token: partiful,            industry: consumer, enabled: true }
+  - { name: Peloton,                       ats: greenhouse, token: peloton,             industry: consumer, enabled: true }
+  - { name: Pinterest,                     ats: greenhouse, token: pinterest,           industry: consumer, enabled: true }
+  - { name: Quora,                         ats: ashby,      token: quora,               industry: consumer, enabled: true }
+  - { name: Reddit,                        ats: greenhouse, token: reddit,              industry: consumer, enabled: true }
+  - { name: Rover,                         ats: lever,      token: rover,               industry: consumer, enabled: true }
+  - { name: Strava,                        ats: ashby,      token: strava,              industry: consumer, enabled: true }
+  - { name: Taskrabbit,                    ats: greenhouse, token: taskrabbit,          industry: consumer, enabled: true }
+  - { name: Thumbtack,                     ats: ashby,      token: thumbtack,           industry: consumer, enabled: true }
+
+  # ---------- Media & Entertainment (boards verified 2026-10-09) ----------
+  - { name: Axios,                         ats: greenhouse, token: axios,               industry: media, enabled: true }
+  - { name: Cameo,                         ats: greenhouse, token: cameo,               industry: media, enabled: true }
+  - { name: Descript,                      ats: greenhouse, token: descript,            industry: media, enabled: true }
+  - { name: Fubo,                          ats: greenhouse, token: fubotv,              industry: media, enabled: true }
+  - { name: Kickstarter,                   ats: greenhouse, token: kickstarter,         industry: media, enabled: true }
+  - { name: Medium,                        ats: greenhouse, token: medium,              industry: media, enabled: true }
+  - { name: Mux,                           ats: ashby,      token: mux,                 industry: media, enabled: true }
+  - { name: Patreon,                       ats: ashby,      token: patreon,             industry: media, enabled: true }
+  - { name: Roku,                          ats: greenhouse, token: roku,                industry: media, enabled: true }
+  - { name: SeatGeek,                      ats: greenhouse, token: seatgeek,            industry: media, enabled: true }
+  - { name: Spotify,                       ats: lever,      token: spotify,             industry: media, enabled: true }
+  - { name: Substack,                      ats: ashby,      token: substack,            industry: media, enabled: true }
+  - { name: The New York Times,            ats: greenhouse, token: thenewyorktimes,     industry: media, enabled: true }
+  - { name: Twitch,                        ats: greenhouse, token: twitch,              industry: media, enabled: true }
+  - { name: Vox Media,                     ats: greenhouse, token: voxmedia,            industry: media, enabled: true }
+
+  # ---------- Gaming (boards verified 2026-10-09) ----------
+  - { name: Bethesda,                      ats: greenhouse, token: bethesda,            industry: gaming, enabled: true }
+  - { name: Bungie,                        ats: greenhouse, token: bungie,              industry: gaming, enabled: true }
+  - { name: Epic Games,                    ats: greenhouse, token: epicgames,           industry: gaming, enabled: true }
+  - { name: Gearbox,                       ats: greenhouse, token: gearbox,             industry: gaming, enabled: true }
+  - { name: Jam City,                      ats: lever,      token: jamcity,             industry: gaming, enabled: true }
+  - { name: Kabam,                         ats: lever,      token: kabam,               industry: gaming, enabled: true }
+  - { name: Krafton,                       ats: greenhouse, token: krafton,             industry: gaming, enabled: true }
+  - { name: Moon Active,                   ats: ashby,      token: moonactive,          industry: gaming, enabled: true }
+  - { name: Riot Games,                    ats: greenhouse, token: riotgames,           industry: gaming, enabled: true }
+  - { name: Roblox,                        ats: greenhouse, token: roblox,              industry: gaming, enabled: true }
+  - { name: Rockstar Games,                ats: greenhouse, token: rockstargames,       industry: gaming, enabled: true }
+  - { name: Scopely,                       ats: greenhouse, token: scopely,             industry: gaming, enabled: true }
+  - { name: Second Dinner,                 ats: ashby,      token: seconddinner,        industry: gaming, enabled: true }
+  - { name: Sky Mavis,                     ats: ashby,      token: skymavis,            industry: gaming, enabled: true }
+  - { name: Supercell,                     ats: ashby,      token: supercell,           industry: gaming, enabled: true }
+  - { name: Take-Two,                      ats: greenhouse, token: taketwo,             industry: gaming, enabled: true }
+  - { name: Tripledot,                     ats: greenhouse, token: tripledotstudios,    industry: gaming, enabled: true }
+  - { name: Voodoo,                        ats: ashby,      token: voodoo,              industry: gaming, enabled: true }
+
+  # ---------- Education (boards verified 2026-10-09) ----------
+  - { name: 2U,                            ats: greenhouse, token: 2u,                  industry: education, enabled: true }
+  - { name: Amira Learning,                ats: greenhouse, token: amiralearning,       industry: education, enabled: true }
+  - { name: BetterUp,                      ats: ashby,      token: betterup,            industry: education, enabled: true }
+  - { name: Brilliant,                     ats: lever,      token: brilliant,           industry: education, enabled: true }
+  - { name: ClassDojo,                     ats: ashby,      token: classdojo,           industry: education, enabled: true }
+  - { name: Clever,                        ats: greenhouse, token: clever,              industry: education, enabled: true }
+  - { name: Coursera,                      ats: greenhouse, token: coursera,            industry: education, enabled: true }
+  - { name: Degreed,                       ats: greenhouse, token: degreed,             industry: education, enabled: true }
+  - { name: Edmentum,                      ats: greenhouse, token: edmentum,            industry: education, enabled: true }
+  - { name: General Assembly,              ats: greenhouse, token: generalassembly,     industry: education, enabled: true }
+  - { name: Guild,                         ats: greenhouse, token: guild,               industry: education, enabled: true }
+  - { name: Handshake,                     ats: ashby,      token: handshake,           industry: education, enabled: true }
+  - { name: Instructure,                   ats: ashby,      token: instructure,         industry: education, enabled: true }
+  - { name: Khan Academy,                  ats: greenhouse, token: khanacademy,         industry: education, enabled: true }
+  - { name: MasterClass,                   ats: greenhouse, token: masterclass,         industry: education, enabled: true }
+  - { name: Multiverse,                    ats: ashby,      token: multiverse,          industry: education, enabled: true }
+  - { name: Newsela,                       ats: greenhouse, token: newsela,             industry: education, enabled: true }
+  - { name: Outschool,                     ats: ashby,      token: outschool,           industry: education, enabled: true }
+  - { name: Speak,                         ats: ashby,      token: speak,               industry: education, enabled: true }
+  - { name: Springboard,                   ats: greenhouse, token: springboard,         industry: education, enabled: true }
+  - { name: Udemy,                         ats: greenhouse, token: udemy,               industry: education, enabled: true }
+
+  # ---------- Enterprise Software (boards verified 2026-10-09) ----------
+  - { name: Airbyte,                       ats: ashby,      token: airbyte,             industry: enterprise, enabled: true }
+  - { name: Airtable,                      ats: greenhouse, token: airtable,            industry: enterprise, enabled: true }
+  - { name: Algolia,                       ats: greenhouse, token: algolia,             industry: enterprise, enabled: true }
+  - { name: Amplitude,                     ats: ashby,      token: amplitude,           industry: enterprise, enabled: true }
+  - { name: Asana,                         ats: greenhouse, token: asana,               industry: enterprise, enabled: true }
+  - { name: Ashby,                         ats: ashby,      token: ashby,               industry: enterprise, enabled: true }
+  - { name: Attio,                         ats: ashby,      token: attio,               industry: enterprise, enabled: true }
+  - { name: Box,                           ats: greenhouse, token: boxinc,              industry: enterprise, enabled: true }
+  - { name: Brightwheel,                   ats: ashby,      token: brightwheel,         industry: enterprise, enabled: true }
+  - { name: Calendly,                      ats: greenhouse, token: calendly,            industry: enterprise, enabled: true }
+  - { name: Clay,                          ats: ashby,      token: claylabs,            industry: enterprise, enabled: true }
+  - { name: ClickUp,                       ats: ashby,      token: clickup,             industry: enterprise, enabled: true }
+  - { name: Contentful,                    ats: greenhouse, token: contentful,          industry: enterprise, enabled: true }
+  - { name: Dropbox,                       ats: greenhouse, token: dropbox,             industry: enterprise, enabled: true }
+  - { name: Figma,                         ats: greenhouse, token: figma,               industry: enterprise, enabled: true }
+  - { name: Gong,                          ats: greenhouse, token: gongio,              industry: enterprise, enabled: true }
+  - { name: Greenhouse,                    ats: greenhouse, token: greenhouse,          industry: enterprise, enabled: true }
+  - { name: Hex,                           ats: ashby,      token: hex,                 industry: enterprise, enabled: true }
+  - { name: Intercom,                      ats: greenhouse, token: intercom,            industry: enterprise, enabled: true }
+  - { name: Justworks,                     ats: greenhouse, token: justworks,           industry: enterprise, enabled: true }
+  - { name: Lattice,                       ats: greenhouse, token: lattice,             industry: enterprise, enabled: true }
+  - { name: LaunchDarkly,                  ats: greenhouse, token: launchdarkly,        industry: enterprise, enabled: true }
+  - { name: Linear,                        ats: ashby,      token: linear,              industry: enterprise, enabled: true }
+  - { name: Miro,                          ats: ashby,      token: miro,                industry: enterprise, enabled: true }
+  - { name: Mixpanel,                      ats: greenhouse, token: mixpanel,            industry: enterprise, enabled: true }
+  - { name: Notion,                        ats: ashby,      token: notion,              industry: enterprise, enabled: true }
+  - { name: Pendo,                         ats: greenhouse, token: pendo,               industry: enterprise, enabled: true }
+  - { name: Qualtrics,                     ats: greenhouse, token: qualtrics,           industry: enterprise, enabled: true }
+  - { name: Sanity,                        ats: ashby,      token: sanity,              industry: enterprise, enabled: true }
+  - { name: Sentry,                        ats: ashby,      token: sentry,              industry: enterprise, enabled: true }
+  - { name: Sigma Computing,               ats: greenhouse, token: sigmacomputing,      industry: enterprise, enabled: true }
+  - { name: Smartsheet,                    ats: greenhouse, token: smartsheet,          industry: enterprise, enabled: true }
+  - { name: Starburst,                     ats: greenhouse, token: starburst,           industry: enterprise, enabled: true }
+  - { name: SurveyMonkey,                  ats: ashby,      token: surveymonkey,        industry: enterprise, enabled: true }
+  - { name: Typeform,                      ats: greenhouse, token: typeform,            industry: enterprise, enabled: true }
+  - { name: Veeva,                         ats: lever,      token: veeva,               industry: enterprise, enabled: true }
+  - { name: Webflow,                       ats: greenhouse, token: webflow,             industry: enterprise, enabled: true }
+  - { name: Workato,                       ats: greenhouse, token: workato,             industry: enterprise, enabled: true }
+  - { name: Zapier,                        ats: ashby,      token: zapier,              industry: enterprise, enabled: true }
+
+  # ---------- Cybersecurity (boards verified 2026-10-09) ----------
+  - { name: 1Password,                     ats: ashby,      token: 1password,           industry: security, enabled: true }
+  - { name: Abnormal Security,             ats: greenhouse, token: abnormalsecurity,    industry: security, enabled: true }
+  - { name: Axonius,                       ats: greenhouse, token: axonius,             industry: security, enabled: true }
+  - { name: Bugcrowd,                      ats: greenhouse, token: bugcrowd,            industry: security, enabled: true }
+  - { name: Chainguard,                    ats: greenhouse, token: chainguard,          industry: security, enabled: true }
+  - { name: Clerk,                         ats: ashby,      token: clerk,               industry: security, enabled: true }
+  - { name: Coalfire,                      ats: lever,      token: coalfire,            industry: security, enabled: true }
+  - { name: Drata,                         ats: ashby,      token: drata,               industry: security, enabled: true }
+  - { name: Expel,                         ats: greenhouse, token: expel,               industry: security, enabled: true }
+  - { name: HackerOne,                     ats: ashby,      token: hackerone,           industry: security, enabled: true }
+  - { name: Huntress,                      ats: greenhouse, token: huntress,            industry: security, enabled: true }
+  - { name: Island,                        ats: greenhouse, token: island,              industry: security, enabled: true }
+  - { name: Material Security,             ats: ashby,      token: materialsecurity,    industry: security, enabled: true }
+  - { name: Netskope,                      ats: greenhouse, token: netskope,            industry: security, enabled: true }
+  - { name: Okta,                          ats: greenhouse, token: okta,                industry: security, enabled: true }
+  - { name: Orca Security,                 ats: greenhouse, token: orcasecurity,        industry: security, enabled: true }
+  - { name: Persona,                       ats: ashby,      token: persona,             industry: security, enabled: true }
+  - { name: Ping Identity,                 ats: greenhouse, token: pingidentity,        industry: security, enabled: true }
+  - { name: Semgrep,                       ats: ashby,      token: semgrep,             industry: security, enabled: true }
+  - { name: SentinelOne,                   ats: greenhouse, token: sentinellabs,        industry: security, enabled: true }
+  - { name: Snyk,                          ats: ashby,      token: snyk,                industry: security, enabled: true }
+  - { name: Socket,                        ats: ashby,      token: socket,              industry: security, enabled: true }
+  - { name: Sysdig,                        ats: lever,      token: sysdig,              industry: security, enabled: true }
+  - { name: Tanium,                        ats: greenhouse, token: tanium,              industry: security, enabled: true }
+  - { name: Torq,                          ats: greenhouse, token: torq,                industry: security, enabled: true }
+  - { name: Vanta,                         ats: ashby,      token: vanta,               industry: security, enabled: true }
+  - { name: Wiz,                           ats: greenhouse, token: wizinc,              industry: security, enabled: true }
+  - { name: WorkOS,                        ats: ashby,      token: workos,              industry: security, enabled: true }
+  - { name: Zscaler,                       ats: greenhouse, token: zscaler,             industry: security, enabled: true }
+
+  # ---------- Real Estate & PropTech (boards verified 2026-10-09) ----------
+  - { name: Blend,                         ats: greenhouse, token: blend,               industry: real_estate, enabled: true }
+  - { name: Compass,                       ats: greenhouse, token: urbancompass,        industry: real_estate, enabled: true }
+  - { name: EliseAI,                       ats: ashby,      token: eliseai,             industry: real_estate, enabled: true }
+  - { name: Entrata,                       ats: lever,      token: entrata,             industry: real_estate, enabled: true }
+  - { name: Homebound,                     ats: ashby,      token: homebound,           industry: real_estate, enabled: true }
+  - { name: Juniper Square,                ats: ashby,      token: junipersquare,       industry: real_estate, enabled: true }
+  - { name: Latch,                         ats: lever,      token: latch,               industry: real_estate, enabled: true }
+  - { name: Pacaso,                        ats: greenhouse, token: pacaso,              industry: real_estate, enabled: true }
+  - { name: Qualia,                        ats: greenhouse, token: qualia,              industry: real_estate, enabled: true }
+  - { name: Roofstock,                     ats: greenhouse, token: roofstock,           industry: real_estate, enabled: true }
+  - { name: SmartRent,                     ats: greenhouse, token: smartrent,           industry: real_estate, enabled: true }
+  - { name: VTS,                           ats: greenhouse, token: vts,                 industry: real_estate, enabled: true }
+
+  # ---------- Nonprofit & Civic Tech (boards verified 2026-10-09) ----------
+  - { name: Arc Institute,                 ats: greenhouse, token: arcinstitute,        industry: nonprofit, enabled: true }
+  - { name: Chan Zuckerberg Initiative,    ats: greenhouse, token: chanzuckerberginitiative, industry: nonprofit, enabled: true }
+  - { name: "charity: water",              ats: lever,      token: charitywater,        industry: nonprofit, enabled: true }
+  - { name: DonorsChoose,                  ats: greenhouse, token: donorschoose,        industry: nonprofit, enabled: true }
+  - { name: Girls Who Code,                ats: lever,      token: girlswhocode,        industry: nonprofit, enabled: true }
+  - { name: GiveDirectly,                  ats: greenhouse, token: givedirectly,        industry: nonprofit, enabled: true }
+  - { name: Mozilla,                       ats: greenhouse, token: mozilla,             industry: nonprofit, enabled: true }
+  - { name: One Acre Fund,                 ats: greenhouse, token: oneacrefund,         industry: nonprofit, enabled: true }
+  - { name: Pursuit,                       ats: greenhouse, token: pursuit,             industry: nonprofit, enabled: true }
+  - { name: Recidiviz,                     ats: greenhouse, token: recidiviz,           industry: nonprofit, enabled: true }
+  - { name: Thorn,                         ats: greenhouse, token: thorn,               industry: nonprofit, enabled: true }
+  - { name: Wikimedia Foundation,          ats: greenhouse, token: wikimedia,           industry: nonprofit, enabled: true }
+
+# Companies on custom career sites (Citadel, Jane Street, CME, Workday-hosted
+# airlines and hospitals, etc.) are out of scope until a public API is found.
+# Do not scrape them.

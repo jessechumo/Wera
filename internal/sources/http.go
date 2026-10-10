@@ -16,7 +16,9 @@ import (
 // retried and is recorded as last_fetch_error = "404 token not found".
 var ErrBoardNotFound = errors.New("404 token not found")
 
-const maxBodyBytes = 32 << 20 // 32 MiB per response, plenty for job boards
+// maxBodyBytes caps one response. Boards with descriptions inline get big
+// (Anduril's Greenhouse board was 43 MB in October 2026).
+const maxBodyBytes = 96 << 20
 
 // HTTP is the shared, polite HTTP client used by every adapter: 15s
 // timeout, a descriptive User-Agent, transparent gzip (Go's transport),
@@ -57,9 +59,11 @@ func (h *HTTP) GetJSON(ctx context.Context, url string, out any) error {
 		if err != nil {
 			lastErr = fmt.Errorf("request: %w", err)
 		} else {
-			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
 			closeErr := resp.Body.Close()
 			switch {
+			case len(body) > maxBodyBytes:
+				return fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
 			case resp.StatusCode == http.StatusNotFound:
 				return fmt.Errorf("%w: %s", ErrBoardNotFound, url)
 			case resp.StatusCode == http.StatusOK:

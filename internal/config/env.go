@@ -21,10 +21,19 @@ type Env struct {
 	ScoringConcurrency int
 	FetchConcurrency   int
 	RunInterval        time.Duration
+	RunSchedule        *Schedule // nil: loop every RunInterval
 	HTTPAddr           string
 	LogFormat          string
 	UserAgent          string
-	MaxCostPerRunUSD   float64
+	MaxCostPerRunUSD   float64 // per user per run
+	UserBudgetUSD      float64 // monthly budget given to new accounts
+	MaxMonthlyCostUSD  float64 // all users together, per calendar month
+
+	// Accounts and browser security.
+	SignupEnabled bool     // POST /api/auth/signup open to anyone
+	CookieSecure  bool     // set Secure on the session cookie (HTTPS only)
+	PublicOrigins []string // extra origins allowed to send state-changing requests
+	TrustProxy    bool     // take the client IP from proxy headers
 }
 
 // LoadEnv builds an Env from the process environment with defaults.
@@ -40,7 +49,10 @@ func LoadEnv() (*Env, error) {
 		HTTPAddr:           "127.0.0.1:8080",
 		LogFormat:          "text",
 		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
-		MaxCostPerRunUSD:   0.50,
+		MaxCostPerRunUSD:   1.00,
+		UserBudgetUSD:      10,
+		MaxMonthlyCostUSD:  100,
+		SignupEnabled:      true,
 	}
 
 	var errs []string
@@ -69,6 +81,16 @@ func LoadEnv() (*Env, error) {
 			*dst = d
 		}
 	}
+	boolVal := func(key string, dst *bool) {
+		if v := os.Getenv(key); v != "" {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: not a boolean: %q", key, v))
+				return
+			}
+			*dst = b
+		}
+	}
 	floatVal := func(key string, dst *float64) {
 		if v := os.Getenv(key); v != "" {
 			f, err := strconv.ParseFloat(v, 64)
@@ -88,10 +110,29 @@ func LoadEnv() (*Env, error) {
 	intVal("SCORING_CONCURRENCY", &e.ScoringConcurrency)
 	intVal("FETCH_CONCURRENCY", &e.FetchConcurrency)
 	durVal("RUN_INTERVAL", &e.RunInterval)
+	tzName := "America/Chicago"
+	str("RUN_TIMEZONE", &tzName)
+	if loc, err := time.LoadLocation(tzName); err != nil {
+		errs = append(errs, fmt.Sprintf("RUN_TIMEZONE: unknown time zone %q", tzName))
+	} else if sched, err := ParseSchedule(os.Getenv("RUN_SCHEDULE"), loc); err != nil {
+		errs = append(errs, "RUN_SCHEDULE: "+err.Error())
+	} else {
+		e.RunSchedule = sched
+	}
 	str("HTTP_ADDR", &e.HTTPAddr)
 	str("LOG_FORMAT", &e.LogFormat)
 	str("USER_AGENT", &e.UserAgent)
 	floatVal("MAX_COST_PER_RUN_USD", &e.MaxCostPerRunUSD)
+	floatVal("USER_MONTHLY_BUDGET_USD", &e.UserBudgetUSD)
+	floatVal("MAX_MONTHLY_COST_USD", &e.MaxMonthlyCostUSD)
+	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
+	boolVal("COOKIE_SECURE", &e.CookieSecure)
+	boolVal("TRUST_PROXY", &e.TrustProxy)
+	for _, o := range strings.Split(os.Getenv("PUBLIC_ORIGINS"), ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			e.PublicOrigins = append(e.PublicOrigins, o)
+		}
+	}
 
 	if e.FetchConcurrency < 1 {
 		errs = append(errs, "FETCH_CONCURRENCY must be >= 1")
@@ -104,6 +145,9 @@ func LoadEnv() (*Env, error) {
 	}
 	if e.MaxCostPerRunUSD <= 0 {
 		errs = append(errs, "MAX_COST_PER_RUN_USD must be positive")
+	}
+	if e.UserBudgetUSD < 0 || e.MaxMonthlyCostUSD <= 0 {
+		errs = append(errs, "USER_MONTHLY_BUDGET_USD must be >= 0 and MAX_MONTHLY_COST_USD positive")
 	}
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))

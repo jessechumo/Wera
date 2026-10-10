@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,7 +35,7 @@ func runDeep(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("deep", flag.ContinueOnError)
 	top := fs.Int("top", 10, "deep-review at most N jobs")
 	minScore := fs.Int("min-score", 75, "only jobs whose latest score analysis fit_score is at least this")
-	profilePath := fs.String("profile", config.DefaultProfilePath, "path to the candidate profile markdown")
+	email := fs.String("user", "", "review this user's top jobs (email; optional with one user)")
 	pollEvery := fs.Duration("poll-every", 5*time.Second, "how often to poll each background response")
 	timeout := fs.Duration("timeout", 15*time.Minute, "overall wall-clock budget for the whole review")
 	maxTokens := fs.Int("max-output-tokens", 8000, "max output tokens per deep review (reasoning models burn some on reasoning before the reply)")
@@ -51,13 +50,6 @@ func runDeep(ctx context.Context, args []string) error {
 	if env.CoralAPIKey == "" {
 		return errors.New("CORAL_API_KEY is not set: add it to .env (see .env.example)")
 	}
-	profile, err := os.ReadFile(*profilePath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w (copy profile/profile.example.md and fill it in)", *profilePath, err)
-	}
-	if len(profile) == 0 {
-		return scoring.ErrNoProfile
-	}
 	log := config.NewLogger(env)
 
 	pool, err := store.Open(ctx, env.DatabaseURL)
@@ -66,8 +58,13 @@ func runDeep(ctx context.Context, args []string) error {
 	}
 	defer pool.Close()
 
-	profileHash := scoring.ProfileHash(profile)
-	jobs, err := store.DeepJobs(ctx, pool, *top, *minScore, profileHash)
+	prof, err := onlyProfile(ctx, pool, *email)
+	if err != nil {
+		return err
+	}
+	profile := []byte(prof.Markdown)
+	profileHash := prof.ProfileHash
+	jobs, err := store.DeepJobs(ctx, pool, prof.UserID, *top, *minScore, profileHash)
 	if err != nil {
 		return err
 	}
@@ -128,7 +125,7 @@ func runDeep(ctx context.Context, args []string) error {
 			}
 			switch {
 			case state.Status == scoring.StatusCompleted:
-				if err := saveDeep(ctx, pool, env, profileHash, p, state, log); err != nil {
+				if err := saveDeep(ctx, pool, env, prof.UserID, profileHash, p, state, log); err != nil {
 					failed++
 				} else {
 					saved++
@@ -156,7 +153,7 @@ func runDeep(ctx context.Context, args []string) error {
 // saveDeep parses one completed background response and persists it as
 // analyses.kind='deep'. An invalid reply is not saved (so a rerun
 // retries the job); the failure is logged with the raw content.
-func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env,
+func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env, userID int64,
 	profileHash string, p deepPending, state *scoring.ResponseState, log *slog.Logger) error {
 
 	analysis, err := scoring.ParseDeepAnalysis(state.Content)
@@ -178,7 +175,7 @@ func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env,
 	if len(analysis.WhyFit) > 0 {
 		summary = analysis.WhyFit[0]
 	}
-	if err := store.SaveDeepAnalysis(ctx, pool, p.job.Job.ID, env.CoralDeepModel,
+	if err := store.SaveDeepAnalysis(ctx, pool, userID, p.job.Job.ID, env.CoralDeepModel,
 		profileHash, p.job.FitScore, summary, scoring.StripFences(state.Content),
 		state.Usage, cost, latency); err != nil {
 		log.Error("save deep analysis failed", "job_id", p.job.Job.ID, "err", err)

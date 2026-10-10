@@ -10,7 +10,7 @@ import (
 
 // runCompanies implements `wera companies validate`: it loads
 // companies.yaml (validation errors list every duplicate name/board and
-// every bad ats/group value) and prints a summary.
+// every bad ats/industry value) and prints a summary.
 func runCompanies(ctx context.Context, args []string) error {
 	if len(args) != 1 || args[0] != "validate" {
 		return fmt.Errorf("usage: wera companies validate")

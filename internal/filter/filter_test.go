@@ -20,6 +20,17 @@ func newEngine(t *testing.T) *Engine {
 	return e
 }
 
+// infraPrefs reproduces the original single-user rules: entry/junior
+// infrastructure roles in the US, sponsorship required.
+var infraPrefs = &config.Preferences{
+	RoleFamilies: []string{"sre", "platform", "devops", "infrastructure", "swe_infra",
+		"production", "trading_ops", "ml_infra", "early_career"},
+	Levels:           []string{"entry", "mid"},
+	MaxYearsRequired: 3,
+	USOnly:           true,
+	NeedsSponsorship: true,
+}
+
 func TestApplyTitleRules(t *testing.T) {
 	e := newEngine(t)
 	const neutralDesc = "We build reliable systems and welcome new graduates."
@@ -46,7 +57,7 @@ func TestApplyTitleRules(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.title, func(t *testing.T) {
-			res := e.Apply(tc.title, "Chicago, IL", neutralDesc)
+			res := e.Apply(infraPrefs, tc.title, "Chicago, IL", neutralDesc)
 			if res.Stage == StageExcluded && !tc.excluded {
 				t.Fatalf("kept expected, got exclude %q (%q)", res.Reason, res.Evidence)
 			}
@@ -99,7 +110,7 @@ func TestApplySponsorshipRules(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			res := e.Apply(title, location, tc.desc)
+			res := e.Apply(infraPrefs, title, location, tc.desc)
 			if res.Stage == StageExcluded != tc.excluded {
 				t.Fatalf("excluded=%v, want %v (reason=%q evidence=%q)",
 					res.Stage == StageExcluded, tc.excluded, res.Reason, res.Evidence)
@@ -111,6 +122,61 @@ func TestApplySponsorshipRules(t *testing.T) {
 				if res.Evidence != tc.desc {
 					t.Errorf("evidence: got %q, want the matched sentence %q", res.Evidence, tc.desc)
 				}
+			}
+		})
+	}
+}
+
+func TestApplyOtherUsers(t *testing.T) {
+	e := newEngine(t)
+	const desc = "We do not sponsor visas."
+	dataSWE := &config.Preferences{
+		RoleFamilies: []string{"software_engineering", "data_science", "ml_engineering"},
+		Levels:       []string{"entry", "mid", "senior"},
+		USOnly:       true,
+	}
+	anywhere := &config.Preferences{
+		RoleFamilies: []string{"data_science"},
+		Levels:       []string{"internship", "entry"},
+	}
+	tests := []struct {
+		name     string
+		prefs    *config.Preferences
+		title    string
+		location string
+		reason   string // "" = kept
+		category string
+	}{
+		{"swe kept", dataSWE, "Software Engineer, Frontend", "Seattle, WA", "", "software_engineering"},
+		{"senior accepted", dataSWE, "Senior Data Scientist, Flight Operations", "Dallas, TX", "", "data_science"},
+		{"no sponsorship needed", dataSWE, "Machine Learning Engineer", "Remote - US", "", "ml_engineering"},
+		{"mts generic", dataSWE, "Member of Technical Staff", "San Francisco, CA", "", "mts_software"},
+		{"management not accepted", dataSWE, "Director of Data Science", "Austin, TX", "title:director", ""},
+		{"family not selected", dataSWE, "Site Reliability Engineer", "Austin, TX", "title:no_category", ""},
+		{"non-US dropped", dataSWE, "Data Scientist", "London, UK", "location:non_us", ""},
+		{"non-US allowed", anywhere, "Data Scientist", "London, UK", "", "data_science"},
+		{"internship accepted", anywhere, "Data Science Intern", "Chicago, IL", "", "data_science"},
+		{"mid-level marker free", anywhere, "Data Scientist II", "Chicago, IL", "", "data_science"},
+		{"senior not accepted", anywhere, "Staff Data Scientist", "Chicago, IL", "title:staff", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := e.Apply(tc.prefs, tc.title, tc.location, desc)
+			if tc.reason != "" {
+				if res.Stage != StageExcluded || res.Reason != tc.reason {
+					t.Fatalf("want excluded %q, got stage %s reason %q", tc.reason, res.Stage, res.Reason)
+				}
+				return
+			}
+			if res.Stage != StagePendingScore {
+				t.Fatalf("want kept, got %s %q (%q)", res.Stage, res.Reason, res.Evidence)
+			}
+			found := false
+			for _, c := range res.Categories {
+				found = found || c == tc.category
+			}
+			if !found {
+				t.Fatalf("categories %v missing %q", res.Categories, tc.category)
 			}
 		})
 	}

@@ -135,7 +135,7 @@ USER_AGENT=Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)
 
 ### 5.2 `config/companies.yaml`
 
-Each entry: `name`, `ats` (`greenhouse` | `lever` | `ashby`), `token` (board slug), `group` (`ai_infra` | `trading` | `other`), `enabled`, optional `notes`.
+Each entry: `name`, `ats` (`greenhouse` | `lever` | `ashby`), `token` (board slug), `industry` (an id from `config/industries.yaml`; this replaced the original `group` of `ai_infra` | `trading` | `other`), `enabled`, optional `notes`.
 
 Tokens marked **verified** were confirmed to return a valid job list. The rest must be checked with `wera discover` (Milestone 2) before enabling.
 
@@ -351,7 +351,7 @@ CREATE TABLE runs (
 
 ## 7. Pipeline in detail
 
-`wera pipeline` runs once. `wera worker` loops it every `RUN_INTERVAL`. Each run:
+`wera pipeline` runs once. `wera worker` runs it at each `RUN_SCHEDULE` time (e.g. `09:00,11:00,...,19:00` in `RUN_TIMEZONE`), or loops it every `RUN_INTERVAL` when no schedule is set. Each run:
 
 1. **Acquire a Postgres advisory lock** (`pg_try_advisory_lock(4242)`). If held, log and exit: no overlapping runs.
 2. **Insert a `runs` row.** Sync `companies.yaml` into the `companies` table (upsert by name).

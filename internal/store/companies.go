@@ -18,14 +18,14 @@ func SyncCompanies(ctx context.Context, pool *pgxpool.Pool, comps []config.Compa
 	}
 	b := &pgx.Batch{}
 	for _, c := range comps {
-		b.Queue(`INSERT INTO companies (name, ats, token, grp, enabled)
+		b.Queue(`INSERT INTO companies (name, ats, token, industry, enabled)
 		         VALUES ($1, $2, $3, $4, $5)
 		         ON CONFLICT (name) DO UPDATE
 		         SET ats = EXCLUDED.ats,
 		               token = EXCLUDED.token,
-		               grp = EXCLUDED.grp,
+		               industry = EXCLUDED.industry,
 		               enabled = EXCLUDED.enabled`,
-			c.Name, c.ATS, c.Token, c.Group, c.IsEnabled())
+			c.Name, c.ATS, c.Token, c.Industry, c.IsEnabled())
 	}
 	br := pool.SendBatch(ctx, b)
 	for range comps {

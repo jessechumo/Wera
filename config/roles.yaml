@@ -1,50 +1,142 @@
-# WHAT counts as a match. All matching logic lives here.
+# WHAT counts as a match. All matching logic lives here; each user's
+# preferences (chosen at signup) pick from this catalog:
+#   - role_families: which families they want (a job must match one)
+#   - levels: which seniority levels they accept
+#   - needs_sponsorship / us_only: whether the sponsorship and location
+#     rules apply to them
 # Matching is case-insensitive. Patterns are Go regular expressions (RE2):
 # no lookahead/lookbehind.
 
-title_overrides:            # checked FIRST; a match skips exclude_title (still subject to location/sponsorship)
-  # AI startups use "Member of Technical Staff" as a generic title; "staff" here is not seniority.
-  mts_infra: ['\bmember of technical staff\b.*\b(systems|infrastructure|infra|inference|platform|reliability|sre|devops|cloud|gpu)\b']
+# Role families, in the order the signup form lists them. A family's id is
+# stored with each match, so rename one only with a data migration.
+role_families:
+  - id: software_engineering
+    label: "Software engineering"
+    description: "Backend, frontend, full-stack, mobile, and general SWE."
+    patterns: ['\bsoftware (engineer|developer|development engineer)', '\bSDE\b', '\bback[- ]?end\b', '\bfront[- ]?end\b',
+               '\bfull[- ]?stack\b', '\bmobile (engineer|developer)', '\b(ios|android) (engineer|developer)',
+               '\bweb (developer|engineer)', '\bforward deployed engineer', '\bmember of technical staff\b',
+               '\bapplication (engineer|developer)', '\bproduct engineer']
+  - id: sre
+    label: "Site reliability (SRE)"
+    patterns: ['\bsite reliability\b', '\bSRE\b', '\breliability engineer']
+  - id: platform
+    label: "Platform engineering"
+    patterns: ['\bplatform engineer', '\bcloud platform\b', '\binfrastructure platform']
+  - id: devops
+    label: "DevOps / build & release"
+    patterns: ['\bdevops\b', '\bbuild (and|&) release\b', '\brelease engineer']
+  - id: infrastructure
+    label: "Infrastructure / cloud / systems"
+    patterns: ['\binfrastructure engineer', '\binfrastructure software engineer', '\bcloud engineer', '\bsystems? engineer', '\blinux\b']
+  - id: swe_infra
+    label: "Software engineering on infrastructure teams"
+    patterns: ['\bsoftware engineer\b.*\b(infra|infrastructure|platform|reliability|systems|cloud|devops|observability)\b',
+               '\b(infra|infrastructure|platform|observability)\b.*\bsoftware engineer\b']
+  - id: production
+    label: "Production engineering / support"
+    patterns: ['\bproduction engineer', '\bproduction support\b']
+  - id: trading_ops
+    label: "Trading operations / trade support"
+    patterns: ['\btrad(e|ing) (operations|ops|support|systems)', '\btrade systems engineer', '\bapplication support engineer']
+  - id: ml_infra
+    label: "ML / AI infrastructure"
+    patterns: ['\bml infrastructure\b', '\bmlops\b', '\bai infrastructure\b', '\binference\b', '\bml platform\b', '\bgpu (infrastructure|platform|cloud)\b']
+  - id: ml_engineering
+    label: "Machine learning / AI engineering"
+    patterns: ['\bmachine learning\b', '\bML (engineer|scientist|developer)', '\bAI (engineer|developer)', '\bapplied (scientist|ml|ai)\b',
+               '\bdeep learning\b', '\bcomputer vision\b', '\bNLP\b', '\bLLM\b', '\bperception (engineer|software)']
+  - id: data_science
+    label: "Data science"
+    patterns: ['\bdata scien', '\bdecision scien', '\bstatistician\b', '\bquantitative (analyst|scientist)', '\bproduct analytics\b']
+  - id: data_engineering
+    label: "Data engineering"
+    patterns: ['\bdata engineer', '\bdata platform\b', '\bdata infrastructure\b', '\banalytics engineer', '\bETL\b']
+  - id: data_analytics
+    label: "Data / business analytics"
+    patterns: ['\bdata analyst', '\bbusiness intelligence\b', '\bBI (engineer|developer|analyst)', '\banalytics (analyst|specialist)',
+               '\bbusiness analyst', '\bproduct analyst', '\boperations analyst']
+  - id: research
+    label: "Research (scientist / engineer)"
+    patterns: ['\bresearch (scientist|engineer)', '\bresearcher\b', '\bresearch software engineer']
+  - id: quant
+    label: "Quant research / development / trading"
+    patterns: ['\bquant(itative)? (researcher|developer|trader|engineer|strategist)', '\bquant\b', '\balgorithmic trad', '\btrader\b']
+  - id: security
+    label: "Security engineering"
+    patterns: ['\bsecurity (engineer|analyst|researcher|architect)', '\b(application|product|cloud|network|offensive) security\b',
+               '\bdetection (and|&) response\b', '\bpenetration test', '\bred team', '\bthreat (intelligence|detection)']
+  - id: embedded
+    label: "Embedded / hardware / avionics"
+    patterns: ['\bembedded\b', '\bfirmware\b', '\bhardware engineer', '\belectrical engineer', '\bFPGA\b', '\bASIC\b',
+               '\bavionics\b', '\bflight software\b', '\bGNC\b', '\bguidance,? navigation', '\bcontrols engineer', '\brobotics (engineer|software)']
+  - id: qa_test
+    label: "QA / test automation"
+    patterns: ['\bQA\b', '\bquality (assurance|engineer)', '\btest (engineer|automation)', '\bSDET\b', '\bautomation engineer']
+  - id: solutions
+    label: "Solutions / customer / sales engineering"
+    patterns: ['\bsolutions? (engineer|architect|consultant)', '\bsales engineer', '\bcustomer engineer', '\bimplementation engineer',
+               '\b(technical )?support engineer', '\btechnical account manager']
+  - id: program_management
+    label: "Technical program / project management"
+    patterns: ['\b(technical )?program manager', '\bproject manager', '\bTPM\b', '\bscrum master']
+  - id: product_management
+    label: "Product management"
+    patterns: ['\bproduct manager', '\bproduct owner', '\bassociate product manager', '\bAPM\b']
+  - id: design
+    label: "Product / UX design"
+    patterns: ['\b(product|ux|ui|visual|interaction) designer', '\bdesign engineer', '\bux research']
+  - id: it_networking
+    label: "IT / networking / systems administration"
+    patterns: ['\bIT (support|specialist|administrator|engineer|analyst)', '\bhelp ?desk', '\bsystems? administrator',
+               '\bnetwork (engineer|administrator)', '\bdesktop support']
+  - id: early_career
+    label: "New grad / early career programs"
+    patterns: ['\bnew grad', '\bearly career\b', '\buniversity grad', '\bgraduate (software|systems|infrastructure|engineer|program)', '\brotational program']
 
-role_categories:            # a job must match at least one include pattern
-  sre:            ['\bsite reliability\b', '\bSRE\b', '\breliability engineer']
-  platform:       ['\bplatform engineer', '\bcloud platform\b', '\binfrastructure platform']
-  devops:         ['\bdevops\b', '\bbuild (and|&) release\b', '\brelease engineer']
-  infrastructure: ['\binfrastructure engineer', '\binfrastructure software engineer', '\bcloud engineer', '\bsystems? engineer', '\blinux\b']
-  production:     ['\bproduction engineer', '\bproduction support\b']
-  trading_ops:    ['\btrad(e|ing) (operations|ops|support|systems)', '\btrade systems engineer', '\bapplication support engineer']
-  ml_infra:       ['\bml infrastructure\b', '\bmlops\b', '\bai infrastructure\b', '\binference\b', '\bml platform\b', '\bgpu (infrastructure|platform|cloud)\b']
-  swe_infra:      ['\bsoftware engineer\b.*\b(infra|infrastructure|platform|reliability|systems|cloud|devops|observability)\b',
-                   '\b(infra|infrastructure|platform|observability)\b.*\bsoftware engineer\b']
-  early_career:   ['\bnew grad', '\bearly career\b', '\buniversity grad', '\bgraduate (software|systems|infrastructure)']
+# Checked FIRST, and only for users who selected one of the override's
+# families: a
+# match skips the seniority checks (still subject to location/sponsorship).
+# AI startups use "Member of Technical Staff" as a generic title; "staff"
+# here is not seniority.
+title_overrides:
+  mts_infra:
+    families: [ml_infra, infrastructure, platform, sre, devops, swe_infra]
+    patterns: ['\bmember of technical staff\b.*\b(systems|infrastructure|infra|inference|platform|reliability|sre|devops|cloud|gpu)\b']
+  mts_software:
+    families: [software_engineering]
+    patterns: ['\bmember of technical staff\b']
 
-exclude_title:              # drop immediately
-  - '\bsenior\b'
-  - '\bsr\.?\b'
-  - '\bstaff\b'
-  - '\bprincipal\b'
-  - '\blead\b'
-  - '\bmanager\b'
-  - '\bdirector\b'
-  - '\bhead of\b'
-  - '\bvp\b'
-  - '\bintern(ship)?\b'
-  - '\bco-?op\b'
-  - '\bIII\b'
-  - '\bIV\b'
-
-seniority:
-  max_years_required: 3     # LLM-extracted; jobs requiring more are excluded
+# Seniority levels a user can accept, in display order. Levels with
+# patterns are detected from the title; a user who does not accept a level
+# has titles matching its patterns dropped (reason title:<matched word>).
+# "mid" has no marker: unmarked titles always pass and the LLM decides.
+levels:
+  - id: internship
+    label: "Internship / co-op"
+    patterns: ['\bintern(ship)?\b', '\bco-?op\b']
+  - id: entry
+    label: "Entry level / new grad"
+    patterns: ['\bjunior\b', '\bjr\.?\b', '\bnew grad', '\bentry[- ]level\b', '\bearly career\b', '\bassociate (software|data|engineer)']
+  - id: mid
+    label: "Mid level"
+  - id: senior
+    label: "Senior / staff / principal"
+    patterns: ['\bsenior\b', '\bsr\.?\b', '\bstaff\b', '\bprincipal\b', '\blead\b', '\bIII\b', '\bIV\b', '\bdistinguished\b']
+  - id: management
+    label: "Management"
+    patterns: ['\b(engineering|software|technical|development|data|security|infrastructure|platform|IT) manager\b',
+               '\bmanager,? (engineering|software|data)', '\bdirector\b', '\bhead of\b', '\bvp\b', '\bvice president\b', '\bchief\b']
 
 location:
   allow_countries: ['US']
-  allow_remote_us: true
   # rule layer keeps a job if location text contains a US state/city/"United States"/"Remote - US"/"USA",
-  # or is ambiguous ("Remote"); the LLM then confirms. Clearly non-US (London, Bangalore, Singapore...) is dropped.
+  # or is ambiguous ("Remote"); the LLM then confirms. Clearly non-US (London, Bangalore, Singapore...) is
+  # dropped, but only for users with us_only set.
 
 sponsorship:
-  # Explicit refusal = hard exclude. Matched against the full plain-text description.
-  # These were tested against real posting sentences (see the test table in PLAN.md).
+  # Explicit refusal = hard exclude, for users who need sponsorship. Matched against the full plain-text
+  # description. These were tested against real posting sentences (see the test table in PLAN.md).
   # Note the YAML single-quote escaping: an apostrophe inside a pattern is written as ''.
   exclude_patterns:
     - '\b(will|do|does|can) ?not (be )?(provid|offer|sponsor)\w*[^.]{0,60}(sponsor|visa)'

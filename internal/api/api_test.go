@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,10 +11,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/auth"
+	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
 )
@@ -38,22 +43,79 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// client sends the test user's session cookie; testServer sets it up.
+var client = http.DefaultClient
+
+// testUserID is the throwaway user testServer logged client in as.
+var testUserID int64
+
+// matchCalls counts background matches the server started.
+var matchCalls atomic.Int32
+
+// cookieTransport adds a fixed session cookie to every request.
+type cookieTransport struct{ cookie string }
+
+func (c cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: c.cookie})
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+// testServer starts the API and logs `client` in as a throwaway admin
+// user, deleted again when the test ends.
 func testServer(t *testing.T, reg *metrics.Registry) (*httptest.Server, *pgxpool.Pool) {
 	t.Helper()
 	pool := testPool(t)
+	roles, err := config.LoadRoles("../../config/roles.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inds, err := config.LoadIndustries("../../config/industries.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	srv := &Server{
-		Pool:    pool,
-		Log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Metrics: reg,
+		Pool:          pool,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Metrics:       reg,
+		SignupEnabled: true,
+		Roles:         roles,
+		Industries:    inds.Industries,
+		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
+
+	ctx := context.Background()
+	email := fmt.Sprintf("api-test-%d@example.com", time.Now().UnixNano())
+	u, err := store.CreateUser(ctx, pool, email, "API test", "", true)
+	if err != nil {
+		t.Fatalf("create test user: %v", err)
+	}
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+	testUserID = u.ID
+	// A few open jobs count as the user's matches, so job endpoints have data.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_jobs (user_id, job_id, content_hash, stage)
+		SELECT $1, id, content_hash, 'scored' FROM jobs
+		WHERE closed_at IS NULL ORDER BY id LIMIT 5`, u.ID); err != nil {
+		t.Fatalf("seed test matches: %v", err)
+	}
+	token, hash, err := auth.NewToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateSession(ctx, pool, u.ID, hash, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	client = &http.Client{Transport: cookieTransport{token}}
+	t.Cleanup(func() { client = http.DefaultClient })
 	return ts, pool
 }
 
 func getBody(t *testing.T, url string) (int, string) {
 	t.Helper()
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}

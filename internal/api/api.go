@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wera/internal/auth"
+	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/store"
 )
@@ -30,9 +32,30 @@ type Server struct {
 	Log     *slog.Logger
 	Metrics *metrics.Registry
 
+	// Industries is the taxonomy from config/industries.yaml, in display
+	// order (GET /api/industries).
+	Industries []config.Industry
+
 	// RunPipeline is set by `wera serve` to pipeline.RunOnce; nil
 	// disables POST /api/runs.
 	RunPipeline func(ctx context.Context) (bool, error)
+
+	// Accounts and browser security (see config.Env).
+	SignupEnabled bool
+	UserBudgetUSD float64 // monthly inference budget for new accounts
+	CookieSecure  bool
+	PublicOrigins []string
+	TrustProxy    bool
+
+	// Profiles: the role catalog the forms offer, Coral settings for AI
+	// drafts, and the background matcher run after a profile is saved.
+	Roles     *config.Roles
+	Env       *config.Env
+	MatchUser func(ctx context.Context, userID int64)
+
+	signupLimit *auth.Limiter
+	loginLimit  *auth.Limiter
+	draftLimit  *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -46,16 +69,46 @@ func (s *Server) Handler() http.Handler {
 		r.Handle("/metrics", s.Metrics.HTTPHandler())
 	}
 
-	r.Get("/api/jobs", s.listJobs)
-	r.Get("/api/jobs/{id}", s.getJob)
-	r.Put("/api/jobs/{id}/application", s.putApplication)
-	r.Get("/api/today", s.today)
-	r.Get("/api/stats", s.stats)
-	r.Get("/api/runs", s.runs)
-	r.Post("/api/runs", s.triggerRun)
-	r.Get("/api/companies", s.companies)
-	r.Get("/api/usage", s.usage)
-	r.Get("/api/excluded", s.excluded)
+	s.signupLimit = auth.NewLimiter(5, time.Hour)
+	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
+	s.draftLimit = auth.NewLimiter(10, time.Hour)
+
+	r.Route("/api", func(r chi.Router) {
+		r.Use(s.sameOrigin)
+		r.Post("/auth/signup", s.signup)
+		r.Post("/auth/login", s.login)
+		r.Post("/auth/logout", s.logout)
+
+		// Everything else needs a session.
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireUser)
+			r.Get("/auth/me", s.me)
+			r.Put("/auth/password", s.changePassword)
+
+			r.Get("/jobs", s.listJobs)
+			r.Get("/jobs/{id}", s.getJob)
+			r.Put("/jobs/{id}/application", s.putApplication)
+			r.Get("/today", s.today)
+			r.Get("/stats", s.stats)
+			r.Get("/runs", s.runs)
+			r.Get("/companies", s.companies)
+			r.Get("/excluded", s.excluded)
+			r.Get("/industries", s.industries)
+			r.Get("/usage/me", s.myUsage)
+
+			r.Get("/profile/options", s.profileOptions)
+			r.Get("/profile", s.getProfile)
+			r.Put("/profile", s.putProfile)
+			r.Post("/profile/resume", s.uploadResume)
+			r.Post("/profile/draft", s.draftProfile)
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireAdmin)
+				r.Post("/runs", s.triggerRun)
+				r.Get("/usage", s.usage)
+			})
+		})
+	})
 	return r
 }
 
@@ -70,7 +123,8 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		if origin := r.Header.Get("Origin"); allowedOrigins[origin] {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		}
 		if r.Method == http.MethodOptions {
@@ -109,8 +163,8 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
-	jobs, err := store.ListJobs(r.Context(), s.Pool, store.JobQuery{
-		Group:           q.Get("group"),
+	jobs, err := store.ListJobs(r.Context(), s.Pool, currentUser(r).ID, store.JobQuery{
+		Industry:        q.Get("industry"),
 		Category:        q.Get("category"),
 		MinScore:        minScore,
 		Sponsorship:     q.Get("sponsorship"),
@@ -140,7 +194,8 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
-	job, err := store.GetJob(r.Context(), s.Pool, id)
+	user := currentUser(r)
+	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		s.writeError(w, http.StatusNotFound, "job not found")
 		return
@@ -153,7 +208,11 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	// PLAN.md section 9: the detail view carries the latest score
 	// analysis (inside JobView), the application row, and the deep
 	// analysis when one exists.
-	deep, err := store.GetDeepAnalysis(r.Context(), s.Pool, id)
+	var deep *store.DeepView
+	prof, err := store.GetProfile(r.Context(), s.Pool, user.ID)
+	if err == nil && prof != nil {
+		deep, err = store.GetDeepAnalysis(r.Context(), s.Pool, id, prof.ProfileHash)
+	}
 	if err != nil {
 		s.Log.Error("get deep analysis failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
