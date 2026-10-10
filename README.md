@@ -9,7 +9,7 @@
 
 **Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
-The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend).
+The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend), and the Chrome extension (save jobs from any page, cover letters, tailored resumes, filling applications) in [wera-extension](https://github.com/jessechumo/wera-extension).
 
 ## Architecture
 
@@ -38,6 +38,7 @@ Measured on the development data: a new account is ready in about 5 seconds (pre
 - **Community:** a blog for offers, interview experiences and tips, with comments and reactions; every post and comment is reviewed by an AI moderator first (violence, harassment, cheating or faked credentials, spam, off-topic) and refused with a reason
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
 - **Sponsorship:** what each company's postings say about visa sponsorship, built from data already extracted while scoring
+- **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), private jobs saved from any page (deduplicated, scored, added to the tracker), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and resumes tailored to a posting (claims citing numbers not in the resume are dropped)
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
 - **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
 
