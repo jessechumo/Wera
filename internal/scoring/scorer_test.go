@@ -130,3 +130,18 @@ func TestScorerScoreFailedAfterTwoBadReplies(t *testing.T) {
 		t.Errorf("raw: got %q", outs[0].Raw)
 	}
 }
+
+func TestScorerStreamsOutcomesInOrder(t *testing.T) {
+	s, _ := newTestScorer(t, validReply, validReply, validReply)
+	var got []int64
+	var mu sync.Mutex
+	s.OnOutcome = func(o Outcome) {
+		mu.Lock()
+		got = append(got, o.JobID)
+		mu.Unlock()
+	}
+	outs := s.Score(context.Background(), testJobs(3)) // Concurrency 1
+	if len(outs) != 3 || len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 3 {
+		t.Fatalf("streamed %v, want 1,2,3 in order", got)
+	}
+}

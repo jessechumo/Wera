@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -138,10 +139,10 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		"model", env.CoralModel, "concurrency", env.ScoringConcurrency,
 		"max_cost_usd", fmt.Sprintf("%.4f", maxCostUSD))
 
-	outcomes := scorer.Score(ctx, jobs)
-
-	st.CostUSD = scorer.Spent()
-	for _, out := range outcomes {
+	// Each outcome is saved as soon as it arrives, so the dashboard shows
+	// scores while the rest of the batch is still running.
+	var mu sync.Mutex
+	scorer.OnOutcome = func(out scoring.Outcome) {
 		if m != nil {
 			m.LLMTokens.WithLabelValues("prompt").Add(float64(out.Usage.PromptTokens))
 			m.LLMTokens.WithLabelValues("cached").Add(float64(out.Usage.CachedTokens))
@@ -157,13 +158,15 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		if out.Stage != "" {
 			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.CoralModel, prof.ProfileHash, out); err != nil {
 				log.Error("saving analysis failed", "job_id", out.JobID, "err", err)
-				continue
+			} else {
+				log.Debug("job scored", "user_id", prof.UserID, "job_id", out.JobID,
+					"stage", out.Stage, "fit_score", scoreInt(out.Analysis),
+					"tokens", out.Usage.PromptTokens, "cached", out.Usage.CachedTokens,
+					"cost", fmt.Sprintf("%.6f", out.CostUSD), "ms", out.LatencyMS)
 			}
-			log.Info("job scored", "user_id", prof.UserID, "job_id", out.JobID, "model", env.CoralModel,
-				"stage", out.Stage, "fit_score", scoreInt(out.Analysis),
-				"tokens", out.Usage.PromptTokens, "cached", out.Usage.CachedTokens,
-				"cost", fmt.Sprintf("%.6f", out.CostUSD), "ms", out.LatencyMS)
 		}
+		mu.Lock()
+		defer mu.Unlock()
 		st.PromptTokens += out.Usage.PromptTokens
 		st.CachedTokens += out.Usage.CachedTokens
 		st.CompletionTokens += out.Usage.CompletionTokens
@@ -181,6 +184,9 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			}
 		}
 	}
+	scorer.Score(ctx, jobs)
+	st.CostUSD = scorer.Spent()
+
 	log.Info("scoring pass finished", "user_id", prof.UserID,
 		"scored", st.Scored, "excluded", st.Excluded, "score_failed", st.Failed,
 		"skipped", st.Skipped, "reused", st.Reused,

@@ -48,6 +48,11 @@ type Scorer struct {
 	Concurrency int        // SCORING_CONCURRENCY
 	Log         *slog.Logger
 
+	// OnOutcome, when set, is called with each outcome as soon as it is
+	// ready (from several goroutines at once), so callers can persist and
+	// show scores while the rest of the batch is still running.
+	OnOutcome func(Outcome)
+
 	// Mutable run state.
 	limit     atomic.Int32 // current effective concurrency
 	inUse     atomic.Int32
@@ -56,9 +61,11 @@ type Scorer struct {
 	budgetHit bool
 }
 
-// Score scores every job with up to Concurrency parallel calls. Jobs left
-// unscored because the budget was reached have Stage StageSkipped and
-// stay pending for the next run. The returned slice is in input order.
+// Score scores every job with up to Concurrency parallel calls, starting
+// them in input order (so callers put the most promising jobs first).
+// Jobs left unscored because the budget was reached have Stage
+// StageSkipped and stay pending for the next run. The returned slice is
+// in input order.
 func (s *Scorer) Score(ctx context.Context, jobs []Job) []Outcome {
 	if s.Concurrency < 1 {
 		s.Concurrency = 1
@@ -71,25 +78,35 @@ func (s *Scorer) Score(ctx context.Context, jobs []Job) []Outcome {
 	outcomes := make([]Outcome, len(jobs))
 	var wg sync.WaitGroup
 	for i := range jobs {
+		if !s.reserve(ctx) {
+			// Budget reached or canceled: the rest stay pending.
+			for k := i; k < len(jobs); k++ {
+				outcomes[k] = Outcome{JobID: jobs[k].ID, Stage: StageSkipped}
+				s.emit(outcomes[k])
+			}
+			break
+		}
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			defer s.release()
 			outcomes[i] = s.scoreOne(ctx, jobs[i])
+			s.emit(outcomes[i])
 		}(i)
 	}
 	wg.Wait()
 	return outcomes
 }
 
-// scoreOne scores a single job end to end.
+func (s *Scorer) emit(o Outcome) {
+	if s.OnOutcome != nil {
+		s.OnOutcome(o)
+	}
+}
+
+// scoreOne scores a single job end to end; the caller holds a slot.
 func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 	out := Outcome{JobID: j.ID}
-
-	if !s.reserve(ctx) {
-		out.Stage = StageSkipped
-		return out
-	}
-	defer s.release()
 
 	messages := BuildMessages(s.Profile, j)
 	start := time.Now()
