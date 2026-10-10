@@ -4,9 +4,11 @@
 
 industries:
   - { id: ai_ml,        label: "AI & Machine Learning",         description: "AI labs, model providers, and GPU / inference infrastructure." }
+  - { id: big_tech,     label: "Big Tech",                      description: "The largest technology companies: chips, hardware, software, and internet platforms." }
   - { id: cloud,        label: "Cloud & Developer Tools",       description: "Cloud platforms, databases, observability, and tools for engineers." }
   - { id: trading,      label: "Trading & HFT",                 description: "Proprietary trading, market makers, hedge funds, and exchanges." }
   - { id: fintech,      label: "Fintech & Payments",            description: "Payments, banking, lending, brokerage, and finance software." }
+  - { id: banking,      label: "Banking & Financial Services",  description: "Banks, asset managers, card networks, exchanges, and payment processors." }
   - { id: crypto,       label: "Crypto & Web3",                 description: "Exchanges, custody, and blockchain infrastructure." }
   - { id: insurance,    label: "Insurance",                     description: "Insurers and insurance technology." }
   - { id: healthcare,   label: "Healthcare & Health Tech",      description: "Care delivery, health insurance, clinical software, and digital health." }
@@ -15,6 +17,7 @@ industries:
   - { id: defense,      label: "Defense & Public Sector",       description: "Defense technology and software for government." }
   - { id: automotive,   label: "Automotive & Autonomy",         description: "Self-driving, EVs, and mobility." }
   - { id: robotics,     label: "Robotics & Hardware",           description: "Robots, devices, and industrial hardware." }
+  - { id: manufacturing, label: "Manufacturing & Industrials",  description: "Industrial equipment, chemicals, building systems, and conglomerates." }
   - { id: energy,       label: "Energy & Climate",              description: "Clean energy, grid, fusion, batteries, and climate software." }
   - { id: logistics,    label: "Logistics & Supply Chain",      description: "Freight, fleets, fulfillment, and delivery." }
   - { id: ecommerce,    label: "Retail & E-commerce",           description: "Online retail, marketplaces for goods, and commerce platforms." }
@@ -23,6 +26,8 @@ industries:
   - { id: gaming,       label: "Gaming",                        description: "Game studios and game platforms." }
   - { id: education,    label: "Education",                     description: "Learning platforms, edtech, and career services." }
   - { id: enterprise,   label: "Enterprise Software",           description: "SaaS for teams: productivity, CRM, HR, and design tools." }
+  - { id: consulting,   label: "Consulting & Professional Services", description: "Consulting, accounting, and government services firms." }
+  - { id: telecom,      label: "Telecom & Networking",          description: "Carriers, cable, and network infrastructure." }
   - { id: security,     label: "Cybersecurity",                 description: "Security products, identity, and compliance." }
   - { id: real_estate,  label: "Real Estate & PropTech",        description: "Home buying, rentals, construction, and property software." }
   - { id: nonprofit,    label: "Nonprofit & Civic Tech",        description: "Nonprofits, open-source foundations, and civic technology." }
