@@ -3,9 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	pngenc "image/png"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -439,5 +439,31 @@ func TestAvatarAndResumeFile(t *testing.T) {
 	}
 	if cd := resp.Header.Get("Content-Disposition"); strings.ContainsAny(strings.TrimPrefix(cd, `inline; filename="`)[:len(cd)-len(`inline; filename="`)-1], `"\\/`) {
 		t.Errorf("unsafe filename in %q", cd)
+	}
+}
+
+func TestCoverLetterEdits(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	var jobID int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT job_id FROM user_jobs WHERE user_id = $1 LIMIT 1`, testUserID).Scan(&jobID); err != nil {
+		t.Skip("no seeded matches")
+	}
+	url := fmt.Sprintf("%s/api/jobs/%d/cover-letter", ts.URL, jobID)
+	if code, _ := do(t, client, http.MethodGet, url, ""); code != 404 {
+		t.Errorf("no letter yet: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodPost, url, ""); code != 503 {
+		t.Errorf("generation without Coral: want 503, got %d", code)
+	}
+	code, body := do(t, client, http.MethodPut, url, `{"body":"Dear Hiring Team,\n\nI built it — well.\n\nSincerely,\nT"}`)
+	if code != 200 || !strings.Contains(body, `"edited":true`) || strings.Contains(body, "—") {
+		t.Fatalf("save edit: %d %s", code, body)
+	}
+	if code, body := do(t, client, http.MethodGet, url, ""); code != 200 || !strings.Contains(body, "I built it, well.") {
+		t.Errorf("get after edit: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/jobs/999999999/cover-letter", ts.URL), `{"body":"x"}`); code != 404 {
+		t.Errorf("letter for someone else's job: want 404, got %d", code)
 	}
 }

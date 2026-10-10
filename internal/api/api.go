@@ -62,6 +62,7 @@ type Server struct {
 	loginLimit  *auth.Limiter
 	draftLimit  *auth.Limiter
 	scoreLimit  *auth.Limiter
+	letterLimit *auth.Limiter
 }
 
 // Handler builds the router with all routes.
@@ -79,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 	s.loginLimit = auth.NewLimiter(10, 15*time.Minute)
 	s.draftLimit = auth.NewLimiter(10, time.Hour)
 	s.scoreLimit = auth.NewLimiter(120, time.Hour)
+	s.letterLimit = auth.NewLimiter(20, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -101,6 +103,9 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/jobs/{id}", s.getJob)
 			r.Put("/jobs/{id}/application", s.putApplication)
 			r.Post("/jobs/{id}/score", s.scoreJob)
+			r.Get("/jobs/{id}/cover-letter", s.getCoverLetter)
+			r.Post("/jobs/{id}/cover-letter", s.generateCoverLetter)
+			r.Put("/jobs/{id}/cover-letter", s.putCoverLetter)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)

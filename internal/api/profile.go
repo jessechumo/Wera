@@ -235,11 +235,16 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 // chatForUser makes one Coral chat call on behalf of a user and records
 // its cost (kind names the purpose in llm_usage). It returns the reply.
 func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, maxTokens int, msgs []scoring.Message) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	return s.chatWithModel(ctx, userID, kind, s.Env.CoralModel, maxTokens, msgs)
+}
+
+// chatWithModel is chatForUser with an explicit model.
+func (s *Server) chatWithModel(ctx context.Context, userID int64, kind, model string, maxTokens int, msgs []scoring.Message) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 110*time.Second)
 	defer cancel()
 	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: s.Env.CoralModel,
-		Timeout: 85 * time.Second, MaxTokens: maxTokens, Log: s.Log,
+		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: model,
+		Timeout: 105 * time.Second, MaxTokens: maxTokens, Log: s.Log,
 	})
 	start := time.Now()
 	comp, err := client.Chat(ctx, "", msgs)
@@ -250,10 +255,10 @@ func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, max
 	cost := 0.0
 	if comp.CostUSD != nil {
 		cost = *comp.CostUSD
-	} else if prices, ok := scoring.PriceFor(s.Env.CoralModel); ok {
+	} else if prices, ok := scoring.PriceFor(model); ok {
 		cost = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
 	}
-	if err := store.RecordLLMUsage(context.Background(), s.Pool, userID, kind, s.Env.CoralModel,
+	if err := store.RecordLLMUsage(context.Background(), s.Pool, userID, kind, model,
 		comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens, cost); err != nil {
 		s.Log.Error("recording llm usage failed", "kind", kind, "user_id", userID, "err", err)
 	}
