@@ -72,6 +72,15 @@ func TestBlogFlow(t *testing.T) {
 	if !strings.Contains(out, `"insightful":1`) || !strings.Contains(out, `"comment_count":1`) || strings.Contains(out, "punch you") {
 		t.Errorf("post view: %s", out)
 	}
+	var stranger int64
+	pool.QueryRow(context.Background(), `SELECT id FROM users WHERE id <> $1 AND NOT EXISTS
+		(SELECT 1 FROM posts WHERE user_id = users.id) AND NOT EXISTS
+		(SELECT 1 FROM post_comments WHERE user_id = users.id) LIMIT 1`, testUserID).Scan(&stranger)
+	if stranger != 0 {
+		if code, _ := do(t, client, http.MethodGet, fmt.Sprintf("%s/api/users/%d/avatar", ts.URL, stranger), ""); code != 404 {
+			t.Errorf("non-author's avatar exposed: %d", code)
+		}
+	}
 	if code, _ := do(t, client, http.MethodDelete, url, ""); code != 204 {
 		t.Errorf("delete own post: %d", code)
 	}

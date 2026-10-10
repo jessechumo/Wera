@@ -223,3 +223,12 @@ func PostTags(ctx context.Context, pool *pgxpool.Pool) ([]map[string]any, error)
 	}
 	return out, rows.Err()
 }
+
+// IsCommunityAuthor reports whether the user has a published post or comment.
+func IsCommunityAuthor(ctx context.Context, pool *pgxpool.Pool, userID int64) (bool, error) {
+	var ok bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM posts WHERE user_id = $1 AND status = 'published')
+		    OR EXISTS (SELECT 1 FROM post_comments WHERE user_id = $1 AND status = 'published')`, userID).Scan(&ok)
+	return ok, err
+}

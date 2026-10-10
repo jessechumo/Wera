@@ -146,6 +146,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/profile/avatar", s.getAvatar)
 			r.Put("/profile/avatar", s.putAvatar)
 			r.Delete("/profile/avatar", s.deleteAvatar)
+			r.Get("/users/{id}/avatar", s.getUserAvatar)
 
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireAdmin)

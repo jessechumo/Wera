@@ -50,7 +50,32 @@ func (s *Server) putAvatar(w http.ResponseWriter, r *http.Request) {
 
 // getAvatar is GET /api/profile/avatar.
 func (s *Server) getAvatar(w http.ResponseWriter, r *http.Request) {
-	ct, data, _, ok, err := store.Avatar(r.Context(), s.Pool, currentUser(r).ID)
+	s.serveAvatar(w, r, currentUser(r).ID)
+}
+
+// getUserAvatar is GET /api/users/{id}/avatar: another member's picture,
+// only for members who have published on the community blog (the others'
+// pictures stay private).
+func (s *Server) getUserAvatar(w http.ResponseWriter, r *http.Request) {
+	id, ok := jobIDParam(r)
+	if !ok {
+		s.writeError(w, http.StatusBadRequest, "bad user id")
+		return
+	}
+	public, err := store.IsCommunityAuthor(r.Context(), s.Pool, id)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if !public && id != currentUser(r).ID {
+		s.writeError(w, http.StatusNotFound, "no profile picture")
+		return
+	}
+	s.serveAvatar(w, r, id)
+}
+
+func (s *Server) serveAvatar(w http.ResponseWriter, r *http.Request, userID int64) {
+	ct, data, _, ok, err := store.Avatar(r.Context(), s.Pool, userID)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
