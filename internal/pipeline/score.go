@@ -11,6 +11,7 @@ import (
 	"wera/internal/config"
 	"wera/internal/filter"
 	"wera/internal/metrics"
+	"wera/internal/relevance"
 	"wera/internal/scoring"
 	"wera/internal/store"
 )
@@ -33,7 +34,21 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, pro
 			m.JobsExcluded.WithLabelValues(reason).Add(float64(n))
 		}
 	}
+	if err := RankPending(ctx, pool, prof); err != nil {
+		return nil, err
+	}
 	return &FilterStats{Excluded: excluded, Pending: pending}, nil
+}
+
+// RankPending re-ranks the user's unscored matches against their profile
+// with the local relevance model (no LLM). The estimates order the LLM
+// queue and preview jobs on the dashboard until real scores arrive.
+func RankPending(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile) error {
+	docs, err := store.RankDocs(ctx, pool, prof.UserID)
+	if err != nil {
+		return err
+	}
+	return store.SetEstimates(ctx, pool, prof.UserID, relevance.Rank(prof.Markdown, docs))
 }
 
 // ExclusionsFor maps a user's preferences to their post-LLM rules.

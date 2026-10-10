@@ -25,8 +25,8 @@ type CachedAnalysis struct {
 }
 
 // PendingScoreJobs loads up to limit of the user's jobs in stage
-// 'pending_score' (newest postings first, so a new user sees fresh jobs
-// scored first), with the company name needed for the prompt and any
+// 'pending_score' (highest relevance estimate first, then newest, so the
+// jobs most likely to fit are scored first), with the company name needed for the prompt and any
 // reusable analysis for profileHash. limit <= 0 means no limit.
 func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int) ([]PendingJob, error) {
 	q := `
@@ -40,7 +40,7 @@ func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, pro
 		JOIN companies c ON c.id = j.company_id
 		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
 		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL
-		ORDER BY j.posted_at DESC NULLS LAST, j.id DESC`
+		ORDER BY uj.estimated_score DESC NULLS LAST, j.posted_at DESC NULLS LAST, j.id DESC`
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
