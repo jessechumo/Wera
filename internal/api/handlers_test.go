@@ -333,7 +333,7 @@ func TestSettingsAndHiddenCompanies(t *testing.T) {
 	if err := pool.QueryRow(context.Background(), `
 		SELECT j.id, j.company_id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
 		WHERE uj.user_id = $1 LIMIT 1`, testUserID).Scan(&jobID, &companyID); err != nil {
-		t.Skip("no seeded matches")
+		t.Fatalf("seeded match: %v", err)
 	}
 	jobURL := fmt.Sprintf("%s/api/jobs/%d", ts.URL, jobID)
 	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 200 {
@@ -447,7 +447,7 @@ func TestCoverLetterEdits(t *testing.T) {
 	var jobID int64
 	if err := pool.QueryRow(context.Background(),
 		`SELECT job_id FROM user_jobs WHERE user_id = $1 LIMIT 1`, testUserID).Scan(&jobID); err != nil {
-		t.Skip("no seeded matches")
+		t.Fatalf("seeded match: %v", err)
 	}
 	url := fmt.Sprintf("%s/api/jobs/%d/cover-letter", ts.URL, jobID)
 	if code, _ := do(t, client, http.MethodGet, url, ""); code != 404 {
