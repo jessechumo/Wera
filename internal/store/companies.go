@@ -73,3 +73,21 @@ func UpdateFetchStatus(ctx context.Context, pool *pgxpool.Pool, companyID int64,
 	}
 	return nil
 }
+
+// CompanyETag returns the ETag of a company's last successful fetch ("" if none).
+func CompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64) (string, error) {
+	var etag *string
+	if err := pool.QueryRow(ctx, `SELECT etag FROM companies WHERE id = $1`, companyID).Scan(&etag); err != nil {
+		return "", err
+	}
+	if etag == nil {
+		return "", nil
+	}
+	return *etag, nil
+}
+
+// SetCompanyETag records the ETag of a fetch whose jobs were saved.
+func SetCompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64, etag string) error {
+	_, err := pool.Exec(ctx, `UPDATE companies SET etag = NULLIF($2, '') WHERE id = $1`, companyID, etag)
+	return err
+}

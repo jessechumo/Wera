@@ -50,7 +50,19 @@ func NewHTTP(ua string) *HTTP {
 
 // GetJSON performs GET url and unmarshals the JSON body into out.
 func (h *HTTP) GetJSON(ctx context.Context, url string, out any) error {
-	return h.doJSON(ctx, http.MethodGet, url, nil, out)
+	_, err := h.doJSON(ctx, http.MethodGet, url, nil, "", out)
+	return err
+}
+
+// ErrNotModified is returned by GetJSONIfChanged when the server answered
+// 304: the content behind the ETag has not changed.
+var ErrNotModified = errors.New("not modified")
+
+// GetJSONIfChanged is GetJSON with a conditional request: when etag is
+// set it is sent as If-None-Match, and a 304 answer returns
+// ErrNotModified without a body. It returns the response's ETag.
+func (h *HTTP) GetJSONIfChanged(ctx context.Context, url, etag string, out any) (string, error) {
+	return h.doJSON(ctx, http.MethodGet, url, nil, etag, out)
 }
 
 // PostJSON sends payload as a JSON POST body to url and unmarshals the
@@ -60,11 +72,13 @@ func (h *HTTP) PostJSON(ctx context.Context, url string, payload, out any) error
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
 	}
-	return h.doJSON(ctx, http.MethodPost, url, body, out)
+	_, err = h.doJSON(ctx, http.MethodPost, url, body, "", out)
+	return err
 }
 
-// doJSON performs one request with the retry policy described on HTTP.
-func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, out any) error {
+// doJSON performs one request with the retry policy described on HTTP and
+// returns the response ETag.
+func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, etag string, out any) (string, error) {
 	maxAttempts := h.MaxRetries + 1
 	delay := h.BaseDelay
 	var lastErr error
@@ -76,18 +90,21 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 		}
 		req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 		if err != nil {
-			return fmt.Errorf("build request: %w", err)
+			return "", fmt.Errorf("build request: %w", err)
 		}
 		req.Header.Set("User-Agent", h.UA)
 		req.Header.Set("Accept", "application/json")
 		if payload != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
+		}
 
 		resp, err := h.Client.Do(req)
 		if err == nil && redirectedToMaintenance(resp) {
 			resp.Body.Close()
-			return fmt.Errorf("%w (redirected to %s)", ErrUnavailable, resp.Request.URL)
+			return "", fmt.Errorf("%w (redirected to %s)", ErrUnavailable, resp.Request.URL)
 		}
 		if err != nil {
 			lastErr = fmt.Errorf("request: %w", err)
@@ -96,14 +113,16 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 			closeErr := resp.Body.Close()
 			switch {
 			case len(body) > maxBodyBytes:
-				return fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
+				return "", fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
 			case resp.StatusCode == http.StatusNotFound:
-				return fmt.Errorf("%w: %s", ErrBoardNotFound, url)
+				return "", fmt.Errorf("%w: %s", ErrBoardNotFound, url)
+			case resp.StatusCode == http.StatusNotModified && etag != "":
+				return etag, ErrNotModified
 			case resp.StatusCode == http.StatusOK:
 				if err := json.Unmarshal(body, out); err != nil {
-					return fmt.Errorf("decode response from %s: %w", url, err)
+					return "", fmt.Errorf("decode response from %s: %w", url, err)
 				}
-				return nil
+				return resp.Header.Get("ETag"), nil
 			case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 				lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 				if resp.StatusCode == http.StatusTooManyRequests {
@@ -114,7 +133,7 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 					}
 				}
 			default:
-				return fmt.Errorf("unexpected HTTP %d from %s: %s", resp.StatusCode, url, truncate(body, 200))
+				return "", fmt.Errorf("unexpected HTTP %d from %s: %s", resp.StatusCode, url, truncate(body, 200))
 			}
 			if closeErr != nil && lastErr == nil {
 				lastErr = closeErr
@@ -130,11 +149,11 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, o
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", ctx.Err()
 		}
 		delay *= 2
 	}
-	return fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
+	return "", fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
 }
 
 func truncate(b []byte, n int) string {

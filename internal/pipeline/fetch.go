@@ -23,11 +23,12 @@ import (
 
 // FetchStats summarizes one fetch pass.
 type FetchStats struct {
-	CompaniesOK       int
-	CompaniesFailed   int
-	CompaniesDeferred int // board down for maintenance; retried later
-	JobsSeen          int
-	JobsNew           int
+	CompaniesOK        int
+	CompaniesFailed    int
+	CompaniesDeferred  int // board down for maintenance; retried later
+	CompaniesUnchanged int // answered 304 Not Modified (counted in CompaniesOK)
+	JobsSeen           int
+	JobsNew            int
 	// RetryAt is when deferred companies can be fetched again (zero when
 	// nothing was deferred).
 	RetryAt time.Time
@@ -109,6 +110,9 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	if f.Metrics != nil {
 		f.Metrics.JobsNewTotal.Add(float64(stats.JobsNew))
 	}
+	if stats.CompaniesUnchanged > 0 {
+		f.Log.Info("boards unchanged since last fetch (304)", "companies", stats.CompaniesUnchanged)
+	}
 	if stats.CompaniesDeferred > 0 {
 		f.Log.Info("companies deferred for job board maintenance",
 			"companies", stats.CompaniesDeferred, "retry_at", stats.RetryAt.Format(time.RFC3339))
@@ -130,7 +134,20 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 		var listed int
 		var seen, newly int
 		start := time.Now()
-		if ds, ok := src.(sources.DetailSource); ok {
+		if cs, ok := src.(sources.ConditionalSource); ok {
+			var unchanged bool
+			listed, seen, newly, unchanged, err = f.fetchConditional(ctx, c, cs, companyID)
+			if err == nil && unchanged {
+				if uerr := store.UpdateFetchStatus(ctx, f.Pool, companyID, true, ""); uerr != nil {
+					f.Log.Error("recording fetch status failed", "company", c.Name, "err", uerr.Error())
+				}
+				mu.Lock()
+				stats.CompaniesOK++
+				stats.CompaniesUnchanged++
+				mu.Unlock()
+				return
+			}
+		} else if ds, ok := src.(sources.DetailSource); ok {
 			listed, seen, newly, err = f.fetchIncremental(ctx, c, ds, companyID)
 		} else {
 			var raw []sources.RawJob
@@ -178,6 +195,32 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 	mu.Lock()
 	stats.CompaniesFailed++
 	mu.Unlock()
+}
+
+// fetchConditional fetches a board with the ETag of its last successful
+// fetch. A 304 means nothing changed: no download, no writes (unchanged =
+// true). Otherwise the jobs are saved and only then the new ETag stored,
+// so a failed save never hides changes from the next run.
+func (f *Fetcher) fetchConditional(ctx context.Context, c config.Company, src sources.ConditionalSource, companyID int64) (listed, seen, newly int, unchanged bool, err error) {
+	etag, err := store.CompanyETag(ctx, f.Pool, companyID)
+	if err != nil {
+		return 0, 0, 0, false, err
+	}
+	raw, newETag, err := src.FetchIfChanged(ctx, c.Token, etag)
+	if errors.Is(err, sources.ErrNotModified) {
+		return 0, 0, 0, true, nil
+	}
+	if err != nil {
+		return 0, 0, 0, false, err
+	}
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil)
+	if err != nil {
+		return len(raw), seen, newly, false, err
+	}
+	if err := store.SetCompanyETag(ctx, f.Pool, companyID, newETag); err != nil {
+		f.Log.Warn("storing etag failed", "company", c.Name, "err", err)
+	}
+	return len(raw), seen, newly, false, nil
 }
 
 // fetchIncremental lists a detail-per-job board, fetches details for up to

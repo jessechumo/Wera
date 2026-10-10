@@ -31,6 +31,14 @@ type Source interface {
 	Fetch(ctx context.Context, token string) ([]RawJob, error)
 }
 
+// ConditionalSource is a Source whose board supports ETags: FetchIfChanged
+// sends the ETag from the previous fetch and returns ErrNotModified when
+// nothing changed (a 304 with no body). Greenhouse, Lever and Ashby do.
+type ConditionalSource interface {
+	Source
+	FetchIfChanged(ctx context.Context, token, etag string) (jobs []RawJob, newETag string, err error)
+}
+
 // DetailSource is an ATS whose list endpoint has no job descriptions;
 // each posting needs its own request. The fetcher lists the board every
 // run but requests details only for postings it has not stored yet, so a

@@ -59,12 +59,20 @@ type posting struct {
 	} `json:"categories"`
 }
 
-// Fetch implements sources.Source: it returns all open postings on the board.
+// Fetch implements sources.Source.
 func (a *Adapter) Fetch(ctx context.Context, token string) ([]sources.RawJob, error) {
+	jobs, _, err := a.FetchIfChanged(ctx, token, "")
+	return jobs, err
+}
+
+// FetchIfChanged implements sources.ConditionalSource: with the ETag of the
+// previous fetch, an unchanged board answers 304 and costs no download.
+func (a *Adapter) FetchIfChanged(ctx context.Context, token, etag string) ([]sources.RawJob, string, error) {
 	endpoint := fmt.Sprintf("%s/v0/postings/%s?mode=json", a.baseURL, url.PathEscape(token))
 	var resp []posting
-	if err := a.http.GetJSON(ctx, endpoint, &resp); err != nil {
-		return nil, err
+	newETag, err := a.http.GetJSONIfChanged(ctx, endpoint, etag, &resp)
+	if err != nil {
+		return nil, newETag, err
 	}
 
 	jobs := make([]sources.RawJob, 0, len(resp))
@@ -91,7 +99,7 @@ func (a *Adapter) Fetch(ctx context.Context, token string) ([]sources.RawJob, er
 		}
 		jobs = append(jobs, raw)
 	}
-	return jobs, nil
+	return jobs, newETag, nil
 }
 
 // composeHTML assembles the full HTML description: body + list sections.
