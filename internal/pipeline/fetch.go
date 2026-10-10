@@ -120,6 +120,9 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	return stats, nil
 }
 
+// fullSweepEvery is how often an IncrementalLister board is listed in full.
+const fullSweepEvery = 20 * time.Hour
+
 // maxDetailsPerRun bounds how many new postings of one company a
 // detail-per-job source fetches in a run; the rest follow next run.
 const maxDetailsPerRun = 250
@@ -154,7 +157,7 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 			raw, err = src.Fetch(ctx, c.Token)
 			listed = len(raw)
 			if err == nil {
-				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil)
+				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
 			}
 		}
 		if f.Metrics != nil {
@@ -213,7 +216,7 @@ func (f *Fetcher) fetchConditional(ctx context.Context, c config.Company, src so
 	if err != nil {
 		return 0, 0, 0, false, err
 	}
-	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil)
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
 	if err != nil {
 		return len(raw), seen, newly, false, err
 	}
@@ -229,13 +232,29 @@ func (f *Fetcher) fetchConditional(ctx context.Context, c config.Company, src so
 // fails is skipped this run (and retried next run) without failing the
 // company.
 func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src sources.DetailSource, companyID int64) (listed, seen, newly int, err error) {
-	jobs, err := src.List(ctx, c.Token)
+	known, err := store.KnownExtIDs(ctx, f.Pool, companyID)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	known, err := store.KnownExtIDs(ctx, f.Pool, companyID)
+	// Boards that can list just their new postings do so on most runs;
+	// a full sweep (which detects closed postings) runs once a day.
+	var jobs []sources.RawJob
+	complete := true
+	il, incremental := src.(sources.IncrementalLister)
+	if incremental {
+		last, lerr := store.LastFullFetch(ctx, f.Pool, companyID)
+		if lerr != nil {
+			return 0, 0, 0, lerr
+		}
+		incremental = time.Since(last) < fullSweepEvery
+	}
+	if incremental {
+		jobs, complete, err = il.ListNew(ctx, c.Token, known)
+	} else {
+		jobs, err = src.List(ctx, c.Token)
+	}
 	if err != nil {
-		return len(jobs), 0, 0, err
+		return 0, 0, 0, err
 	}
 	limit := maxDetailsPerRun
 	if dl, ok := src.(sources.DetailLimiter); ok {
@@ -286,15 +305,24 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	if err := store.TouchJobs(ctx, f.Pool, companyID, stillListed); err != nil {
 		return len(jobs), 0, 0, err
 	}
-	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs)
+	if !complete {
+		allIDs = nil // a partial listing must not close anything
+	}
+	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs, complete)
+	if err == nil && complete {
+		if merr := store.MarkFullFetch(ctx, f.Pool, companyID); merr != nil {
+			f.Log.Warn("recording full sweep failed", "company", c.Name, "err", merr)
+		}
+	}
 	return len(jobs), seen + len(stillListed), newly, err
 }
 
 // saveCompanyJobs upserts the fetched postings, closes postings that
-// disappeared, and marks the fetch as successful. openIDs lists every
-// posting still on the board (nil = exactly the saved ones). It returns
+// disappeared (when closeMissing; only after a complete listing), and
+// marks the fetch as successful. openIDs lists every posting still on the
+// board (nil = exactly the saved ones). It returns
 // the number of jobs seen and newly inserted.
-func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string) (seen, newly int, err error) {
+func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string, closeMissing bool) (seen, newly int, err error) {
 	inputs := make([]store.JobInput, 0, len(raw))
 	collectIDs := openIDs == nil
 	for _, rj := range raw {
@@ -319,8 +347,11 @@ func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sou
 	if err != nil {
 		return seen, newly, fmt.Errorf("save jobs: %w", err)
 	}
-	if _, err := store.CloseMissingJobs(ctx, f.Pool, companyID, openIDs); err != nil {
-		return seen, newly, fmt.Errorf("close missing: %w", err)
+	// After a partial listing, postings not listed may still be open.
+	if closeMissing {
+		if _, err := store.CloseMissingJobs(ctx, f.Pool, companyID, openIDs); err != nil {
+			return seen, newly, fmt.Errorf("close missing: %w", err)
+		}
 	}
 	if err := store.UpdateFetchStatus(ctx, f.Pool, companyID, true, ""); err != nil {
 		return seen, newly, fmt.Errorf("update status: %w", err)

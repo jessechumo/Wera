@@ -6,6 +6,7 @@ package workday
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -173,6 +174,53 @@ func (a *Adapter) List(ctx context.Context, token string) ([]sources.RawJob, err
 		}
 	}
 	return jobs, ctx.Err()
+}
+
+// ListNew implements sources.IncrementalLister: pages newest first and
+// stops after the first page with no unknown posting, so a run on a
+// quiet board costs one or two requests instead of twenty.
+func (a *Adapter) ListNew(ctx context.Context, token string, known map[string]bool) ([]sources.RawJob, bool, error) {
+	s, err := parseToken(token)
+	if err != nil {
+		return nil, false, err
+	}
+	var jobs []sources.RawJob
+	seen := map[string]bool{}
+	for offset := 0; offset < maxListed; offset += pageSize {
+		var resp searchResponse
+		req := searchRequest{AppliedFacets: map[string]any{}, Limit: pageSize, Offset: offset}
+		if err := throttle.Do(ctx, func() error {
+			return a.http.PostJSON(ctx, a.apiBase(s)+"/jobs", req, &resp)
+		}); err != nil {
+			if len(jobs) > 0 && !errors.Is(err, sources.ErrUnavailable) {
+				return jobs, false, nil // keep what was listed
+			}
+			return nil, false, err
+		}
+		unknown := 0
+		for _, p := range resp.JobPostings {
+			if p.ExternalPath == "" || seen[p.ExternalPath] {
+				continue
+			}
+			seen[p.ExternalPath] = true
+			if !known[p.ExternalPath] {
+				unknown++
+			}
+			jobs = append(jobs, sources.RawJob{
+				ExtID:       p.ExternalPath,
+				Title:       strings.TrimSpace(p.Title),
+				LocationRaw: p.LocationsText,
+				URL:         s.host + "/" + s.name + p.ExternalPath,
+			})
+		}
+		if len(resp.JobPostings) < pageSize {
+			return jobs, true, nil // reached the end of the board
+		}
+		if unknown == 0 {
+			return jobs, false, nil
+		}
+	}
+	return jobs, false, nil
 }
 
 type detailResponse struct {

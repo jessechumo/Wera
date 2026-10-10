@@ -52,6 +52,14 @@ type DetailSource interface {
 	Detail(ctx context.Context, token string, j *RawJob) error
 }
 
+// IncrementalLister is a DetailSource that can stop listing early: its
+// board is ordered newest first, so ListNew pages until a page holds no
+// posting in known and reports complete=false when it stopped before the
+// end. An incomplete listing must not be used to close postings.
+type IncrementalLister interface {
+	ListNew(ctx context.Context, token string, known map[string]bool) (jobs []RawJob, complete bool, err error)
+}
+
 // FetchAll is Fetch for a DetailSource: list, then every detail.
 func FetchAll(ctx context.Context, s DetailSource, token string) ([]RawJob, error) {
 	jobs, err := s.List(ctx, token)

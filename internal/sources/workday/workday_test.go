@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -130,5 +131,40 @@ func TestMaintenanceRedirect(t *testing.T) {
 	a := NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
 	if _, err := a.List(context.Background(), "acme.wd5/Careers"); !errors.Is(err, sources.ErrUnavailable) {
 		t.Errorf("want ErrUnavailable, got %v", err)
+	}
+}
+
+// A board of 45 postings, newest first; pages of 20.
+func boardServer(t *testing.T, pages *int) *Adapter {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req searchRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		*pages++
+		var items []string
+		for id := req.Offset + 1; id <= min(req.Offset+req.Limit, 45); id++ {
+			items = append(items, fmt.Sprintf(`{"title":"Job %d","externalPath":"/job/%d"}`, id, id))
+		}
+		fmt.Fprintf(w, `{"total":45,"jobPostings":[%s]}`, strings.Join(items, ","))
+	}))
+	t.Cleanup(srv.Close)
+	return NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
+}
+
+func TestListNewStopsAtKnownPostings(t *testing.T) {
+	known := map[string]bool{}
+	for id := 4; id <= 45; id++ {
+		known[fmt.Sprintf("/job/%d", id)] = true // only 1-3 are new
+	}
+	pages := 0
+	jobs, complete, err := boardServer(t, &pages).ListNew(context.Background(), "acme.wd5/Careers", known)
+	if err != nil || complete || pages != 2 || len(jobs) != 40 {
+		t.Fatalf("got %d jobs, complete=%v, %d pages, %v; want 40 jobs from 2 pages, incomplete", len(jobs), complete, pages, err)
+	}
+
+	pages = 0
+	jobs, complete, err = boardServer(t, &pages).ListNew(context.Background(), "acme.wd5/Careers", map[string]bool{})
+	if err != nil || !complete || pages != 3 || len(jobs) != 45 {
+		t.Fatalf("all new: got %d jobs, complete=%v, %d pages, %v; want the whole board", len(jobs), complete, pages, err)
 	}
 }

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -89,5 +90,24 @@ func CompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64) (stri
 // SetCompanyETag records the ETag of a fetch whose jobs were saved.
 func SetCompanyETag(ctx context.Context, pool *pgxpool.Pool, companyID int64, etag string) error {
 	_, err := pool.Exec(ctx, `UPDATE companies SET etag = NULLIF($2, '') WHERE id = $1`, companyID, etag)
+	return err
+}
+
+// LastFullFetch returns when a company's whole board was last listed
+// (zero time if never).
+func LastFullFetch(ctx context.Context, pool *pgxpool.Pool, companyID int64) (time.Time, error) {
+	var t *time.Time
+	if err := pool.QueryRow(ctx, `SELECT last_full_fetch_at FROM companies WHERE id = $1`, companyID).Scan(&t); err != nil {
+		return time.Time{}, err
+	}
+	if t == nil {
+		return time.Time{}, nil
+	}
+	return *t, nil
+}
+
+// MarkFullFetch records a complete listing of a company's board.
+func MarkFullFetch(ctx context.Context, pool *pgxpool.Pool, companyID int64) error {
+	_, err := pool.Exec(ctx, `UPDATE companies SET last_full_fetch_at = now() WHERE id = $1`, companyID)
 	return err
 }
