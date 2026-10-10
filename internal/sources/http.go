@@ -23,6 +23,10 @@ var ErrBoardNotFound = errors.New("404 token not found")
 // defers the company instead of counting a failure.
 var ErrUnavailable = errors.New("job board is down for maintenance")
 
+// maxRetryAfter is the longest Retry-After the client waits out; a longer
+// one ends the attempt (the next run tries again).
+const maxRetryAfter = time.Minute
+
 // maxBodyBytes caps one response. Boards with descriptions inline get big
 // (Anduril's Greenhouse board was 43 MB in October 2026).
 const maxBodyBytes = 96 << 20
@@ -127,7 +131,13 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, e
 				lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 				if resp.StatusCode == http.StatusTooManyRequests {
 					if secs, perr := strconv.Atoi(resp.Header.Get("Retry-After")); perr == nil && secs > 0 {
-						if d := time.Duration(secs) * time.Second; d > delay {
+						d := time.Duration(secs) * time.Second
+						if d > maxRetryAfter {
+							// The board asked us to back off for a while: stop
+							// now and try again next run instead of waiting.
+							return "", fmt.Errorf("%w (retry after %s)", lastErr, d)
+						}
+						if d > delay {
 							delay = d
 						}
 					}
