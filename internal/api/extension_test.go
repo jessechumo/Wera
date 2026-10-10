@@ -81,6 +81,11 @@ func TestExtensionTokensAndAddJob(t *testing.T) {
 	if !strings.Contains(body, fmt.Sprintf(`"id":%d`, job.ID)) {
 		t.Errorf("lookup by URL failed: %s", body)
 	}
+	_, body = do(t, ext, http.MethodGet, ts.URL+"/api/ext/jobs/lookup?url="+
+		"https%3A%2F%2Fjobs.example.com%2Facme%2F123%2Fapply", "")
+	if !strings.Contains(body, fmt.Sprintf(`"id":%d`, job.ID)) {
+		t.Errorf("lookup from the /apply page failed: %s", body)
+	}
 	if _, body = do(t, ext, http.MethodGet, ts.URL+"/api/ext/jobs/lookup?url=https%3A%2F%2Fnowhere.example%2Fx", ""); body != "{\"job\":null}\n" {
 		t.Errorf("unknown URL: %s", body)
 	}

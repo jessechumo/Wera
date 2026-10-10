@@ -295,6 +295,8 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 	return jobID, true, tx.Commit(ctx)
 }
 
+var applySuffix = regexp.MustCompile(`/(apply|application)(/.*)?$`)
+
 var trailingID = regexp.MustCompile(`([0-9]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/?(?:apply|application)?/?$`)
 
 // LookupJobByURL finds one of the user's jobs for a page URL: the same
@@ -302,11 +304,13 @@ var trailingID = regexp.MustCompile(`([0-9]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]
 // pages often live on a different host than the listing).
 func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw string) (int64, error) {
 	norm := NormalizeJobURL(raw)
+	// An application form often lives at the posting's URL plus /apply.
+	parent := applySuffix.ReplaceAllString(norm, "")
 	var id int64
 	err := pool.QueryRow(ctx, `
 		SELECT j.id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
-		WHERE uj.user_id = $1 AND (j.url = $2 OR j.url = $3 OR rtrim(j.url, '/') = $2)
-		ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, norm, strings.TrimSpace(raw)).Scan(&id)
+		WHERE uj.user_id = $1 AND (j.url = $2 OR j.url = $3 OR rtrim(j.url, '/') = $2 OR j.url = $4)
+		ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, norm, strings.TrimSpace(raw), parent).Scan(&id)
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return id, err
 	}
