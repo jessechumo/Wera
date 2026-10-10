@@ -34,10 +34,40 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, pro
 			m.JobsExcluded.WithLabelValues(reason).Add(float64(n))
 		}
 	}
+	byFacts, err := excludeByKnownFacts(ctx, pool, prof)
+	if err != nil {
+		return nil, err
+	}
 	if err := RankPending(ctx, pool, prof); err != nil {
 		return nil, err
 	}
-	return &FilterStats{Excluded: excluded, Pending: pending}, nil
+	return &FilterStats{Excluded: excluded + byFacts, Pending: pending - byFacts}, nil
+}
+
+// excludeByKnownFacts applies the user's rules to unscored matches whose
+// shared facts already exist (extracted for another user): jobs asking
+// for too many years, refusing sponsorship, outside the US or too senior
+// drop out at filter time, before they are ranked or shown, at no cost.
+func excludeByKnownFacts(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile) (int, error) {
+	ids, err := store.PendingJobIDs(ctx, pool, prof.UserID)
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	facts, err := store.FactsFor(ctx, pool, ids)
+	if err != nil {
+		return 0, err
+	}
+	rules := ExclusionsFor(&prof.Preferences)
+	n := 0
+	for id, f := range facts {
+		if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
+			if err := store.ExcludeUserJob(ctx, pool, prof.UserID, id, reason, evidence); err != nil {
+				return n, err
+			}
+			n++
+		}
+	}
+	return n, nil
 }
 
 // RankPending re-ranks the user's unscored matches against their profile

@@ -46,3 +46,23 @@ func SetEstimates(ctx context.Context, pool *pgxpool.Pool, userID int64, scores 
 	}
 	return nil
 }
+
+// PendingJobIDs lists the user's open jobs waiting to be scored.
+func PendingJobIDs(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]int64, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT uj.job_id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
