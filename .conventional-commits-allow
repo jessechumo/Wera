@@ -1,5 +1,0 @@
-# Commits already pushed before Conventional Commits were enforced. They
-# can only be renamed by rewriting published history; until then the
-# commit check skips them. Remove a line once its commit is reworded.
-53e11e7  Recognize job board maintenance            -> feat(workday): recognize job board maintenance
-c49a60c  Defer companies during maintenance ...     -> feat(pipeline): defer companies during maintenance and catch up after
