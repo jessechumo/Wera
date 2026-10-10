@@ -114,8 +114,11 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, e
 			lastErr = fmt.Errorf("request: %w", err)
 		} else {
 			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
-			closeErr := resp.Body.Close()
+			resp.Body.Close()
 			switch {
+			case readErr != nil:
+				// The connection broke mid-body: retry like a 5xx.
+				lastErr = fmt.Errorf("read response from %s: %w", url, readErr)
 			case len(body) > maxBodyBytes:
 				return "", fmt.Errorf("response from %s is larger than %d MiB", url, maxBodyBytes>>20)
 			case resp.StatusCode == http.StatusNotFound:
@@ -145,17 +148,13 @@ func (h *HTTP) doJSON(ctx context.Context, method, url string, payload []byte, e
 			default:
 				return "", fmt.Errorf("unexpected HTTP %d from %s: %s", resp.StatusCode, url, truncate(body, 200))
 			}
-			if closeErr != nil && lastErr == nil {
-				lastErr = closeErr
-			}
-			_ = readErr
 		}
 
 		if attempt == maxAttempts {
 			break
 		}
 		// Exponential backoff with jitter: [delay, delay*1.5).
-		sleep := delay + time.Duration(rand.Int63n(int64(delay/2)+1))
+		sleep := delay + time.Duration(rand.Int63n(int64(delay/2)+1)) //nolint:gosec // jitter, not security
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
