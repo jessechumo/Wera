@@ -6,6 +6,7 @@ import (
 	"wera/internal/sources/ashby"
 	"wera/internal/sources/greenhouse"
 	"wera/internal/sources/lever"
+	"wera/internal/sources/workday"
 )
 
 // NewSourceRegistry builds the source registry with the shared polite HTTP
@@ -18,5 +19,6 @@ func NewSourceRegistry(env *config.Env) map[string]sources.Source {
 		"greenhouse": greenhouse.New(h),
 		"lever":      lever.New(h),
 		"ashby":      ashby.New(h),
+		"workday":    workday.New(h),
 	}
 }

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"wera/internal/config"
 )
@@ -21,7 +22,7 @@ func runCompanies(ctx context.Context, args []string) error {
 	}
 
 	enabled, disabled := 0, 0
-	perATS := map[string]int{"greenhouse": 0, "lever": 0, "ashby": 0}
+	perATS := map[string]int{}
 	for _, c := range comps.Companies {
 		perATS[c.ATS]++
 		if c.IsEnabled() {
@@ -33,8 +34,13 @@ func runCompanies(ctx context.Context, args []string) error {
 
 	fmt.Printf("companies.yaml OK: %d companies (%d enabled, %d disabled)\n",
 		len(comps.Companies), enabled, disabled)
-	for _, ats := range []string{"greenhouse", "lever", "ashby"} {
-		fmt.Printf("  %-10s %d\n", ats, perATS[ats])
+	names := make([]string, 0, len(config.KnownATS))
+	for ats := range config.KnownATS {
+		names = append(names, ats)
+	}
+	sort.Strings(names)
+	for _, ats := range names {
+		fmt.Printf("  %-15s %d\n", ats, perATS[ats])
 	}
 	return nil
 }
