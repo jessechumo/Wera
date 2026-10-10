@@ -1,0 +1,4 @@
+{"offset":0,"limit":100,"totalFound":2,"content":[
+ {"id":"111","name":"Software Engineer ","releasedDate":"2026-10-09T22:43:34.604Z","location":{"city":"Santa Clara","region":"California","country":"us","fullLocation":"Santa Clara, California, United States","remote":false},"department":{"label":"Engineering"}},
+ {"id":"222","name":"Data Analyst","releasedDate":"bad","location":{"city":"Austin","region":"Texas","country":"us","remote":true},"department":{"label":"Data"}}
+]}

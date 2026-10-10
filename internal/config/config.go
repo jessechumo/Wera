@@ -14,10 +14,11 @@ import (
 
 // KnownATS lists the supported applicant tracking systems.
 var KnownATS = map[string]bool{
-	"greenhouse": true,
-	"lever":      true,
-	"ashby":      true,
-	"workday":    true,
+	"greenhouse":      true,
+	"lever":           true,
+	"ashby":           true,
+	"workday":         true,
+	"smartrecruiters": true,
 }
 
 // Default config paths, relative to the working directory.
