@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/auth"
+	"wera/internal/buildinfo"
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/moderation"
@@ -202,7 +203,9 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusServiceUnavailable, "database unreachable")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	s.writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok", "version": buildinfo.Version, "commit": buildinfo.Commit,
+	})
 }
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {

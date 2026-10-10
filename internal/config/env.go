@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"wera/internal/buildinfo"
 )
 
 // Env holds environment-derived configuration with the defaults from
@@ -39,7 +41,7 @@ type Env struct {
 
 // LoadEnv builds an Env from the process environment with defaults.
 func LoadEnv() (*Env, error) {
-	e := &Env{
+	e := &Env{ //nolint:gosec // DatabaseURL is a local development default; deployments set DATABASE_URL
 		DatabaseURL:        "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
 		CoralBaseURL:       "https://inference.coralbricks.ai/v1",
 		CoralModel:         "deepseek-v4.1-flash-fast",
@@ -49,7 +51,7 @@ func LoadEnv() (*Env, error) {
 		RunInterval:        30 * time.Minute,
 		HTTPAddr:           "127.0.0.1:8080",
 		LogFormat:          "text",
-		UserAgent:          "Wera/0.1 (personal job tracker; contact: jessechumo@gmail.com)",
+		UserAgent:          "Wera/" + strings.TrimPrefix(buildinfo.Version, "v") + " (personal job tracker; contact: jessechumo@gmail.com)",
 		MaxCostPerRunUSD:   1.00,
 		UserBudgetUSD:      10,
 		MaxMonthlyCostUSD:  100,
