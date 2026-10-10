@@ -141,7 +141,9 @@ func (s *Server) clientIP(r *http.Request) string {
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
+	// Secure is configurable: the LAN deployment is plain HTTP; set
+	// COOKIE_SECURE=true behind TLS.
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // see above
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
@@ -153,7 +155,7 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
 }
 
 func (s *Server) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure follows COOKIE_SECURE, as above
 		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: s.CookieSecure, SameSite: http.SameSiteLaxMode,
 	})

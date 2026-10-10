@@ -114,7 +114,7 @@ func (s *Server) triggerRun(w http.ResponseWriter, r *http.Request) {
 	release(unlockCtx)
 	cancel()
 
-	go func() {
+	go func() { //nolint:gosec // the run outlives the request on purpose
 		if _, err := s.RunPipeline(context.Background()); err != nil {
 			s.Log.Error("triggered pipeline run failed", "err", err)
 		}

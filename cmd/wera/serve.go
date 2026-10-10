@@ -80,7 +80,7 @@ func runServe(ctx context.Context, args []string) error {
 		ran, err := p.RunOnce(ctx)
 		if at := p.CatchUpAt; !at.IsZero() {
 			log.Info("catch-up run after job board maintenance", "at", at.Add(2*time.Minute).Format(time.RFC3339))
-			go func() {
+			go func() { //nolint:gosec // a one-off catch-up run after the maintenance window
 				time.Sleep(time.Until(at) + 2*time.Minute)
 				if _, err := p.RunOnce(context.Background()); err != nil {
 					log.Error("catch-up run failed", "err", err)

@@ -44,7 +44,7 @@ func TestParseDeepAnalysisEmptyGapsAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("empty gaps are valid: %v", err)
 	}
-	if d.Gaps != nil && len(d.Gaps) != 0 {
+	if len(d.Gaps) != 0 {
 		t.Errorf("gaps: %+v", d.Gaps)
 	}
 }

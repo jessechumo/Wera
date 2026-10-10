@@ -171,8 +171,8 @@ func (c *Client) CreateBackgroundResponse(ctx context.Context, cacheKey, instruc
 		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 		_ = resp.Body.Close()
 
-		switch {
-		case resp.StatusCode == http.StatusOK:
+		switch resp.StatusCode {
+		case http.StatusOK:
 			if readErr != nil {
 				return "", fmt.Errorf("read response: %w", readErr)
 			}
@@ -184,7 +184,7 @@ func (c *Client) CreateBackgroundResponse(ctx context.Context, cacheKey, instruc
 				return "", fmt.Errorf("response has no id: %s", truncate(raw, 300))
 			}
 			return rs.ID, nil
-		case resp.StatusCode == http.StatusTooManyRequests:
+		case http.StatusTooManyRequests:
 			lastErr = fmt.Errorf("HTTP 429 from %s", endpoint)
 			if c.OnRateLimit != nil {
 				c.OnRateLimit()

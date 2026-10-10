@@ -72,7 +72,7 @@ type resumeFileView struct {
 // PDF in "file" or pasted text in "text". Only the extracted text is kept.
 func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, profile.MaxResumeBytes+64<<10)
-	if err := r.ParseMultipartForm(profile.MaxResumeBytes); err != nil {
+	if err := r.ParseMultipartForm(profile.MaxResumeBytes); err != nil { //nolint:gosec // the body is capped by MaxBytesReader above
 		s.writeError(w, http.StatusBadRequest, "upload a PDF of at most 5 MB, or paste the text")
 		return
 	}
@@ -227,7 +227,7 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}
 	if s.MatchUser != nil {
-		go s.MatchUser(context.Background(), user.ID)
+		go s.MatchUser(context.Background(), user.ID) //nolint:gosec // matching outlives the request on purpose
 	}
 	s.getProfile(w, r)
 }

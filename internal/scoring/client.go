@@ -163,13 +163,13 @@ func (c *Client) Chat(ctx context.Context, cacheKey string, messages []Message) 
 		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 		_ = resp.Body.Close()
 
-		switch {
-		case resp.StatusCode == http.StatusOK:
+		switch resp.StatusCode {
+		case http.StatusOK:
 			if readErr != nil {
 				return nil, fmt.Errorf("read response: %w", readErr)
 			}
 			return c.decode(raw)
-		case resp.StatusCode == http.StatusTooManyRequests:
+		case http.StatusTooManyRequests:
 			lastErr = fmt.Errorf("HTTP 429 from %s", endpoint)
 			if c.OnRateLimit != nil {
 				c.OnRateLimit()

@@ -17,7 +17,7 @@ import (
 // re-encoded as a 256x256 JPEG.
 func (s *Server) putAvatar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, profile.MaxAvatarBytes+64<<10)
-	if err := r.ParseMultipartForm(profile.MaxAvatarBytes); err != nil {
+	if err := r.ParseMultipartForm(profile.MaxAvatarBytes); err != nil { //nolint:gosec // the body is capped by MaxBytesReader above
 		s.writeError(w, http.StatusBadRequest, "upload an image of at most 4 MB")
 		return
 	}
@@ -87,7 +87,7 @@ func (s *Server) serveAvatar(w http.ResponseWriter, r *http.Request, userID int6
 	w.Header().Set("Content-Type", ct)
 	w.Header().Set("Cache-Control", "private, max-age=86400") // URLs carry ?v=<version>
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.Write(data)
+	w.Write(data) //nolint:gosec // re-encoded JPEG served with its type, nosniff and a sandbox CSP
 }
 
 // deleteAvatar is DELETE /api/profile/avatar.

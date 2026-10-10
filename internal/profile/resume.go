@@ -60,7 +60,7 @@ func popplerText(data []byte) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "-q", "-enc", "UTF-8", "-nopgbrk", "-", "-")
+	cmd := exec.CommandContext(ctx, bin, "-q", "-enc", "UTF-8", "-nopgbrk", "-", "-") //nolint:gosec // fixed binary and arguments; the PDF goes in on stdin
 	cmd.Stdin = bytes.NewReader(data)
 	var out bytes.Buffer
 	cmd.Stdout = &out

@@ -283,7 +283,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 				mu.Lock()
 				failed++
 				mu.Unlock()
-				return nil
+				return nil //nolint:nilerr // a failed detail is skipped and retried next run, not fatal
 			}
 			mu.Lock()
 			detailed = append(detailed, j)

@@ -21,7 +21,7 @@ func TestRankOrdersByRelevance(t *testing.T) {
 		{ID: 3, Title: "Backend Engineer", Body: "Go and PostgreSQL services; some Python scripting."},
 	}
 	got := Rank(profile, docs)
-	if !(got[2] > got[3] && got[3] > got[1]) {
+	if got[2] <= got[3] || got[3] <= got[1] {
 		t.Fatalf("want data scientist > backend > sales, got %v", got)
 	}
 	if got[2] != 85 || got[1] != 35 {
