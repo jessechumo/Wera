@@ -42,6 +42,8 @@ func PendingScoreJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, pro
 		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
 		WHERE uj.user_id = $1 AND uj.stage = 'pending_score' AND j.closed_at IS NULL
 		  AND (cardinality($3::bigint[]) = 0 OR j.id = ANY($3::bigint[]))
+		  AND NOT EXISTS (SELECT 1 FROM user_hidden_companies h
+		                  WHERE h.user_id = uj.user_id AND h.company_id = j.company_id)
 		ORDER BY uj.estimated_score DESC NULLS LAST, j.posted_at DESC NULLS LAST, j.id DESC`
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)

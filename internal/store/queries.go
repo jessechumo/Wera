@@ -79,7 +79,9 @@ const jobViewSelect = `
 	JOIN companies c ON c.id = j.company_id
 	LEFT JOIN analyses a ON a.id = uj.analysis_id
 	LEFT JOIN applications ap ON ap.job_id = j.id AND ap.user_id = uj.user_id
-	WHERE uj.user_id = $1`
+	WHERE uj.user_id = $1
+	  AND NOT EXISTS (SELECT 1 FROM user_hidden_companies h
+	                  WHERE h.user_id = uj.user_id AND h.company_id = j.company_id)`
 
 // jobViewScan lists the scan targets shared by every JobView query.
 func jobViewScan(v *JobView) []any {

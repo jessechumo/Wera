@@ -91,6 +91,11 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.requireUser)
 			r.Get("/auth/me", s.me)
 			r.Put("/auth/password", s.changePassword)
+			r.Delete("/auth/account", s.deleteAccount)
+			r.Get("/settings", s.getSettings)
+			r.Put("/settings", s.putSettings)
+			r.Put("/companies/{id}/hidden", s.hideCompany)
+			r.Delete("/companies/{id}/hidden", s.hideCompany)
 
 			r.Get("/jobs", s.listJobs)
 			r.Get("/jobs/{id}", s.getJob)

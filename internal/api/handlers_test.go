@@ -298,3 +298,89 @@ func TestProfileFlow(t *testing.T) {
 		t.Error("saving a profile did not start matching")
 	}
 }
+
+func do(t *testing.T, c *http.Client, method, url, body string) (int, string) {
+	t.Helper()
+	req, _ := http.NewRequest(method, url, strings.NewReader(body))
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode, string(b)
+}
+
+func TestSettingsAndHiddenCompanies(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	code, body := do(t, client, http.MethodGet, ts.URL+"/api/settings", "")
+	if code != 200 || !strings.Contains(body, `"theme":"system"`) || !strings.Contains(body, `"hidden_companies":[]`) {
+		t.Fatalf("defaults: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPut, ts.URL+"/api/settings", `{"theme":"neon","default_sort":"score","notifications":{"frequency":"daily","min_score":80}}`); code != 400 {
+		t.Errorf("bad theme: want 400, got %d", code)
+	}
+	code, body = do(t, client, http.MethodPut, ts.URL+"/api/settings",
+		`{"theme":"dark","default_sort":"newest","notifications":{"email_digest":false,"frequency":"weekly","strong_matches":true,"min_score":85}}`)
+	if code != 200 || !strings.Contains(body, `"theme":"dark"`) || !strings.Contains(body, `"frequency":"weekly"`) {
+		t.Fatalf("save: %d %s", code, body)
+	}
+
+	// Hiding a company removes its jobs from the user's lists.
+	var jobID, companyID int64
+	if err := pool.QueryRow(context.Background(), `
+		SELECT j.id, j.company_id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+		WHERE uj.user_id = $1 LIMIT 1`, testUserID).Scan(&jobID, &companyID); err != nil {
+		t.Skip("no seeded matches")
+	}
+	jobURL := fmt.Sprintf("%s/api/jobs/%d", ts.URL, jobID)
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 200 {
+		t.Fatalf("job visible before hiding: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/companies/%d/hidden", ts.URL, companyID), ""); code != 204 {
+		t.Fatalf("hide: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 404 {
+		t.Errorf("hidden company's job still visible: %d", code)
+	}
+	if _, body := do(t, client, http.MethodGet, ts.URL+"/api/settings", ""); !strings.Contains(body, fmt.Sprintf(`"id":%d`, companyID)) {
+		t.Errorf("hidden company not listed: %s", body)
+	}
+	do(t, client, http.MethodDelete, fmt.Sprintf("%s/api/companies/%d/hidden", ts.URL, companyID), "")
+	if code, _ := do(t, client, http.MethodGet, jobURL, ""); code != 200 {
+		t.Errorf("unhidden job not back: %d", code)
+	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	anon := &http.Client{}
+	email := fmt.Sprintf("delete-%d@example.com", time.Now().UnixNano())
+	resp, err := anon.Post(ts.URL+"/api/auth/signup", "application/json",
+		strings.NewReader(`{"email":"`+email+`","password":"delete me please"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	var cookie string
+	for _, c := range resp.Cookies() {
+		if c.Name == sessionCookie {
+			cookie = c.Value
+		}
+	}
+	user := &http.Client{Transport: cookieTransport{cookie}}
+	if code, _ := do(t, user, http.MethodDelete, ts.URL+"/api/auth/account", `{"password":"wrong"}`); code != 401 {
+		t.Errorf("wrong password: want 401, got %d", code)
+	}
+	if code, _ := do(t, user, http.MethodDelete, ts.URL+"/api/auth/account", `{"password":"delete me please"}`); code != 204 {
+		t.Fatalf("delete: want 204, got %d", code)
+	}
+	var n int
+	pool.QueryRow(context.Background(), `SELECT count(*) FROM users WHERE email = $1`, email).Scan(&n)
+	if n != 0 {
+		t.Error("account still exists")
+	}
+	if code, _ := do(t, user, http.MethodGet, ts.URL+"/api/auth/me", ""); code != 401 {
+		t.Errorf("session survived deletion: %d", code)
+	}
+}
