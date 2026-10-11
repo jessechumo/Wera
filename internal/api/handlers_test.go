@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	pngenc "image/png"
@@ -236,6 +237,15 @@ func TestProfileFlow(t *testing.T) {
 	code, body := getBody(t, ts.URL+"/api/profile/options")
 	if code != 200 || !strings.Contains(body, `"data_science"`) || !strings.Contains(body, `"aerospace"`) {
 		t.Fatalf("/api/profile/options: %d %.200s", code, body)
+	}
+	var opts struct {
+		RoleFamilies []struct{ Label string } `json:"role_families"`
+	}
+	json.Unmarshal([]byte(body), &opts)
+	for i := 1; i < len(opts.RoleFamilies); i++ {
+		if strings.ToLower(opts.RoleFamilies[i-1].Label) > strings.ToLower(opts.RoleFamilies[i].Label) {
+			t.Fatalf("role families not A to Z: %q before %q", opts.RoleFamilies[i-1].Label, opts.RoleFamilies[i].Label)
+		}
 	}
 	code, body = getBody(t, ts.URL+"/api/profile")
 	if code != 200 || !strings.Contains(body, `"ready":false`) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,8 +20,14 @@ import (
 // profileOptions is GET /api/profile/options: everything the signup and
 // profile forms let a user pick from.
 func (s *Server) profileOptions(w http.ResponseWriter, r *http.Request) {
+	// Role families A to Z by label, so every client lists them the same
+	// way; levels keep their seniority order.
+	families := slices.Clone(s.Roles.RoleFamilies)
+	slices.SortFunc(families, func(a, b config.RoleFamily) int {
+		return strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label))
+	})
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"role_families": s.Roles.RoleFamilies,
+		"role_families": families,
 		"levels":        s.Roles.Levels,
 		"industries":    s.Industries,
 	})
