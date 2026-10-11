@@ -60,8 +60,36 @@ type Coverage struct {
 	Percent int      `json:"percent"`
 }
 
+var parenRE = regexp.MustCompile(`^(.*?)\s*\(([^)]*)\)\s*$`)
+
+// alternatives are the forms of a keyword that each count as a match:
+// "ML lifecycle tooling (Kubeflow/Airflow/MLflow)" is met by the phrase
+// or by any one of the tools named; "Python/Go" by either language.
+func alternatives(k string) []string {
+	out := []string{k}
+	head, inner := k, ""
+	if m := parenRE.FindStringSubmatch(k); m != nil {
+		head, inner = m[1], m[2]
+		out = append(out, head)
+	}
+	for _, part := range regexp.MustCompile(`[/,]| or `).Split(inner, -1) {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	if inner == "" && strings.Contains(head, "/") && !strings.Contains(strings.ToLower(head), "ci/cd") {
+		for _, part := range strings.Split(head, "/") {
+			if p := strings.TrimSpace(part); p != "" {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
 // KeywordCoverage checks which keywords appear in the resume text,
-// allowing common synonyms (k8s, golang, postgres...).
+// allowing common synonyms (k8s, golang, postgres...) and alternatives
+// named in the keyword ("Airflow" meets "orchestration (Airflow/Dagster)").
 func KeywordCoverage(resumeText string, keywords []string) Coverage {
 	have := phraseSet(resumeText)
 	cov := Coverage{Matched: []string{}, Missing: []string{}}
@@ -72,7 +100,14 @@ func KeywordCoverage(resumeText string, keywords []string) Coverage {
 			continue
 		}
 		seen[c] = true
-		if have[c] || have[strings.ToLower(strings.TrimSpace(k))] {
+		found := false
+		for _, alt := range alternatives(k) {
+			if have[canon(alt)] || have[strings.ToLower(strings.TrimSpace(alt))] {
+				found = true
+				break
+			}
+		}
+		if found {
 			cov.Matched = append(cov.Matched, k)
 		} else {
 			cov.Missing = append(cov.Missing, k)

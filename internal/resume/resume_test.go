@@ -113,6 +113,11 @@ func TestKeywordCoverage(t *testing.T) {
 	if strings.Join(cov.Matched, ",") != "k8s,Golang,Terraform,CI/CD,GitHub Actions" || strings.Join(cov.Missing, ",") != "Postgres,Rust" || cov.Percent != 71 {
 		t.Errorf("%+v", cov)
 	}
+	alt := KeywordCoverage("Built pipelines with Airflow and Python/Go services", []string{
+		"ML lifecycle tooling (Kubeflow/Airflow/MLflow)", "gradient-boosted trees (LightGBM/XGBoost)", "Go/Rust", "CI/CD"})
+	if strings.Join(alt.Matched, ",") != "ML lifecycle tooling (Kubeflow/Airflow/MLflow),Go/Rust" {
+		t.Errorf("alternatives: %+v", alt)
+	}
 	if got := KnownTerms("We use Kubernetes, Go and PostgreSQL; experience with k8s and Terraform."); strings.Join(got, ",") != "kubernetes,go,postgresql,terraform" {
 		t.Errorf("KnownTerms: %v", got)
 	}
