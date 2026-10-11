@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -40,7 +42,13 @@ func (s *Server) h1bEmployer(w http.ResponseWriter, r *http.Request) {
 func (s *Server) writeH1BDetail(w http.ResponseWriter, r *http.Request, keys []string, err error) {
 	var d *store.H1BDetail
 	if err == nil {
-		d, err = store.H1BEmployerDetail(r.Context(), s.Pool, keys)
+		var v any
+		v, err = s.h1bCache.get("detail|"+strings.Join(keys, "|"), func() (any, error) {
+			return store.H1BEmployerDetail(r.Context(), s.Pool, keys)
+		})
+		if err == nil {
+			d = v.(*store.H1BDetail)
+		}
 	}
 	if err != nil {
 		s.Log.Error("h1b detail failed", "err", err)
@@ -51,7 +59,14 @@ func (s *Server) writeH1BDetail(w http.ResponseWriter, r *http.Request, keys []s
 		s.writeError(w, http.StatusNotFound, "no H-1B filings for this employer")
 		return
 	}
+	h1bCacheHeader(w)
 	s.writeJSON(w, http.StatusOK, d)
+}
+
+// h1bCacheHeader lets the browser keep H-1B answers for a while: the data
+// changes only when a new disclosure file is imported.
+func h1bCacheHeader(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "private, max-age=1800")
 }
 
 // h1bEmployers is GET /api/h1b/employers?q=: search every filing
@@ -65,13 +80,16 @@ func (s *Server) h1bEmployers(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusOK, map[string]any{"employers": []store.H1BEmployer{}})
 		return
 	}
-	list, err := store.SearchH1BEmployers(r.Context(), s.Pool, q, 20)
+	v, err := s.h1bCache.get("search|"+strings.ToLower(q), func() (any, error) {
+		return store.SearchH1BEmployers(r.Context(), s.Pool, q, 20)
+	})
 	if err != nil {
 		s.Log.Error("h1b search failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"employers": list})
+	h1bCacheHeader(w)
+	s.writeJSON(w, http.StatusOK, map[string]any{"employers": v})
 }
 
 // jobH1B is GET /api/jobs/{id}/h1b: the company's H-1B filings and what
@@ -95,12 +113,19 @@ func (s *Server) jobH1B(w http.ResponseWriter, r *http.Request) {
 		default:
 			level = ""
 		}
-		out, err = store.JobH1BFor(r.Context(), s.Pool, cid, title, level)
+		var v any
+		v, err = s.h1bCache.get(fmt.Sprintf("job|%d|%s|%s", cid, title, level), func() (any, error) {
+			return store.JobH1BFor(r.Context(), s.Pool, cid, title, level)
+		})
+		if err == nil {
+			out = v.(*store.JobH1B)
+		}
 	}
 	if err != nil {
 		s.Log.Error("job h1b failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
+	h1bCacheHeader(w)
 	s.writeJSON(w, http.StatusOK, out)
 }

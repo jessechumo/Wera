@@ -1,8 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"wera/internal/store"
 )
@@ -15,7 +17,10 @@ func (s *Server) sponsorship(w http.ResponseWriter, r *http.Request) {
 	if len(query) > 80 {
 		query = query[:80]
 	}
-	stats, err := store.SponsorshipByCompany(r.Context(), s.Pool, query, limit)
+	// Posting signals change with each run; ten minutes is fresh enough.
+	v, err := s.sponsorCache.get(fmt.Sprintf("%d|%s", limit, strings.ToLower(query)), func() (any, error) {
+		return store.SponsorshipByCompany(r.Context(), s.Pool, query, limit)
+	})
 	if err != nil {
 		s.Log.Error("sponsorship query failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")
@@ -25,5 +30,6 @@ func (s *Server) sponsorship(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.Log.Error("h1b period failed", "err", err)
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"companies": stats, "h1b_period": period})
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	s.writeJSON(w, http.StatusOK, map[string]any{"companies": v, "h1b_period": period})
 }

@@ -44,6 +44,8 @@ type Server struct {
 	// disables POST /api/runs.
 	RunPipeline func(ctx context.Context) (bool, error)
 
+	h1bCache, sponsorCache *ttlCache
+
 	// Notify sends email; nil when no mail provider is set up.
 	Notify *notify.Service
 
@@ -111,6 +113,8 @@ func (s *Server) Handler() http.Handler {
 	s.commentLimit = auth.NewLimiter(30, time.Hour)
 	s.extAILimit = auth.NewLimiter(120, time.Hour)
 	s.previewLimit = auth.NewLimiter(900, time.Hour)
+	s.h1bCache = newTTLCache(time.Hour, 5000)
+	s.sponsorCache = newTTLCache(10*time.Minute, 200)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
