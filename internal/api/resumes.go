@@ -128,6 +128,9 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 	}
 	existing, err := store.BaseResume(r.Context(), s.Pool, user.ID)
 	saved := &store.ResumeDoc{Title: "My resume", Data: *doc, Layout: resume.DefaultLayout, Notes: warnings}
+	if err == nil {
+		saved.Layout = existing.Layout // re-importing keeps the chosen template
+	}
 	switch {
 	case err == nil && !in.Replace:
 		s.writeError(w, http.StatusConflict, "you already have a resume; import with replace to overwrite it")
@@ -139,7 +142,7 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &saved.Data, nil); err == nil {
+		if res, err := s.Resumes.Fit(r.Context(), &saved.Data, saved.Layout, nil); err == nil {
 			saved.Layout, saved.Fit = res.Layout, res
 		}
 	}
@@ -230,7 +233,7 @@ func (s *Server) fitResume(w http.ResponseWriter, r *http.Request) {
 			prio = resume.KeywordPriority(kws)
 		}
 	}
-	res, err := s.Resumes.Fit(r.Context(), &doc.Data, prio)
+	res, err := s.Resumes.Fit(r.Context(), &doc.Data, doc.Layout, prio)
 	if err != nil {
 		s.Log.Error("fit failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "could not lay out the resume")
@@ -413,7 +416,7 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	}
 	doc := &store.ResumeDoc{Title: fmt.Sprintf("%s, %s", title, company), JobID: &id, Data: *tailored.Resume, Layout: base.Layout, Notes: tailored.Notes}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, tailored.Priority(kws)); err == nil {
+		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, doc.Layout, tailored.Priority(kws)); err == nil {
 			doc.Layout, doc.Fit = res.Layout, res
 		}
 	}

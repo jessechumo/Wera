@@ -6,9 +6,9 @@ import (
 	"sort"
 )
 
-// ladder runs from the template as written to the tightest layout that is
+// sizes run from the template as written to the tightest layout that is
 // still comfortable to read (never below 10pt).
-var ladder = []Layout{
+var sizes = []Layout{
 	{FontSize: 11, Spacing: 1, Margin: 0.5},
 	{FontSize: 11, Spacing: 0.9, Margin: 0.5},
 	{FontSize: 10.5, Spacing: 0.9, Margin: 0.45},
@@ -51,9 +51,17 @@ type candidate struct {
 // only when none does, the fewest low-priority bullets hidden (never a
 // role's first bullet, never something the user chose to show... they can
 // unhide anything). It returns the result and changes r (hidden flags).
-func (rd *Renderer) Fit(ctx context.Context, r *Resume, prio Priority) (*FitResult, error) {
+//
+// The base layout's template, accent and paper are kept.
+func (rd *Renderer) Fit(ctx context.Context, r *Resume, base Layout, prio Priority) (*FitResult, error) {
 	if prio == nil {
 		prio = DefaultPriority
+	}
+	base = base.Clamp()
+	ladder := make([]Layout, len(sizes))
+	for i, l := range sizes {
+		l.Template, l.Accent, l.Paper = base.Template, base.Accent, base.Paper
+		ladder[i] = l
 	}
 	res := &FitResult{}
 	before, err := rd.Measure(ctx, r, ladder[0])
@@ -150,7 +158,8 @@ func (rd *Renderer) Fit(ctx context.Context, r *Resume, prio Priority) (*FitResu
 }
 
 func layoutSummary(l Layout) string {
-	if l == ladder[0] {
+	l.Template, l.Accent, l.Paper = "", "", ""
+	if l == sizes[0] {
 		return "Fits on one page as written"
 	}
 	return fmt.Sprintf("Fits on one page at %gpt with tighter spacing", l.FontSize)

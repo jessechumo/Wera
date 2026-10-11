@@ -1,6 +1,7 @@
 package resume
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -173,25 +174,25 @@ func TestFitToOnePage(t *testing.T) {
 	ctx := context.Background()
 
 	short := sample(t)
-	res, err := rd.Fit(ctx, short, nil)
-	if err != nil || !res.OnePage || res.Layout != ladder[0] || len(res.Hidden) != 0 {
+	res, err := rd.Fit(ctx, short, DefaultLayout, nil)
+	if err != nil || !res.OnePage || res.Layout != DefaultLayout || len(res.Hidden) != 0 {
 		t.Fatalf("a short resume should fit as written: %+v %v", res, err)
 	}
 
 	// A bit long: tighter type and spacing are enough, nothing is hidden.
 	medium := withRoles(t, 4, 5)
-	res, err = rd.Fit(ctx, medium, nil)
-	if err != nil || !res.OnePage || len(res.Hidden) != 0 || res.Layout == ladder[0] {
+	res, err = rd.Fit(ctx, medium, DefaultLayout, nil)
+	if err != nil || !res.OnePage || len(res.Hidden) != 0 || res.Layout == DefaultLayout {
 		t.Fatalf("medium: want a tighter layout and nothing hidden: %+v %v", res, err)
 	}
 
 	// Much too long: bullets must go.
 	long := withRoles(t, 7, 7)
 	exp := &long.Sections[2]
-	if m, _ := rd.Measure(ctx, long, ladder[0]); m.Pages < 2 {
+	if m, _ := rd.Measure(ctx, long, DefaultLayout); m.Pages < 2 {
 		t.Fatalf("test resume should start on 2+ pages, got %+v", m)
 	}
-	res, err = rd.Fit(ctx, long, nil)
+	res, err = rd.Fit(ctx, long, DefaultLayout, nil)
 	if err != nil || !res.OnePage || res.After.Pages != 1 || len(res.Hidden) == 0 {
 		t.Fatalf("fit: %+v %v", res, err)
 	}
@@ -228,4 +229,47 @@ func withRoles(t *testing.T, roles, bullets int) *Resume {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func TestEveryTemplateRenders(t *testing.T) {
+	rd := renderer(t)
+	ctx := context.Background()
+	r := sample(t)
+	r.Headline = "Site Reliability Engineer"
+	r.Sections[2].Entries[0].Bullets[0].Text = "Cut **deploy time** by 50% with GitHub Actions"
+	for _, tpl := range Templates {
+		for _, paper := range []string{"us-letter", "a4"} {
+			l := DefaultLayout
+			l.Template, l.Paper = tpl.ID, paper
+			m, err := rd.Measure(ctx, r, l)
+			if err != nil || m.Pages != 1 || m.Fill <= 0.2 || m.Fill >= 1 {
+				t.Errorf("%s on %s: %+v %v", tpl.ID, paper, m, err)
+			}
+			pdf, err := rd.PDF(ctx, r, l)
+			if err != nil || !bytes.HasPrefix(pdf, []byte("%PDF")) {
+				t.Errorf("%s pdf: %v", tpl.ID, err)
+			}
+		}
+	}
+	// Fitting keeps the chosen template, accent and paper.
+	l := Layout{Template: "signal", Accent: "#0F766E", Paper: "a4"}
+	res, err := rd.Fit(ctx, withRoles(t, 4, 5), l, nil)
+	if err != nil || res.Layout.Template != "signal" || res.Layout.Accent != "#0f766e" || res.Layout.Paper != "a4" {
+		t.Errorf("fit lost the template: %+v %v", res, err)
+	}
+}
+
+func TestLayoutClampAndPlaceholders(t *testing.T) {
+	l := Layout{Template: "nope", Accent: "red; }", Paper: "legal"}.Clamp()
+	if l.Template != "ivy" || l.Accent != DefaultAccent || l.Paper != "us-letter" || l.FontSize != 11 {
+		t.Errorf("clamp: %+v", l)
+	}
+	r := &Resume{Name: "Ada", Headline: " None ", Sections: []Section{{Kind: KindCompact, Title: "Awards",
+		Entries: []Entry{{Heading: "Prize", Subheading: "null", Dates: "None"}}}}}
+	if err := r.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if e := r.Sections[0].Entries[0]; r.Headline != "" || e.Subheading != "" || e.Dates != "" {
+		t.Errorf("placeholders kept: %q %+v", r.Headline, e)
+	}
 }

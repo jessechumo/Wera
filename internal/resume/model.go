@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -81,6 +82,7 @@ type Link struct {
 // Resume is the whole document.
 type Resume struct {
 	Name     string    `json:"name"`
+	Headline string    `json:"headline,omitempty"` // optional line under the name: "Backend Engineer"
 	Phone    string    `json:"phone,omitempty"`
 	Email    string    `json:"email,omitempty"`
 	Location string    `json:"location,omitempty"`
@@ -88,15 +90,56 @@ type Resume struct {
 	Sections []Section `json:"sections"`
 }
 
-// Layout is how the document is set. Fit chooses it; users may override.
+// Layout is how the document is set. Fit chooses the size, spacing and
+// margins; the user picks the template, accent and paper.
 type Layout struct {
-	FontSize float64 `json:"font_size"` // points, 10 to 11
-	Spacing  float64 `json:"spacing"`   // vertical spacing factor, 0.7 to 1.2
-	Margin   float64 `json:"margin"`    // inches, 0.35 to 0.75
+	FontSize float64 `json:"font_size"`          // points, 10 to 11
+	Spacing  float64 `json:"spacing"`            // gaps between blocks, 0.7 to 1.2 (line height stays readable)
+	Margin   float64 `json:"margin"`             // inches, 0.35 to 0.75
+	Template string  `json:"template,omitempty"` // a Templates id; "" is ivy
+	Accent   string  `json:"accent,omitempty"`   // #rrggbb, for templates that use color
+	Paper    string  `json:"paper,omitempty"`    // "us-letter" (default) or "a4"
 }
 
-// DefaultLayout matches the LaTeX template at 11pt.
-var DefaultLayout = Layout{FontSize: 11, Spacing: 1, Margin: 0.5}
+// DefaultLayout matches the classic LaTeX template at 11pt.
+var DefaultLayout = Layout{FontSize: 11, Spacing: 1, Margin: 0.5, Template: "ivy", Accent: DefaultAccent, Paper: "us-letter"}
+
+// DefaultAccent is a deep blue.
+const DefaultAccent = "#1d4ed8"
+
+// Template describes one resume design.
+type Template struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Tagline     string `json:"tagline"`
+	Description string `json:"description"`
+	UsesAccent  bool   `json:"uses_accent"`
+	ATS         string `json:"ats"` // how plainly applicant tracking systems read it
+}
+
+// Templates are the designs a resume can use, in display order.
+var Templates = []Template{
+	{ID: "ivy", Name: "Ivy", Tagline: "The classic tech resume",
+		Description: "The one-column LaTeX resume recruiters at big tech know on sight: Computer Modern, small-caps headings over rules, dense and calm.", ATS: "excellent"},
+	{ID: "parse", Name: "Parse", Tagline: "ATS-maxxing",
+		Description: "Built for applicant tracking systems first: a plain sans, standard headings, \"Title, Company\" lines in reading order, no small caps or ligatures.", ATS: "best"},
+	{ID: "signal", Name: "Signal", Tagline: "Modern, with a color accent",
+		Description: "Inter, a left-aligned header with your headline in color, hairline section rules and a skills grid. Startups, product and design-minded teams.", UsesAccent: true, ATS: "excellent"},
+	{ID: "ledger", Name: "Ledger", Tagline: "Refined serif",
+		Description: "Libertinus Serif with a centered, letterspaced name and titles between hairlines. Finance, consulting, research and law.", ATS: "excellent"},
+}
+
+// TemplateByID returns the template, or Ivy when the id is unknown.
+func TemplateByID(id string) Template {
+	for _, t := range Templates {
+		if t.ID == id {
+			return t
+		}
+	}
+	return Templates[0]
+}
+
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Limits keep documents (and render times) bounded.
 const (
@@ -121,6 +164,17 @@ func clampLen(field, s string, n int) error {
 	return nil
 }
 
+// clean trims a field and drops placeholder values ("None", "null")
+// that converters sometimes leave in empty fields.
+func clean(s string) string {
+	s = strings.TrimSpace(s)
+	switch strings.ToLower(s) {
+	case "none", "null", "nil", "undefined", "n/a", "-":
+		return ""
+	}
+	return s
+}
+
 // SafeURL accepts http(s) and mailto links only.
 func SafeURL(raw string) bool {
 	if raw == "" {
@@ -137,7 +191,9 @@ func (r *Resume) Normalize() error {
 	if r.Name == "" {
 		return errors.New("the resume needs your name")
 	}
-	for _, f := range []struct{ name, v string }{{"name", r.Name}, {"phone", r.Phone}, {"email", r.Email}, {"location", r.Location}} {
+	r.Headline = clean(r.Headline)
+	r.Phone, r.Email, r.Location = clean(r.Phone), clean(r.Email), clean(r.Location)
+	for _, f := range []struct{ name, v string }{{"name", r.Name}, {"headline", r.Headline}, {"phone", r.Phone}, {"email", r.Email}, {"location", r.Location}} {
 		if err := clampLen(f.name, f.v, maxField); err != nil {
 			return err
 		}
@@ -194,7 +250,7 @@ func (r *Resume) Normalize() error {
 				e.ID = newID()
 			}
 			for _, f := range []*string{&e.Heading, &e.Subheading, &e.Dates, &e.Location, &e.Tech, &e.Text, &e.URL, &e.LinkLabel} {
-				*f = strings.TrimSpace(*f)
+				*f = clean(*f)
 			}
 			for _, f := range []string{e.Heading, e.Subheading, e.Dates, e.Location, e.Tech} {
 				if err := clampLen("entry field", f, maxField); err != nil {
@@ -239,7 +295,15 @@ func (l Layout) Clamp() Layout {
 		}
 		return max(lo, min(hi, v))
 	}
-	return Layout{FontSize: c(l.FontSize, 10, 11, 11), Spacing: c(l.Spacing, 0.7, 1.2, 1), Margin: c(l.Margin, 0.35, 0.75, 0.5)}
+	out := Layout{FontSize: c(l.FontSize, 10, 11, 11), Spacing: c(l.Spacing, 0.7, 1.2, 1), Margin: c(l.Margin, 0.35, 0.75, 0.5),
+		Template: TemplateByID(l.Template).ID, Accent: strings.ToLower(l.Accent), Paper: l.Paper}
+	if !hexColor.MatchString(out.Accent) {
+		out.Accent = DefaultAccent
+	}
+	if out.Paper != "a4" {
+		out.Paper = "us-letter"
+	}
+	return out
 }
 
 // PlainText is the visible resume as text (for keyword checks, AI prompts
@@ -259,6 +323,7 @@ func (r *Resume) PlainText() string {
 		}
 	}
 	line(r.Name)
+	line(r.Headline)
 	contacts := []string{r.Phone, r.Email, r.Location}
 	for _, l := range r.Links {
 		contacts = append(contacts, l.Label)
