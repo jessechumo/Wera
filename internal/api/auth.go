@@ -257,6 +257,11 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		s.Log.Error("setting budget failed", "user_id", u.ID, "err", err)
 	}
 	s.Log.Info("user signed up", "user_id", u.ID)
+	if s.Notify.Enabled() {
+		if err := s.Notify.SendVerification(r.Context(), u); err != nil {
+			s.Log.Error("verification email failed", "user_id", u.ID, "err", err)
+		}
+	}
 	if s.startSession(w, r, u) {
 		s.writeJSON(w, http.StatusCreated, map[string]any{"user": u})
 	}
@@ -313,7 +318,11 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.Log.Warn("avatar lookup failed", "err", err)
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"user": u, "avatar_version": v})
+	verified, err := store.EmailVerified(r.Context(), s.Pool, u.ID)
+	if err != nil {
+		s.Log.Warn("verified lookup failed", "err", err)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"user": u, "avatar_version": v, "email_verified": verified})
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {

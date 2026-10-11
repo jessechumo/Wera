@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"wera/internal/buildinfo"
+	"wera/internal/mail"
 )
 
 // Env holds environment-derived configuration with the defaults from
@@ -39,6 +40,9 @@ type Env struct {
 	CookieSecure   bool     // set Secure on the session cookie (HTTPS only)
 	PublicOrigins  []string // extra origins allowed to send state-changing requests
 	TrustProxy     bool     // take the client IP from proxy headers
+
+	// Email: off until MAIL_PROVIDER is set.
+	Mail mail.Config
 }
 
 // LoadEnv builds an Env from the process environment with defaults.
@@ -136,6 +140,21 @@ func LoadEnv() (*Env, error) {
 	intVal("SIGNUPS_PER_HOUR", &e.SignupsPerHour)
 	boolVal("COOKIE_SECURE", &e.CookieSecure)
 	boolVal("TRUST_PROXY", &e.TrustProxy)
+	e.Mail.SMTPPort = 587
+	str("MAIL_PROVIDER", &e.Mail.Provider)
+	str("MAIL_FROM", &e.Mail.From)
+	str("MAIL_REPLY_TO", &e.Mail.ReplyTo)
+	str("MAIL_LOG_DIR", &e.Mail.LogDir)
+	str("PUBLIC_URL", &e.Mail.PublicURL)
+	e.Mail.PublicURL = strings.TrimRight(e.Mail.PublicURL, "/")
+	str("SMTP_HOST", &e.Mail.SMTPHost)
+	intVal("SMTP_PORT", &e.Mail.SMTPPort)
+	str("SMTP_USERNAME", &e.Mail.SMTPUsername)
+	str("SMTP_PASSWORD", &e.Mail.SMTPPassword)
+	str("SMTP_SECURITY", &e.Mail.SMTPSecurity)
+	if err := e.Mail.Validate(); err != nil {
+		errs = append(errs, "email: "+err.Error())
+	}
 	for _, o := range strings.Split(os.Getenv("PUBLIC_ORIGINS"), ",") {
 		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
 			e.PublicOrigins = append(e.PublicOrigins, o)

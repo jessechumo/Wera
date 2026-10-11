@@ -22,6 +22,7 @@ import (
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/moderation"
+	"wera/internal/notify"
 	"wera/internal/resume"
 	"wera/internal/store"
 )
@@ -42,6 +43,9 @@ type Server struct {
 	// RunPipeline is set by `wera serve` to pipeline.RunOnce; nil
 	// disables POST /api/runs.
 	RunPipeline func(ctx context.Context) (bool, error)
+
+	// Notify sends email; nil when no mail provider is set up.
+	Notify *notify.Service
 
 	// Accounts and browser security (see config.Env).
 	SignupEnabled bool
@@ -113,6 +117,10 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/auth/signup", s.signup)
 		r.Post("/auth/login", s.login)
 		r.Post("/auth/logout", s.logout)
+		r.Get("/auth/config", s.authConfig)
+		r.Post("/auth/verify-email", s.verifyEmail)
+		r.Post("/auth/password/forgot", s.forgotPassword)
+		r.Post("/auth/password/reset", s.resetPassword)
 		r.Post("/ext/tokens", s.createExtToken)
 
 		// Everything else needs a session.
@@ -120,6 +128,7 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.requireUser)
 			r.Get("/auth/me", s.me)
 			r.Put("/auth/password", s.changePassword)
+			r.Post("/auth/verify-email/send", s.sendVerification)
 			r.Delete("/auth/account", s.deleteAccount)
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)
@@ -205,6 +214,9 @@ func (s *Server) Handler() http.Handler {
 				r.Use(s.requireAdmin)
 				r.Post("/runs", s.triggerRun)
 				r.Get("/usage", s.usage)
+				r.Get("/admin/email", s.emailOverview)
+				r.Get("/admin/email/preview/{name}", s.emailPreview)
+				r.Post("/admin/email/test", s.emailTest)
 			})
 		})
 	})

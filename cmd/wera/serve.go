@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 	"wera/internal/api"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/notify"
 	"wera/internal/pipeline"
 	"wera/internal/resume"
 	"wera/internal/store"
@@ -118,6 +120,15 @@ func runServe(ctx context.Context, args []string) error {
 		TrustProxy:     env.TrustProxy,
 	}
 
+	// Email is off until MAIL_PROVIDER is set; then queued mail goes out
+	// from this process every few seconds.
+	if srv.Notify, err = notify.New(pool, env.Mail, log); err != nil {
+		return fmt.Errorf("email: %w", err)
+	}
+	if srv.Notify.Enabled() {
+		log.Info("email enabled", "provider", env.Mail.Provider, "from", env.Mail.From)
+	}
+
 	httpServer := &http.Server{
 		Addr:              env.HTTPAddr,
 		Handler:           srv.Handler(),
@@ -134,6 +145,9 @@ func runServe(ctx context.Context, args []string) error {
 	// Graceful shutdown on SIGINT/SIGTERM.
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if srv.Notify.Enabled() {
+		go srv.Notify.Run(ctx, 5*time.Second)
+	}
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- httpServer.ListenAndServe() }()
 
