@@ -274,3 +274,55 @@ func KeywordPriority(keywords []string) Priority {
 		return DefaultPriority(si, ei, bi, s, b) + float64(hits)*400
 	}
 }
+
+// --- bullet suggestions -------------------------------------------------------
+
+const bulletInstructions = `You rewrite one resume bullet into three stronger versions. ` + scoring.Untrusted + `
+
+Return ONLY a JSON object: {"suggestions": ["", "", ""]}
+
+Rules:
+- Start with a strong past-tense verb (present tense if the role is current). No "I", "my" or "we".
+- Lead with the action and its result; keep the candidate's facts, tools and numbers exactly.
+- Never invent facts. Where a number would make it stronger but none is given, write a placeholder in square brackets, like "by [X]%" or "for [N] users", for the candidate to fill in.
+- Each under 200 characters, one line, no trailing period, no em or en dashes.
+- Make the three meaningfully different (impact-first, scope-first, technical).`
+
+// BulletMessages asks for rewrites of one bullet, given its role and,
+// optionally, the job it is being tailored to.
+func BulletMessages(text, role, job string) []scoring.Message {
+	user := "Role: " + role + "\nBullet: " + text
+	if job != "" {
+		user += "\nTarget job (use its terms only where they truthfully apply): " + job
+	}
+	return []scoring.Message{{Role: "system", Content: bulletInstructions}, {Role: "user", Content: user}}
+}
+
+// ParseBulletSuggestions keeps the suggestions that add no number outside
+// a [placeholder], cleaned of dashes and trailing periods.
+func ParseBulletSuggestions(original, reply string) ([]string, error) {
+	var out struct {
+		Suggestions []string `json:"suggestions"`
+	}
+	if err := json.Unmarshal([]byte(scoring.StripFences(reply)), &out); err != nil {
+		return nil, fmt.Errorf("unreadable suggestions: %w", err)
+	}
+	orig := numbers(original)
+	kept := []string{}
+	for _, s := range out.Suggestions {
+		s = strings.TrimSuffix(strings.TrimSpace(cleanDashes(s)), ".")
+		if s == "" || len(s) > maxBullet {
+			continue
+		}
+		ok := true
+		for n := range numbers(placeholderRE.ReplaceAllString(s, "")) {
+			ok = ok && orig[n]
+		}
+		if ok && len(kept) < 3 {
+			kept = append(kept, s)
+		}
+	}
+	return kept, nil
+}
+
+var placeholderRE = regexp.MustCompile(`\[[^\]]{1,20}\]`)

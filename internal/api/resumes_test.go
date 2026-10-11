@@ -243,3 +243,17 @@ func TestResumeTemplatesLaTeXAndReview(t *testing.T) {
 		t.Errorf("thumbnails: %d %d", code, len(th.Thumbnails))
 	}
 }
+
+func TestSuggestBullet(t *testing.T) {
+	ts, _ := llmServer(t)
+	b, _ := json.Marshal(map[string]string{"text": "Responsible for deploys, which got 50% faster across 12 services", "role": "SRE at Engines Inc"})
+	code, body := do(t, client, http.MethodPost, ts.URL+"/api/resumes/suggest-bullet", string(b))
+	var out struct{ Suggestions []string }
+	json.Unmarshal([]byte(body), &out)
+	if code != 200 || len(out.Suggestions) != 2 {
+		t.Fatalf("suggestions: %d %s", code, body)
+	}
+	if out.Suggestions[0] != "Cut deploy time by 50% across 12 services, with GitHub Actions" || !strings.Contains(out.Suggestions[1], "[N]") {
+		t.Errorf("cleaning or placeholders wrong: %q", out.Suggestions)
+	}
+}

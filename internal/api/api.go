@@ -169,6 +169,7 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/resumes/tex", s.texOf)
 			r.Post("/resumes/parse-tex", s.parseTeX)
 			r.Post("/resumes/thumbnails", s.thumbnails)
+			r.Post("/resumes/suggest-bullet", s.suggestBullet)
 			r.Get("/resumes/{id}", s.getResumeHandler)
 			r.Put("/resumes/{id}", s.putResume)
 			r.Delete("/resumes/{id}", s.deleteResumeHandler)

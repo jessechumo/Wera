@@ -539,3 +539,43 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	v := s.view(r, saved)
 	s.writeJSON(w, http.StatusOK, map[string]any{"resume": v, "coverage_before": before})
 }
+
+// suggestBullet is POST /api/resumes/suggest-bullet: three stronger
+// rewrites of one bullet (numbers only as [placeholders] when missing),
+// optionally aimed at a job.
+func (s *Server) suggestBullet(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Text  string `json:"text"`
+		Role  string `json:"role"`
+		JobID int64  `json:"job_id"`
+	}
+	if err := decodeJSON(r, &in); err != nil || strings.TrimSpace(in.Text) == "" {
+		s.writeError(w, http.StatusBadRequest, "send the bullet as text")
+		return
+	}
+	if len(in.Text) > 800 || len(in.Role) > 300 {
+		s.writeError(w, http.StatusBadRequest, "that bullet is too long")
+		return
+	}
+	user := currentUser(r)
+	job := ""
+	if in.JobID > 0 {
+		if company, title, desc, err := s.jobContext(r, in.JobID, "", "", ""); err == nil {
+			if len(desc) > 3000 {
+				desc = desc[:3000]
+			}
+			job = title + " at " + company + "\n" + desc
+		}
+	}
+	reply, err := s.chatForUser(r.Context(), user.ID, "bullet", 600, resume.BulletMessages(in.Text, in.Role, job))
+	if err != nil {
+		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
+		return
+	}
+	out, err := resume.ParseBulletSuggestions(in.Text, reply)
+	if err != nil || len(out) == 0 {
+		s.writeError(w, http.StatusBadGateway, "the AI did not return usable suggestions; try again")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"suggestions": out})
+}
