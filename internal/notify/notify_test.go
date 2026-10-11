@@ -71,3 +71,13 @@ func TestDeliverRetriesThenGivesUp(t *testing.T) {
 		t.Errorf("sent: %+v", m.sent)
 	}
 }
+
+func TestFirstSentence(t *testing.T) {
+	if got := firstSentence("Strong Go fit. Also onsite in Austin.", 180); got != "Strong Go fit." {
+		t.Errorf("got %q", got)
+	}
+	long := "This mid-level remote role matches the candidate's three years of experience and core stack closely though it is in fintech underwriting rather than aviation"
+	if got := firstSentence(long, 60); len(got) > 64 || got[len(got)-3:] != "…" {
+		t.Errorf("got %q", got)
+	}
+}

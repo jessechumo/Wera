@@ -141,7 +141,7 @@ func Digest(ctx context.Context, pool *pgxpool.Pool, publicURL string, u *store.
 			dj.Sponsorship = "Sponsors visas"
 		}
 		if j.Reason != nil {
-			dj.Reason = *j.Reason
+			dj.Reason = firstSentence(*j.Reason, 180)
 		}
 		d.Jobs = append(d.Jobs, dj)
 	}
@@ -202,4 +202,21 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 		case <-t.C:
 		}
 	}
+}
+
+// firstSentence keeps an email short: the first sentence, at most n
+// characters (cut at a word).
+func firstSentence(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if i := strings.Index(s, ". "); i > 0 {
+		s = s[:i+1]
+	}
+	if len(s) <= n {
+		return s
+	}
+	cut := strings.LastIndex(s[:n], " ")
+	if cut < n/2 {
+		cut = n
+	}
+	return strings.TrimRight(s[:cut], " ,;:") + "…"
 }
