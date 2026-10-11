@@ -67,10 +67,12 @@ func TestH1BEndpoints(t *testing.T) {
 		t.Fatalf("detail: %d %s", code, body)
 	}
 
-	code, body = getBody(t, fmt.Sprintf("%s/api/jobs/%d/h1b", ts.URL, jobs[0]))
+	code, body = getBody(t, fmt.Sprintf("%s/api/jobs/%d/h1b?level=II", ts.URL, jobs[0]))
 	var j store.JobH1B
 	json.Unmarshal([]byte(body), &j)
-	if code != 200 || !j.Matched || len(j.Similar) == 0 || j.Similar[0].Title != "Senior Software Engineer" {
+	// Level II first: the one level II filing leads, though less similar
+	// (too few at that level to set the range on their own).
+	if code != 200 || !j.Matched || len(j.Similar) != 2 || j.Similar[0].Title != "Software Engineer" || j.Level != "" {
 		t.Fatalf("job: %d %s", code, body)
 	}
 	for _, s := range j.Similar {

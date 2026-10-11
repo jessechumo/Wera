@@ -63,7 +63,7 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		GROUP BY c.id, h.filings, h.new_hires, h.median
 		HAVING count(p.s) > 0 OR h.filings > 0
 		ORDER BY coalesce(h.filings, 0) DESC, count(*) FILTER (WHERE p.s = 'yes') DESC, count(p.s) DESC, c.name
-		LIMIT $2`, query, normalizeLimit(limit, 50, 200))
+		LIMIT $2`, query, normalizeLimit(limit, 50, 1000))
 	if err != nil {
 		return nil, err
 	}

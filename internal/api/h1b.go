@@ -89,7 +89,13 @@ func (s *Server) jobH1B(w http.ResponseWriter, r *http.Request) {
 	}
 	var out *store.JobH1B
 	if err == nil {
-		out, err = store.JobH1BFor(r.Context(), s.Pool, cid, title)
+		level := r.URL.Query().Get("level")
+		switch level {
+		case "I", "II", "III", "IV":
+		default:
+			level = ""
+		}
+		out, err = store.JobH1BFor(r.Context(), s.Pool, cid, title, level)
 	}
 	if err != nil {
 		s.Log.Error("job h1b failed", "err", err)

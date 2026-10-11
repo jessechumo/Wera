@@ -314,11 +314,15 @@ type JobH1B struct {
 	SimilarLow *float64     `json:"similar_low"`
 	SimilarMid *float64     `json:"similar_median"`
 	SimilarHi  *float64     `json:"similar_high"`
-	Period     H1BPeriod    `json:"period"`
+	// Level is the wage level the range is for ("" when all levels).
+	Level  string    `json:"level"`
+	Period H1BPeriod `json:"period"`
 }
 
-// JobH1BFor summarizes a job's company filings and those for similar titles.
-func JobH1BFor(ctx context.Context, pool *pgxpool.Pool, companyID int64, title string) (*JobH1B, error) {
+// JobH1BFor summarizes a job's company filings and those for similar
+// titles. With a wage level (I to IV, from the job's seniority), filings
+// at that level come first and set the range when there are 3 or more.
+func JobH1BFor(ctx context.Context, pool *pgxpool.Pool, companyID int64, title, level string) (*JobH1B, error) {
 	out := &JobH1B{CompanyID: companyID, Similar: []H1BSimilar{}}
 	keys, err := CompanyH1BKeys(ctx, pool, companyID)
 	if err != nil || len(keys) == 0 {
@@ -335,8 +339,8 @@ func JobH1BFor(ctx context.Context, pool *pgxpool.Pool, companyID int64, title s
 		       CASE WHEN worksite_city = '' THEN worksite_state ELSE worksite_city || ', ' || worksite_state END, decision_date
 		FROM h1b_lca
 		WHERE employer_key = ANY($1) AND similarity(lower(job_title), lower($2)) >= 0.35
-		ORDER BY similarity(lower(job_title), lower($2)) DESC, decision_date DESC
-		LIMIT 40`, keys, title)
+		ORDER BY (wage_level = $3) DESC, similarity(lower(job_title), lower($2)) DESC, decision_date DESC
+		LIMIT 40`, keys, title, level)
 	if err != nil {
 		return nil, err
 	}
@@ -344,11 +348,17 @@ func JobH1BFor(ctx context.Context, pool *pgxpool.Pool, companyID int64, title s
 	if err != nil {
 		return nil, err
 	}
-	var wages []float64
+	var wages, atLevel []float64
 	for _, s := range all {
 		if s.WageFrom != nil {
 			wages = append(wages, *s.WageFrom)
+			if s.Level == level {
+				atLevel = append(atLevel, *s.WageFrom)
+			}
 		}
+	}
+	if level != "" && len(atLevel) >= 3 {
+		wages, out.Level = atLevel, level
 	}
 	if len(wages) > 0 {
 		lo, mid, hi := quantiles(wages)
