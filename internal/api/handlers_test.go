@@ -59,7 +59,12 @@ func TestPutApplicationPersists(t *testing.T) {
 	}
 
 	put(`{"status":"saved","notes":"api test"}`)
-	put(`{"status":"applied","notes":"api test"}`)
+	put(`{"status":"applied"}`) // a status alone (the extension) keeps the notes
+	var notes string
+	_ = pool.QueryRow(context.Background(), `SELECT notes FROM applications WHERE job_id = $1 AND user_id = $2`, id, testUserID).Scan(&notes)
+	if notes != "api test" {
+		t.Errorf("notes lost on a status-only update: %q", notes)
+	}
 
 	var appStatus string
 	var appliedAt *string
