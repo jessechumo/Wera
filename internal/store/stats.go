@@ -178,8 +178,13 @@ type DayCount struct {
 }
 
 // Stats builds the /api/stats summary for one user. new_per_day counts the
-// user's scored matches by the day the job was first seen.
-func Stats(ctx context.Context, pool *pgxpool.Pool, userID int64) (*StatsView, error) {
+// user's matches (scored or still estimated) by the day the job was first
+// seen, in the user's time zone (tz, an IANA name; UTC when empty), for
+// the last 14 days, starting no earlier than the first job Wera saw.
+func Stats(ctx context.Context, pool *pgxpool.Pool, userID int64, tz string) (*StatsView, error) {
+	if tz == "" {
+		tz = "UTC"
+	}
 	out := &StatsView{
 		ByStage:    map[string]int64{},
 		ByIndustry: map[string]int64{},
@@ -234,15 +239,20 @@ func Stats(ctx context.Context, pool *pgxpool.Pool, userID int64) (*StatsView, e
 	}
 
 	rows, err := pool.Query(ctx, `
-		SELECT to_char(d.day, 'YYYY-MM-DD'), COALESCE(c.n, 0)
-		FROM generate_series(current_date - interval '13 days', current_date, interval '1 day') AS d(day)
+		WITH today AS (SELECT (now() AT TIME ZONE $2)::date AS d),
+		     first AS (SELECT (min(first_seen_at) AT TIME ZONE $2)::date AS d FROM jobs)
+		SELECT to_char(s.day, 'YYYY-MM-DD'), COALESCE(c.n, 0)
+		FROM generate_series(
+		       GREATEST((SELECT d FROM today) - 13, COALESCE((SELECT d FROM first), (SELECT d FROM today))),
+		       (SELECT d FROM today), interval '1 day') AS s(day)
 		LEFT JOIN (
-			SELECT date_trunc('day', j.first_seen_at) AS day, count(*) AS n
+			SELECT (j.first_seen_at AT TIME ZONE $2)::date AS day, count(*) AS n
 			FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
-			WHERE uj.user_id = $1 AND uj.stage = 'scored'
+			WHERE uj.user_id = $1 AND uj.stage IN ('scored', 'pending_score')
+			  AND j.first_seen_at >= now() - interval '15 days'
 			GROUP BY 1
-		) c ON c.day = d.day
-		ORDER BY d.day`, userID)
+		) c ON c.day = s.day::date
+		ORDER BY s.day`, userID, tz)
 	if err != nil {
 		return nil, err
 	}
