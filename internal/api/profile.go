@@ -29,7 +29,7 @@ func (s *Server) profileOptions(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"role_families": families,
 		"levels":        s.Roles.Levels,
-		"industries":    s.Industries,
+		"industries":    s.industriesAZ(),
 	})
 }
 

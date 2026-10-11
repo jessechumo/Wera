@@ -61,6 +61,9 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			content = "I want to keep robots online — because reliability work is what I do best."
 		}
+	case strings.HasPrefix(system, "You rewrite one resume bullet"):
+		// One valid, one with a placeholder, one with an invented number.
+		content = `{"suggestions": ["Cut deploy time by 50% across 12 services — with GitHub Actions.", "Automated deploys for [N] services, halving release time", "Cut deploy time by 73% for 40 teams"]}`
 	case strings.HasPrefix(system, "You tailor a resume to one job posting"):
 		// Rewrite the first listed bullet (one invented number, which must be
 		// rejected) and the second (valid).

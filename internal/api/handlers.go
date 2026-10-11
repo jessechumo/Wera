@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -201,6 +203,16 @@ type industryView struct {
 	store.IndustryCounts
 }
 
+// industriesAZ is the industry catalog sorted by label, so long lists are
+// easy to scan.
+func (s *Server) industriesAZ() []config.Industry {
+	list := slices.Clone(s.Industries)
+	slices.SortFunc(list, func(a, b config.Industry) int {
+		return strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label))
+	})
+	return list
+}
+
 func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
 	counts, err := store.CountByIndustry(r.Context(), s.Pool, currentUser(r).ID)
 	if err != nil {
@@ -209,7 +221,7 @@ func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	list := make([]industryView, 0, len(s.Industries))
-	for _, ind := range s.Industries {
+	for _, ind := range s.industriesAZ() {
 		list = append(list, industryView{Industry: ind, IndustryCounts: counts[ind.ID]})
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"industries": list})

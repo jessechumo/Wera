@@ -30,6 +30,7 @@ Usage:
   wera refilter --all           reapply roles.yaml rules to all open jobs (no LLM cost)
   wera deep [--top N]           deep review of top-scored jobs
   wera users <list|create|passwd|admin>   manage accounts (see wera users)
+  wera h1b <import|match|status> load H-1B disclosure data from the Department of Labor
   wera healthcheck              exit 0 if the database is reachable (container healthchecks)
   wera version                  print the version and commit
 `
@@ -87,6 +88,9 @@ func main() {
 
 	case "users":
 		err = runUsers(ctx, args)
+
+	case "h1b":
+		err = runH1B(ctx, args)
 
 	case "healthcheck":
 		err = runHealthcheck(ctx, args)

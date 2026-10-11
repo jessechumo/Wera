@@ -3,7 +3,7 @@ package resume
 import (
 	"bytes"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,11 +12,39 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
-//go:embed template.typ
-var template []byte
+//go:embed templates/*.typ
+var templateFS embed.FS
+
+//go:embed fonts/*.ttf
+var fontFS embed.FS
+
+// fontDir is where the bundled fonts are written once per process, for
+// typst's --font-path (system fonts are never used, so output is the same
+// on every machine).
+var fontDir = sync.OnceValues(func() (string, error) {
+	dir, err := os.MkdirTemp("", "wera-fonts-*")
+	if err != nil {
+		return "", err
+	}
+	entries, err := fontFS.ReadDir("fonts")
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		b, err := fontFS.ReadFile("fonts/" + e.Name())
+		if err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(dir, e.Name()), b, 0o600); err != nil {
+			return "", err
+		}
+	}
+	return dir, nil
+})
 
 // ErrUnavailable means the typst binary is missing on this server.
 var ErrUnavailable = errors.New("resume rendering is not available on this server (typst is not installed)")
@@ -59,8 +87,15 @@ func (rd *Renderer) prepare(r *Resume, l Layout) (*workdir, error) {
 		os.RemoveAll(dir)
 		return nil, err
 	}
-	lay, _ := json.Marshal(l.Clamp())
-	for name, b := range map[string][]byte{"main.typ": template, "resume.json": data, "layout.json": lay} {
+	l = l.Clamp()
+	lay, _ := json.Marshal(l)
+	main, err := templateFS.ReadFile("templates/" + l.Template + ".typ")
+	if err != nil {
+		os.RemoveAll(dir)
+		return nil, err
+	}
+	common, _ := templateFS.ReadFile("templates/common.typ")
+	for name, b := range map[string][]byte{"main.typ": main, "common.typ": common, "resume.json": data, "layout.json": lay} {
 		if err := os.WriteFile(filepath.Join(dir, name), b, 0o600); err != nil {
 			os.RemoveAll(dir)
 			return nil, err
@@ -81,7 +116,11 @@ func (rd *Renderer) run(ctx context.Context, dir string, args ...string) ([]byte
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	full := append([]string{args[0], "--root", dir, "--ignore-system-fonts"}, args[1:]...)
+	fonts, err := fontDir()
+	if err != nil {
+		return nil, fmt.Errorf("preparing fonts: %w", err)
+	}
+	full := append([]string{args[0], "--root", dir, "--ignore-system-fonts", "--font-path", fonts}, args[1:]...)
 	cmd := exec.CommandContext(ctx, rd.bin, full...) //nolint:gosec // fixed binary; arguments are file names we chose
 	cmd.Dir = dir
 	cmd.Env = []string{"HOME=" + dir, "XDG_CACHE_HOME=" + dir, "TYPST_PACKAGE_CACHE_PATH=" + dir}
@@ -153,14 +192,18 @@ func (rd *Renderer) Measure(ctx context.Context, r *Resume, l Layout) (Measure, 
 		return Measure{}, err
 	}
 	var end struct {
-		Page int     `json:"page"`
-		Y    float64 `json:"y"`
+		Page   int     `json:"page"`
+		Y      float64 `json:"y"`
+		Top    float64 `json:"top"`
+		Bottom float64 `json:"bottom"`
+		Height float64 `json:"height"`
 	}
 	if err := json.Unmarshal(out, &end); err != nil {
 		return Measure{}, fmt.Errorf("reading the layout: %w", err)
 	}
-	l = l.Clamp()
-	top, bottom := l.Margin*0.85*72, l.Margin*72
-	fill := (end.Y - top) / (792 - top - bottom)
+	if end.Height <= end.Top+end.Bottom {
+		return Measure{}, errors.New("reading the layout: no page size")
+	}
+	fill := (end.Y - end.Top) / (end.Height - end.Top - end.Bottom)
 	return Measure{Pages: end.Page, Fill: max(0, min(1, fill))}, nil
 }

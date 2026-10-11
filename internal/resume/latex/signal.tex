@@ -1,0 +1,26 @@
+% Signal: modern, with an accent color. Inter, hairline section rules,
+% muted dates and places, a skills grid.
+\usepackage[sfdefault,scale=0.93]{inter}
+\AtBeginDocument{\color{ink}}
+\linespread{0.96}
+\titleformat{\section}{\color{accent}\footnotesize\bfseries}{}{0em}{\spaced{90}{\MakeUppercase{#1}}\enspace{\xrfill[0.55ex]{0.5pt}[accent!40]}}
+\titlespacing*{\section}{0pt}{1.9\resumegap}{1.25\resumegap}
+\newcommand{\contactSep}{\enspace$\cdot$\enspace}
+\newcommand{\resumeHeader}[3]{%
+  {\fontsize{22}{26}\selectfont #1}\par
+  \ifstrempty{#2}{}{\vspace{4pt}{\large\color{accent}#2}\par}
+  \vspace{5pt}{\small\color{muted}#3}\par\vspace{-2pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0pt,label={},itemsep=\resumegap,topsep=0pt,parsep=0pt]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.16in,itemsep=0pt,topsep=1pt,parsep=0pt,label={\color{accent}\textbullet}]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItem}[1]{\item #1}
+\newcommand{\resumeSubheading}[4]{\item\resumeRow{\textbf{#1}}{{\small\color{muted}#2}}%
+  \ifstrempty{#3#4}{}{\vspace{1pt}\resumeRow{#3}{{\small\color{muted}#4}}}}
+\newcommand{\resumeProjectEntry}[4]{\item\resumeRow{\textbf{#1}\ifstrempty{#2}{}{\enspace{\small\color{muted}#2}}}{{\small\color{muted}#3}}%
+  \ifstrempty{#4}{}{\vspace{2pt}#4\par}}
+\newcommand{\resumeCompact}[3]{\item\resumeRow{\ifstrempty{#2}{#1}{\textbf{#1}\enspace{\color{muted}#2}}}{{\small\color{muted}#3}}}
+\newcommand{\resumeSkillsStart}{\renewcommand{\arraystretch}{1.1}\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.75in}@{\hspace{0.8em}}>{\raggedright\arraybackslash}p{\dimexpr\linewidth-1.75in-0.8em\relax}@{}}}
+\newcommand{\resumeSkill}[2]{\textbf{#1} & #2 \\}
+\newcommand{\resumeSkillsEnd}{\end{tabular}}
+\newcommand{\resumeSummary}[1]{#1\par}

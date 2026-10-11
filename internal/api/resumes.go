@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -128,6 +129,9 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 	}
 	existing, err := store.BaseResume(r.Context(), s.Pool, user.ID)
 	saved := &store.ResumeDoc{Title: "My resume", Data: *doc, Layout: resume.DefaultLayout, Notes: warnings}
+	if err == nil {
+		saved.Layout = existing.Layout // re-importing keeps the chosen template
+	}
 	switch {
 	case err == nil && !in.Replace:
 		s.writeError(w, http.StatusConflict, "you already have a resume; import with replace to overwrite it")
@@ -139,7 +143,7 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &saved.Data, nil); err == nil {
+		if res, err := s.Resumes.Fit(r.Context(), &saved.Data, saved.Layout, nil); err == nil {
 			saved.Layout, saved.Fit = res.Layout, res
 		}
 	}
@@ -230,7 +234,7 @@ func (s *Server) fitResume(w http.ResponseWriter, r *http.Request) {
 			prio = resume.KeywordPriority(kws)
 		}
 	}
-	res, err := s.Resumes.Fit(r.Context(), &doc.Data, prio)
+	res, err := s.Resumes.Fit(r.Context(), &doc.Data, doc.Layout, prio)
 	if err != nil {
 		s.Log.Error("fit failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "could not lay out the resume")
@@ -279,7 +283,7 @@ func (s *Server) previewResume(w http.ResponseWriter, r *http.Request) {
 		out[i] = string(p)
 	}
 	m, _ := s.Resumes.Measure(ctx, &in.Data, in.Layout)
-	s.writeJSON(w, http.StatusOK, map[string]any{"pages": out, "measure": m})
+	s.writeJSON(w, http.StatusOK, map[string]any{"pages": out, "measure": m, "review": in.Data.Review(m.Pages)})
 }
 
 func resumeFilename(name, ext string) string {
@@ -320,7 +324,116 @@ func (s *Server) resumeTeX(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/x-tex; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, resumeFilename(doc.Data.Name, "tex")))
-	_, _ = w.Write([]byte(doc.Data.ExportTeX()))
+	_, _ = w.Write([]byte(doc.Data.ExportTeX(doc.Layout)))
+}
+
+// resumeText is GET /api/resumes/{id}/txt: plain text, for pasting into
+// application forms that want the resume typed out.
+func (s *Server) resumeText(w http.ResponseWriter, r *http.Request) {
+	doc, ok := s.resumeParam(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if r.URL.Query().Get("download") == "1" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, resumeFilename(doc.Data.Name, "txt")))
+	}
+	_, _ = w.Write([]byte(strings.ReplaceAll(doc.Data.PlainText(), "**", "") + "\n"))
+}
+
+// resumeTemplates is GET /api/resumes/templates.
+func (s *Server) resumeTemplates(w http.ResponseWriter, _ *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]any{"templates": resume.Templates, "default_accent": resume.DefaultAccent})
+}
+
+// texOf is POST /api/resumes/tex: the LaTeX for unsaved edits, whole and
+// split into the template's preamble and the editable body.
+func (s *Server) texOf(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Data   resume.Resume `json:"data"`
+		Layout resume.Layout `json:"layout"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if err := in.Data.Normalize(); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	full := in.Data.ExportTeX(in.Layout)
+	preamble, _, _ := strings.Cut(full, `\begin{document}`)
+	s.writeJSON(w, http.StatusOK, map[string]any{"tex": full, "preamble": preamble, "body": in.Data.TeXBody()})
+}
+
+// parseTeX is POST /api/resumes/parse-tex: LaTeX (a whole file or just the
+// body) back into a resume, with notes on anything not understood.
+func (s *Server) parseTeX(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		TeX string `json:"tex"`
+	}
+	if err := decodeJSON(r, &in); err != nil || strings.TrimSpace(in.TeX) == "" {
+		s.writeError(w, http.StatusBadRequest, "send the LaTeX as tex")
+		return
+	}
+	if len(in.TeX) > 200_000 {
+		s.writeError(w, http.StatusRequestEntityTooLarge, "that LaTeX file is too large")
+		return
+	}
+	data, warnings, err := resume.ImportTeX(in.TeX)
+	if err != nil {
+		s.writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	if warnings == nil {
+		warnings = []string{}
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"data": data, "warnings": warnings})
+}
+
+// thumbnails is POST /api/resumes/thumbnails: the first page of a resume
+// in every template, for choosing one.
+func (s *Server) thumbnails(w http.ResponseWriter, r *http.Request) {
+	if !s.renderer(w) {
+		return
+	}
+	if !s.previewLimit.Allow(strconv.FormatInt(currentUser(r).ID, 10)) {
+		s.writeError(w, http.StatusTooManyRequests, "too many previews; slow down a little")
+		return
+	}
+	var in struct {
+		Data   resume.Resume `json:"data"`
+		Layout resume.Layout `json:"layout"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if err := in.Data.Normalize(); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	out := make(map[string]string, len(resume.Templates))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, t := range resume.Templates {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			l := in.Layout
+			l.Template = t.ID
+			pages, err := s.Resumes.SVG(ctx, &in.Data, l)
+			if err == nil && len(pages) > 0 {
+				mu.Lock()
+				out[t.ID] = string(pages[0])
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	s.writeJSON(w, http.StatusOK, map[string]any{"thumbnails": out})
 }
 
 // jobKeywords is GET /api/jobs/{id}/keywords: the posting's keywords and
@@ -413,7 +526,7 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	}
 	doc := &store.ResumeDoc{Title: fmt.Sprintf("%s, %s", title, company), JobID: &id, Data: *tailored.Resume, Layout: base.Layout, Notes: tailored.Notes}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, tailored.Priority(kws)); err == nil {
+		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, doc.Layout, tailored.Priority(kws)); err == nil {
 			doc.Layout, doc.Fit = res.Layout, res
 		}
 	}
@@ -425,4 +538,44 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	saved, _ := store.GetResume(r.Context(), s.Pool, user.ID, rid)
 	v := s.view(r, saved)
 	s.writeJSON(w, http.StatusOK, map[string]any{"resume": v, "coverage_before": before})
+}
+
+// suggestBullet is POST /api/resumes/suggest-bullet: three stronger
+// rewrites of one bullet (numbers only as [placeholders] when missing),
+// optionally aimed at a job.
+func (s *Server) suggestBullet(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Text  string `json:"text"`
+		Role  string `json:"role"`
+		JobID int64  `json:"job_id"`
+	}
+	if err := decodeJSON(r, &in); err != nil || strings.TrimSpace(in.Text) == "" {
+		s.writeError(w, http.StatusBadRequest, "send the bullet as text")
+		return
+	}
+	if len(in.Text) > 800 || len(in.Role) > 300 {
+		s.writeError(w, http.StatusBadRequest, "that bullet is too long")
+		return
+	}
+	user := currentUser(r)
+	job := ""
+	if in.JobID > 0 {
+		if company, title, desc, err := s.jobContext(r, in.JobID, "", "", ""); err == nil {
+			if len(desc) > 3000 {
+				desc = desc[:3000]
+			}
+			job = title + " at " + company + "\n" + desc
+		}
+	}
+	reply, err := s.chatForUser(r.Context(), user.ID, "bullet", 600, resume.BulletMessages(in.Text, in.Role, job))
+	if err != nil {
+		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
+		return
+	}
+	out, err := resume.ParseBulletSuggestions(in.Text, reply)
+	if err != nil || len(out) == 0 {
+		s.writeError(w, http.StatusBadGateway, "the AI did not return usable suggestions; try again")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"suggestions": out})
 }
