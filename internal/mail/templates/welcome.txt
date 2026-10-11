@@ -1,0 +1,10 @@
+{{define "text"}}Welcome to Wera, {{.FirstName}}!
+
+Wera watches {{.Companies}} companies across {{.Industries}} industries and scores every new posting against your profile, so you only read the ones worth your time.
+{{range $i, $s := .Steps}}
+{{inc $i}}. {{$s.Title}}: {{$s.Text}}{{end}}
+
+See today's matches: {{.AppURL}}
+
+Wera never applies for you: every posting opens at its source, and you decide.
+{{end}}

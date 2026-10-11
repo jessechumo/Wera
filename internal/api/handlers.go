@@ -23,8 +23,8 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Status string `json:"status"`
-		Notes  string `json:"notes"`
+		Status string  `json:"status"`
+		Notes  *string `json:"notes"` // optional: left out, the saved notes stay
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		s.writeError(w, http.StatusBadRequest, "bad JSON body")

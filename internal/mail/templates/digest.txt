@@ -1,0 +1,12 @@
+{{define "text"}}Your best matches {{.Period}}
+
+{{.NewCount}} new postings matched your filters {{.Period}}. These fit you best:
+{{range .Jobs}}
+[{{.Score}}] {{.Title}}, {{.Company}}{{if .Location}} ({{.Location}}){{end}}{{if .Sponsorship}} · {{.Sponsorship}}{{end}}
+{{if .Reason}}    {{.Reason}}
+{{end}}    {{.URL}}
+{{end}}
+Open Today in Wera: {{.TodayURL}}
+
+Change or turn off emails: {{.ManageURL}}
+{{end}}

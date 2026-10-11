@@ -67,7 +67,7 @@ func queryJobViews(ctx context.Context, pool *pgxpool.Pool, sqlText string, args
 // ApplicationInput is the PUT /api/jobs/{id}/application body.
 type ApplicationInput struct {
 	Status string
-	Notes  string
+	Notes  *string // nil keeps the notes already saved
 }
 
 // ValidApplicationStatuses mirrors the applications.status constraint.
@@ -82,11 +82,11 @@ var ValidApplicationStatuses = map[string]bool{
 func PutApplication(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64, in ApplicationInput) error {
 	tag, err := pool.Exec(ctx, `
 		INSERT INTO applications (user_id, job_id, status, notes, applied_at, updated_at)
-		SELECT $4, $1, $2, $3, CASE WHEN $2 = 'applied' THEN now() END, now()
+		SELECT $4, $1, $2, coalesce($3, ''), CASE WHEN $2 = 'applied' THEN now() END, now()
 		WHERE EXISTS (SELECT 1 FROM user_jobs WHERE user_id = $4 AND job_id = $1)
 		ON CONFLICT (user_id, job_id) DO UPDATE
 		SET status     = EXCLUDED.status,
-		    notes      = EXCLUDED.notes,
+		    notes      = coalesce($3, applications.notes),
 		    applied_at = CASE WHEN applications.status <> 'applied'
 		                       AND EXCLUDED.status = 'applied'
 		                      THEN now() ELSE applications.applied_at END,

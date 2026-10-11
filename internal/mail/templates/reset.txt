@@ -1,0 +1,8 @@
+{{define "text"}}Hi {{.FirstName}},
+
+Someone (hopefully you) asked to reset the password for {{.Email}}. Choose a new one here:
+
+{{.Link}}
+
+The link works once, for {{.ExpiresIn}}. Resetting signs you out everywhere else. If you did not ask for this, ignore this email: your password stays the same.
+{{end}}
