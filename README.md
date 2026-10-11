@@ -54,6 +54,19 @@ wera h1b status
 
 A file covers one quarter or the fiscal year to date (up to 450,000 rows, 250 MB, about 4 minutes to load); cases already loaded are skipped, so overlapping files and reloads add nothing. Only business fields are stored, never the contact or attorney names and emails in the files. Employers are matched to tracked companies by name; a company that files under another legal name gets `h1b_names` in `config/companies.yaml` (for example SpaceX files as Space Exploration Technologies), then `wera h1b match`.
 
+## Email
+
+Email is built but off until a provider is set. With it on, Wera confirms new accounts' addresses, sends password reset links (single use, one hour, and every session ends), and can send daily digests and strong-match alerts from templates with HTML and plain-text versions. Mail is queued in the database and delivered with retries, so a slow provider never slows a request.
+
+```bash
+wera mail preview --out email-preview      # every template with sample data; open the .html files
+wera mail digest --email you@example.com    # your real digest, rendered to a file (sends nothing)
+```
+
+Admins can also preview each template from `GET /api/admin/email/preview/{name}`.
+
+To turn it on, set `MAIL_PROVIDER=smtp`, `MAIL_FROM`, `PUBLIC_URL` and the `SMTP_*` settings (see `.env.example`), then check with `wera mail test --to you@example.com`. For the mail to reach inboxes, add the sending domain's SPF and DKIM records from your provider, and a DMARC record such as `v=DMARC1; p=quarantine; rua=mailto:dmarc@your-domain.com`. `MAIL_PROVIDER=log` writes messages to the log (and `MAIL_LOG_DIR`) instead of sending them, for development.
+
 ## Make it yours
 
 Wera is driven by configuration and per-user profiles:
@@ -160,6 +173,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 | `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
 | `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
+| `wera mail preview \| test \| digest \| send` | Preview email templates, send a test, render a digest, deliver queued mail |
 | `wera h1b import FILE.xlsx... \| match \| status` | Load the Department of Labor's H-1B disclosure files (see below), match employers to companies |
 | `wera version` | Print the version and commit |
 
@@ -186,6 +200,8 @@ internal/normalize    HTML to text, content hashing
 internal/pipeline     Fetch, filter, rank and score orchestration
 internal/profile      Resume text, avatars, profile drafts, cover letters
 internal/resume       Structured resumes: Typst rendering, one-page fitting, LaTeX import/export, keywords, AI import and tailoring
+internal/mail         Email templates (HTML and text), MIME, SMTP and log providers
+internal/notify       Account and job emails: verification, reset, digests, the outbox delivery loop
 internal/h1b          H-1B disclosure files: streaming reader, wage normalization, employer name matching
 internal/relevance    Local TF-IDF ranking (estimated scores)
 internal/scoring      Coral Bricks client, prompts, facts, fit, cost accounting
