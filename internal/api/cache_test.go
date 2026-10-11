@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -28,5 +30,18 @@ func TestTTLCache(t *testing.T) {
 	get("a")
 	if calls != 4 {
 		t.Errorf("expired entry served: %d calls", calls)
+	}
+}
+
+func TestPublicStats(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	resp, err := http.Get(ts.URL + "/api/public/stats") // no session
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var st PublicStats
+	if err := json.NewDecoder(resp.Body).Decode(&st); err != nil || resp.StatusCode != 200 || st.Industries == 0 {
+		t.Fatalf("public stats: %d %+v %v", resp.StatusCode, st, err)
 	}
 }

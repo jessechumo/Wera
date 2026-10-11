@@ -122,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/auth/login", s.login)
 		r.Post("/auth/logout", s.logout)
 		r.Get("/auth/config", s.authConfig)
+		r.Get("/public/stats", s.publicStats)
 		r.Post("/auth/verify-email", s.verifyEmail)
 		r.Post("/auth/password/forgot", s.forgotPassword)
 		r.Post("/auth/password/reset", s.resetPassword)
