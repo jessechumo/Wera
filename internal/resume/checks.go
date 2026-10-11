@@ -152,7 +152,7 @@ func (r *Resume) Review(pages int) Review {
 				}
 				if len(text) > maxBulletChars {
 					add("long-bullet", "improve", b.ID, "This bullet runs past two lines. Cut it to the action and the result.")
-				} else if len(text) < minBulletChars && s.Kind == KindEntries {
+				} else if len(text) < minBulletChars && s.Kind == KindEntries && !strings.Contains(title, "education") {
 					add("short-bullet", "tip", b.ID, "Short bullet: say what it achieved or how much.")
 				}
 				for _, c := range cliches {

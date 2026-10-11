@@ -17,7 +17,6 @@ var latexFS embed.FS
 var texEscaper = strings.NewReplacer(
 	`\`, `\textbackslash{}`, `{`, `\{`, `}`, `\}`, `$`, `\$`, `&`, `\&`, `#`, `\#`,
 	`^`, `\textasciicircum{}`, `_`, `\_`, `%`, `\%`, `~`, `\textasciitilde{}`,
-	"–", `\textendash{}`, "—", `\textemdash{}`,
 )
 
 // esc makes user text safe inside LaTeX: every special character is
