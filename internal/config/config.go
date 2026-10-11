@@ -39,6 +39,9 @@ type Company struct {
 	Industry string `yaml:"industry"`
 	Enabled  *bool  `yaml:"enabled"`
 	Notes    string `yaml:"notes"`
+	// H1BNames are other names the company files H-1B applications under
+	// ("Amazon Web Services"), when they differ from its name.
+	H1BNames []string `yaml:"h1b_names"`
 }
 
 // IsEnabled reports whether the company should be fetched. A missing
