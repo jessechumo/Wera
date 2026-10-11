@@ -1,27 +1,48 @@
 package resume
 
 import (
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
-//go:embed tex_preamble.tex
-var texPreamble string
+//go:embed latex/*.tex
+var latexFS embed.FS
 
 // --- export ---------------------------------------------------------------
 
 var texEscaper = strings.NewReplacer(
 	`\`, `\textbackslash{}`, `{`, `\{`, `}`, `\}`, `$`, `\$`, `&`, `\&`, `#`, `\#`,
 	`^`, `\textasciicircum{}`, `_`, `\_`, `%`, `\%`, `~`, `\textasciitilde{}`,
-	"–", "--", "—", "---",
+	"–", `\textendash{}`, "—", `\textemdash{}`,
 )
 
 // esc makes user text safe inside LaTeX: every special character is
 // escaped, so a resume can never run LaTeX commands.
 func esc(s string) string { return texEscaper.Replace(s) }
+
+// escRich is esc that also turns **bold** into \textbf{bold}.
+func escRich(s string) string {
+	parts := strings.Split(s, "**")
+	if len(parts) < 3 {
+		return esc(s)
+	}
+	var b strings.Builder
+	for i, part := range parts {
+		switch {
+		case i%2 == 1 && i < len(parts)-1:
+			b.WriteString(`\textbf{` + esc(part) + `}`)
+		case i%2 == 1:
+			b.WriteString(esc("**" + part))
+		default:
+			b.WriteString(esc(part))
+		}
+	}
+	return b.String()
+}
 
 // texURL makes a URL safe inside \href's first argument: no character can
 // close the argument or start a command.
@@ -33,13 +54,48 @@ func href(url, text string) string {
 	return `\href{` + texURL(url) + `}{` + esc(text) + `}`
 }
 
-// ExportTeX writes the resume in the LaTeX template it mirrors, for anyone
-// who wants to keep editing it in Overleaf or a local TeX setup.
-func (r *Resume) ExportTeX() string {
+// texPreamble is the template's preamble for a layout: the shared head
+// (paper, margins, encodings, accent) and the template's own style.
+func texPreamble(l Layout) string {
+	l = l.Clamp()
+	head, _ := latexFS.ReadFile("latex/head.tex")
+	style, _ := latexFS.ReadFile("latex/" + l.Template + ".tex")
+	t := template.Must(template.New("head").Delims("<<", ">>").Parse(string(head)))
+	paper := "letterpaper"
+	if l.Paper == "a4" {
+		paper = "a4paper"
+	}
+	size := "11pt"
+	if l.FontSize < 10.75 {
+		size = "10pt"
+	}
 	var b strings.Builder
-	b.WriteString(texPreamble)
-	b.WriteString("\n\\begin{document}\n\n%----------HEADING----------\n\\begin{center}\n")
-	fmt.Fprintf(&b, "    {\\Huge \\scshape %s} \\\\ \\vspace{1pt}\n", esc(r.Name))
+	_ = t.Execute(&b, map[string]string{
+		"Paper": paper, "Size": size, "Name": TemplateByID(l.Template).Name,
+		"Margin": fmt.Sprintf("%.2f", l.Margin), "Top": fmt.Sprintf("%.2f", l.Margin*0.8),
+		"Accent": strings.ToUpper(strings.TrimPrefix(l.Accent, "#")),
+		"Gap":    fmt.Sprintf("%.1f", 4.6*l.Spacing),
+	})
+	b.WriteString("\n")
+	b.Write(style)
+	return b.String()
+}
+
+// ExportTeX writes the resume as a LaTeX file in the layout's template,
+// for editing in Overleaf or a local TeX setup. Every template uses the
+// same content macros, so ImportTeX reads any of them back.
+func (r *Resume) ExportTeX(l Layout) string {
+	var b strings.Builder
+	b.WriteString(texPreamble(l))
+	b.WriteString("\n\\begin{document}\n\n")
+	b.WriteString(r.TeXBody())
+	b.WriteString("\n\\end{document}\n")
+	return b.String()
+}
+
+// TeXBody is the content between \begin{document} and \end{document}.
+func (r *Resume) TeXBody() string {
+	var b strings.Builder
 	var parts []string
 	if r.Phone != "" {
 		parts = append(parts, esc(r.Phone))
@@ -53,32 +109,39 @@ func (r *Resume) ExportTeX() string {
 	for _, l := range r.Links {
 		parts = append(parts, href(l.URL, l.Label))
 	}
-	b.WriteString("    \\small " + strings.Join(parts, " $|$\n    ") + "\n\\end{center}\n")
+	fmt.Fprintf(&b, "\\resumeHeader{%s}{%s}\n  {%s}\n", esc(r.Name), esc(r.Headline), strings.Join(parts, " \\contactSep\n   "))
 
 	for _, s := range r.Sections {
 		if s.Hidden {
 			continue
 		}
-		fmt.Fprintf(&b, "\n%%-----------%s-----------\n\\section{%s}\n", strings.ToUpper(esc(s.Title)), esc(s.Title))
+		var entries []Entry
+		for _, e := range s.Entries {
+			if !e.Hidden {
+				entries = append(entries, e)
+			}
+		}
+		empty := (s.Kind == KindSkills && len(s.Skills) == 0) || (s.Kind == KindSummary && s.Text == "") ||
+			(s.Kind != KindSkills && s.Kind != KindSummary && len(entries) == 0)
+		if empty {
+			continue // an empty list would not compile
+		}
+		fmt.Fprintf(&b, "\n\\section{%s}\n", esc(s.Title))
 		switch s.Kind {
 		case KindSkills:
-			b.WriteString("\\begin{itemize}[leftmargin=0.15in,label={}]\n\\small{\\item{\n")
-			var lines []string
+			b.WriteString("\\resumeSkillsStart\n")
 			for _, g := range s.Skills {
-				lines = append(lines, fmt.Sprintf("\\textbf{%s:} %s", esc(g.Name), esc(g.Items)))
+				fmt.Fprintf(&b, "  \\resumeSkill{%s}{%s}\n", esc(g.Name), esc(g.Items))
 			}
-			b.WriteString(strings.Join(lines, " \\\\\n") + "\n}}\n\\end{itemize}\n")
+			b.WriteString("\\resumeSkillsEnd\n")
 		case KindSummary:
-			b.WriteString("\\small{" + esc(s.Text) + "}\n")
+			b.WriteString("\\resumeSummary{" + escRich(s.Text) + "}\n")
 		default:
 			b.WriteString("\\resumeSubHeadingListStart\n")
-			for _, e := range s.Entries {
-				if e.Hidden {
-					continue
-				}
+			for _, e := range entries {
 				switch s.Kind {
 				case KindProjects:
-					desc := esc(e.Text)
+					desc := escRich(e.Text)
 					if e.URL != "" {
 						label := e.LinkLabel
 						if label == "" {
@@ -86,26 +149,29 @@ func (r *Resume) ExportTeX() string {
 						}
 						desc += ` \href{` + texURL(e.URL) + `}{\underline{` + esc(label) + `}}`
 					}
-					fmt.Fprintf(&b, "\n\\resumeProject\n{%s}{%s}\n{%s}\n", esc(e.Heading), esc(e.Tech), desc)
+					fmt.Fprintf(&b, "  \\resumeProjectEntry{%s}{%s}{%s}\n    {%s}\n", esc(e.Heading), esc(e.Tech), esc(e.Dates), strings.TrimSpace(desc))
 				case KindCompact:
-					fmt.Fprintf(&b, "\n\\resumeCompact\n{%s}{%s}{%s}\n", esc(e.Heading), esc(e.Subheading), esc(e.Dates))
+					fmt.Fprintf(&b, "  \\resumeCompact{%s}{%s}{%s}\n", esc(e.Heading), esc(e.Subheading), esc(e.Dates))
 				default:
-					fmt.Fprintf(&b, "\n\\resumeSubheading\n{%s}{%s}\n{%s}{%s}\n", esc(e.Heading), esc(e.Dates), esc(e.Subheading), esc(e.Location))
+					heading := esc(e.Heading)
+					if e.URL != "" {
+						heading = `\href{` + texURL(e.URL) + `}{` + heading + `}`
+					}
+					fmt.Fprintf(&b, "  \\resumeSubheading{%s}{%s}\n    {%s}{%s}\n", heading, esc(e.Dates), esc(e.Subheading), esc(e.Location))
 				}
 				var items []string
 				for _, bl := range e.Bullets {
 					if !bl.Hidden {
-						items = append(items, "\\resumeItem{"+esc(bl.Text)+"}")
+						items = append(items, "      \\resumeItem{"+escRich(bl.Text)+"}")
 					}
 				}
 				if len(items) > 0 {
-					b.WriteString("\\resumeItemListStart\n" + strings.Join(items, "\n") + "\n\\resumeItemListEnd\n")
+					b.WriteString("    \\resumeItemListStart\n" + strings.Join(items, "\n") + "\n    \\resumeItemListEnd\n")
 				}
 			}
-			b.WriteString("\n\\resumeSubHeadingListEnd\n")
+			b.WriteString("\\resumeSubHeadingListEnd\n")
 		}
 	}
-	b.WriteString("\n\\end{document}\n")
 	return b.String()
 }
 
@@ -187,12 +253,17 @@ var (
 	commentRE  = regexp.MustCompile(`(?m)(^|[^\\])%.*$`)
 	sectionRE  = regexp.MustCompile(`\\section\*?\{`)
 	skillLine  = regexp.MustCompile(`\\textbf\{([^}]*)\}\s*([^\\]*(?:\\[&%$#_][^\\]*)*)`)
-	unescapeRE = strings.NewReplacer(`\&`, "&", `\%`, "%", `\$`, "$", `\_`, "_", `\#`, "#", `\{`, "{", `\}`, "}", "---", "—", "--", "–", "~", " ", `$|$`, "|", `\textbar`, "|", `\\`, " ", `\ `, " ")
+	unescapeRE = strings.NewReplacer(`\textendash{}`, "–", `\textemdash{}`, "—", `\textendash`, "–", `\textemdash`, "—",
+		`\textasciitilde{}`, "~", `\textasciicircum{}`, "^", `\&`, "&", `\%`, "%", `\$`, "$", `\_`, "_", `\#`, "#", "---", "—", "--", "–", "~", " ", `$|$`, "|", `\textbar`, "|", `\\`, " ", `\ `, " ")
 )
 
 // plain turns a LaTeX fragment into text: links become their text (the
 // first URL is returned too), formatting commands vanish, escapes resolve.
 func plain(s string) (text, firstURL string) {
+	// Escaped backslashes and braces are the user's text, not structure:
+	// hold them aside so command and brace stripping cannot touch them.
+	s = protectRE.Replace(s)
+	defer func() { text = restoreRE.Replace(text) }()
 	s = vspaceRE.ReplaceAllString(s, "")
 	if m := hrefRE.FindStringSubmatch(s); m != nil {
 		firstURL = m[1]
@@ -206,9 +277,21 @@ func plain(s string) (text, firstURL string) {
 	return strings.TrimSpace(s), firstURL
 }
 
+var (
+	protectRE = strings.NewReplacer(`\textbackslash{}`, "\uE000", `\{`, "\uE001", `\}`, "\uE002")
+	restoreRE = strings.NewReplacer("\uE000", `\`, "\uE001", "{", "\uE002", "}")
+)
+
 func p(s string) string {
 	t, _ := plain(s)
 	return t
+}
+
+var boldRE = regexp.MustCompile(`\\textbf\{([^{}]*)\}`)
+
+// pr is p that keeps bold as **bold** (bullets, descriptions, summaries).
+func pr(s string) string {
+	return p(boldRE.ReplaceAllString(s, "**$1**"))
 }
 
 var digitsRE = regexp.MustCompile(`\d`)
@@ -233,15 +316,22 @@ func ImportTeX(src string) (*Resume, []string, error) {
 	if loc := sectionRE.FindStringIndex(src); loc != nil {
 		head = src[:loc[0]]
 	}
-	if m := regexp.MustCompile(`\\scshape\s+([^}]*)\}`).FindStringSubmatch(head); m != nil {
-		r.Name = p(m[1])
-	}
-	contactBlock := head
-	if i := strings.Index(head, `\small`); i >= 0 {
-		contactBlock = head[i:]
-	}
-	if i := strings.Index(contactBlock, `\end{center}`); i >= 0 {
-		contactBlock = contactBlock[:i]
+	var contactBlock string
+	if hc := macroCalls(head, "resumeHeader", 3); len(hc) > 0 {
+		// Wera's own templates: \resumeHeader{Name}{Headline}{contacts}.
+		r.Name, r.Headline = p(hc[0].args[0]), p(hc[0].args[1])
+		contactBlock = strings.ReplaceAll(hc[0].args[2], `\contactSep`, `$|$`)
+	} else {
+		if m := regexp.MustCompile(`\\scshape\s+([^}]*)\}`).FindStringSubmatch(head); m != nil {
+			r.Name = p(m[1])
+		}
+		contactBlock = head
+		if i := strings.Index(head, `\small`); i >= 0 {
+			contactBlock = head[i:]
+		}
+		if i := strings.Index(contactBlock, `\end{center}`); i >= 0 {
+			contactBlock = contactBlock[:i]
+		}
 	}
 	for _, part := range strings.Split(contactBlock, `$|$`) {
 		text, url := plain(part)
@@ -259,7 +349,7 @@ func ImportTeX(src string) (*Resume, []string, error) {
 		}
 	}
 	if r.Name == "" {
-		return nil, nil, errors.New("could not find the name (expected {\\Huge \\scshape Your Name})")
+		return nil, nil, errors.New("could not find the name (expected \\resumeHeader{Your Name}{...}{...} or {\\Huge \\scshape Your Name})")
 	}
 
 	// Sections.
@@ -277,16 +367,39 @@ func ImportTeX(src string) (*Resume, []string, error) {
 		sec := Section{ID: newID(), Title: p(title)}
 		subs := macroCalls(body, "resumeSubheading", 4)
 		projs := macroCalls(body, "resumeProject", 3)
+		projs4 := macroCalls(body, "resumeProjectEntry", 4)
 		comps := macroCalls(body, "resumeCompact", 3)
+		skills := macroCalls(body, "resumeSkill", 2)
+		summary := macroCalls(body, "resumeSummary", 1)
 		switch {
 		case len(subs) > 0:
 			sec.Kind = KindEntries
 			for i, c := range subs {
 				a := c.args
-				e := Entry{ID: newID(), Heading: p(a[0]), Dates: p(a[1]), Subheading: p(a[2]), Location: p(a[3])}
+				heading, url := plain(a[0])
+				e := Entry{ID: newID(), Heading: heading, URL: url, Dates: p(a[1]), Subheading: p(a[2]), Location: p(a[3])}
 				e.Bullets = bulletsBetween(body, c.at, nextStart(subs, i, len(body)))
 				sec.Entries = append(sec.Entries, e)
 			}
+		case len(projs4) > 0:
+			sec.Kind = KindProjects
+			for i, c := range projs4 {
+				a := c.args
+				desc, label, url := splitLink(a[3])
+				e := Entry{ID: newID(), Heading: p(a[0]), Tech: p(a[1]), Dates: p(a[2]), Text: desc, URL: url, LinkLabel: label}
+				e.Bullets = bulletsBetween(body, c.at, nextStart(projs4, i, len(body)))
+				sec.Entries = append(sec.Entries, e)
+			}
+		case len(skills) > 0:
+			sec.Kind = KindSkills
+			for _, c := range skills {
+				if name, items := p(c.args[0]), p(c.args[1]); name != "" || items != "" {
+					sec.Skills = append(sec.Skills, SkillGroup{ID: newID(), Name: name, Items: items})
+				}
+			}
+		case len(summary) > 0:
+			sec.Kind = KindSummary
+			sec.Text = pr(summary[0].args[0])
 		case len(projs) > 0:
 			sec.Kind = KindProjects
 			for i, c := range projs {
@@ -334,11 +447,11 @@ func ImportTeX(src string) (*Resume, []string, error) {
 func splitLink(s string) (desc, label, url string) {
 	loc := hrefRE.FindStringSubmatchIndex(s)
 	if loc == nil {
-		return p(s), "", ""
+		return pr(s), "", ""
 	}
 	url = s[loc[2]:loc[3]]
 	inner, _, _ := readArg(s, loc[1]-1)
-	return p(s[:loc[0]]), p(inner), url
+	return pr(s[:loc[0]]), p(inner), url
 }
 
 func nextStart(calls []call, i, end int) int {
@@ -354,7 +467,7 @@ func bulletsBetween(body string, from, end int) []Bullet {
 	chunk := body[from:min(end, len(body))]
 	var out []Bullet
 	for _, c := range macroCalls(chunk, "resumeItem", 1) {
-		if t := p(c.args[0]); t != "" {
+		if t := pr(c.args[0]); t != "" {
 			out = append(out, Bullet{ID: newID(), Text: t})
 		}
 	}

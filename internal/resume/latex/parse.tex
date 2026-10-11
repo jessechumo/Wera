@@ -1,0 +1,26 @@
+% Parse: built for applicant tracking systems. Plain sans, standard
+% headings, "Title, Organization" in reading order, no ligatures.
+\usepackage[default]{sourcesanspro}
+\ifPDFTeX
+  \DisableLigatures{encoding = *, family = *}
+\fi
+\titleformat{\section}{\large\bfseries}{}{0em}{\MakeUppercase{#1}}[\titlerule]
+\titlespacing*{\section}{0pt}{1.9\resumegap}{1.25\resumegap}
+\newcommand{\contactSep}{\enspace|\enspace}
+\newcommand{\resumeHeader}[3]{%
+  {\fontsize{22}{26}\selectfont\bfseries #1}\par
+  \ifstrempty{#2}{}{\vspace{3pt}{\large #2}\par}
+  \vspace{4pt}{\small #3}\par\vspace{-2pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0pt,label={},itemsep=\resumegap,topsep=0pt,parsep=0pt]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.18in,itemsep=0pt,topsep=2pt,parsep=0pt,label=\textbullet]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItem}[1]{\item #1}
+\newcommand{\resumeSubheading}[4]{\item\resumeRow{\ifstrempty{#3}{\textbf{#1}}{\textbf{#3}, #1}\ifstrempty{#4}{}{\enspace|\enspace #4}}{#2}}
+\newcommand{\resumeProjectEntry}[4]{\item\resumeRow{\textbf{#1}\ifstrempty{#2}{}{\enspace|\enspace #2}}{#3}%
+  \ifstrempty{#4}{}{\vspace{2pt}#4\par}}
+\newcommand{\resumeCompact}[3]{\item\resumeRow{\ifstrempty{#2}{#1}{\textbf{#1}, #2}}{#3}}
+\newcommand{\resumeSkillsStart}{\begin{itemize}[leftmargin=0pt,label={},topsep=0pt,parsep=1pt]\item}
+\newcommand{\resumeSkill}[2]{\textbf{#1:} #2\par}
+\newcommand{\resumeSkillsEnd}{\end{itemize}}
+\newcommand{\resumeSummary}[1]{#1\par}

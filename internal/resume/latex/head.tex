@@ -1,0 +1,51 @@
+\documentclass[<<.Paper>>,<<.Size>>]{article}
+% Made with Wera (<<.Name>> template). Compiles with pdfLaTeX (Overleaf's
+% default), XeLaTeX or LuaLaTeX.
+%
+% The document content uses these macros:
+%   \resumeHeader{Name}{Headline}{contact \contactSep contact ...}
+%   \section{Title}
+%   \resumeSubHeadingListStart ... \resumeSubHeadingListEnd
+%     \resumeSubheading{Organization}{Dates}{Title or degree}{Location}
+%     \resumeProjectEntry{Name}{Stack}{Dates}{Description}
+%     \resumeCompact{Title}{Organization}{Dates}
+%     \resumeItemListStart \resumeItem{...} \resumeItemListEnd
+%   \resumeSkillsStart \resumeSkill{Group}{Items} \resumeSkillsEnd
+%   \resumeSummary{Text}
+\usepackage[<<.Paper>>,left=<<.Margin>>in,right=<<.Margin>>in,top=<<.Top>>in,bottom=<<.Top>>in]{geometry}
+\usepackage{iftex}
+\ifPDFTeX
+  \input{glyphtounicode}
+  \pdfgentounicode=1
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\fi
+\usepackage{etoolbox}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{xhfill}
+\usepackage[explicit]{titlesec}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\ifPDFTeX
+  \newcommand{\spaced}[2]{\textls[#1]{#2}}
+\else
+  \newcommand{\spaced}[2]{#2}
+\fi
+\pagestyle{empty}
+\urlstyle{same}
+\raggedright
+\raggedbottom
+\setlength{\parindent}{0pt}
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\setlength{\tabcolsep}{0pt}
+\definecolor{accent}{HTML}{<<.Accent>>}
+\definecolor{muted}{HTML}{5B616E}
+\definecolor{ink}{HTML}{16181D}
+% The gap between entries; fitting to one page tightens it.
+\newlength{\resumegap}
+\setlength{\resumegap}{<<.Gap>>pt}
+% A row with text on the left and right.
+\newcommand{\resumeRow}[2]{\begin{tabular*}{\linewidth}[t]{@{}l@{\extracolsep{\fill}}r@{}}#1 & #2\end{tabular*}\par}

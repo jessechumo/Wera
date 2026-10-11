@@ -14,7 +14,7 @@ import (
 const importInstructions = `You convert the text of a resume into JSON, copying the candidate's words exactly. ` + scoring.Untrusted + `
 
 Return ONLY a JSON object:
-{"name": "", "phone": "", "email": "", "location": "", "links": [{"label": "", "url": ""}],
+{"name": "", "headline": "", "phone": "", "email": "", "location": "", "links": [{"label": "", "url": ""}],
  "sections": [{"kind": "entries"|"skills"|"projects"|"compact"|"summary", "title": "",
    "entries": [{"heading": "", "subheading": "", "dates": "", "location": "", "tech": "", "text": "", "bullets": [{"text": ""}]}],
    "skills": [{"name": "", "items": ""}], "text": ""}]}
@@ -26,6 +26,9 @@ Rules:
 - projects: heading = project name, tech = its stack, text = its description.
 - compact: one-line roles (heading = title, subheading = organization, dates).
 - skills: one group per labeled line ("Languages: Python, Go" -> name "Languages", items "Python, Go").
+- headline: a title line printed under the name ("Backend Engineer"), else "".
+- Leave a field "" when the resume has nothing for it; never write None, null or N/A.
+- Leave out text that is not about the candidate (template instructions, sample text, page numbers).
 - Links: full URLs (add https:// when the resume omits it).`
 
 // ImportMessages builds the request that structures resume text.

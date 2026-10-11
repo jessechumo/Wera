@@ -1,0 +1,25 @@
+% Ivy: the classic one-column resume ("Jake's resume").
+\usepackage{lmodern}
+\titleformat{\section}{\vspace{-2pt}\scshape\raggedright\large}{}{0em}{#1}[\color{black}\titlerule\vspace{-4pt}]
+\titlespacing*{\section}{0pt}{1.9\resumegap}{1.25\resumegap}
+\newcommand{\contactSep}{\enspace$|$\enspace}
+\newcommand{\resumeHeader}[3]{%
+  \begin{center}
+    {\Huge\scshape #1}\par
+    \ifstrempty{#2}{}{\vspace{4pt}#2\par}
+    \vspace{4pt}{\small #3}\par
+  \end{center}\vspace{-10pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in,label={},itemsep=\resumegap,topsep=0pt,parsep=0pt]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.22in,itemsep=0pt,topsep=2pt,parsep=0pt,label=\textbullet]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItem}[1]{\item\small #1}
+\newcommand{\resumeSubheading}[4]{\item\resumeRow{\textbf{#1}}{#2}%
+  \ifstrempty{#3#4}{}{\vspace{1pt}\resumeRow{\textit{\small #3}}{\textit{\small #4}}}}
+\newcommand{\resumeProjectEntry}[4]{\item\resumeRow{\textbf{#1}\ifstrempty{#2}{}{\enspace$|$\enspace\textit{\small #2}}}{\small #3}%
+  \ifstrempty{#4}{}{\vspace{2pt}{\small #4}\par}}
+\newcommand{\resumeCompact}[3]{\item\resumeRow{\ifstrempty{#2}{#1}{\textbf{#1}\enspace$|$\enspace\textit{\small #2}}}{\textit{\small #3}}}
+\newcommand{\resumeSkillsStart}{\begin{itemize}[leftmargin=0.15in,label={},topsep=0pt,parsep=0pt]\small\item}
+\newcommand{\resumeSkill}[2]{\textbf{#1:} #2\par}
+\newcommand{\resumeSkillsEnd}{\end{itemize}}
+\newcommand{\resumeSummary}[1]{\begin{itemize}[leftmargin=0.15in,label={},topsep=0pt]\item\small #1\end{itemize}}

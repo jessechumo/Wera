@@ -1,0 +1,26 @@
+% Ledger: a refined serif. Libertinus, a centered letterspaced name,
+% section titles centered between hairlines.
+\usepackage{libertinus}
+\titleformat{\section}{\centering\small}{}{0em}{\xrfill[0.6ex]{0.4pt}[black!35]\enspace\spaced{160}{\textsc{\MakeLowercase{#1}}}\enspace\xrfill[0.6ex]{0.4pt}[black!35]}
+\titlespacing*{\section}{0pt}{1.9\resumegap}{1.25\resumegap}
+\newcommand{\contactSep}{\enspace$\cdot$\enspace}
+\newcommand{\resumeHeader}[3]{%
+  \begin{center}
+    {\fontsize{21}{25}\selectfont\spaced{140}{\MakeUppercase{#1}}}\par
+    \ifstrempty{#2}{}{\vspace{4pt}\textit{#2}\par}
+    \vspace{5pt}{\small #3}\par
+  \end{center}\vspace{-10pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0pt,label={},itemsep=\resumegap,topsep=0pt,parsep=0pt]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.22in,itemsep=0pt,topsep=2pt,parsep=0pt,label={--}]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItem}[1]{\item #1}
+\newcommand{\resumeSubheading}[4]{\item\resumeRow{\textbf{#1}}{\textit{#4}}%
+  \ifstrempty{#3#2}{}{\vspace{1pt}\resumeRow{\textit{#3}}{#2}}}
+\newcommand{\resumeProjectEntry}[4]{\item\resumeRow{\textbf{#1}\ifstrempty{#2}{}{, \textit{#2}}}{#3}%
+  \ifstrempty{#4}{}{\vspace{2pt}#4\par}}
+\newcommand{\resumeCompact}[3]{\item\resumeRow{\ifstrempty{#2}{#1}{\textbf{#1}, \textit{#2}}}{#3}}
+\newcommand{\resumeSkillsStart}{\begin{itemize}[leftmargin=0pt,label={},topsep=0pt,parsep=1pt]\item}
+\newcommand{\resumeSkill}[2]{\textsc{\MakeLowercase{#1}}: #2\par}
+\newcommand{\resumeSkillsEnd}{\end{itemize}}
+\newcommand{\resumeSummary}[1]{\begin{center}\begin{minipage}{0.92\linewidth}\centering\itshape #1\end{minipage}\end{center}}

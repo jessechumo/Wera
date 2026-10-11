@@ -180,3 +180,66 @@ func TestImportResumeFromProfile(t *testing.T) {
 		t.Errorf("unknown source: want 400, got %d", code)
 	}
 }
+
+func TestResumeTemplatesLaTeXAndReview(t *testing.T) {
+	needTypst(t)
+	ts, _ := testServer(t, nil)
+	code, doc := importSample(t, ts.URL, true)
+	if code != 201 {
+		t.Fatalf("import: %d", code)
+	}
+	id := int64(doc["id"].(float64))
+	data := doc["data"].(map[string]any)
+
+	code, body := getBody(t, ts.URL+"/api/resumes/templates")
+	if code != 200 || !strings.Contains(body, `"id":"parse"`) || !strings.Contains(body, `"id":"signal"`) {
+		t.Fatalf("templates: %d %s", code, body)
+	}
+
+	// Switch to Signal with an accent: kept on save, used by the downloads.
+	url := fmt.Sprintf("%s/api/resumes/%d", ts.URL, id)
+	b, _ := json.Marshal(map[string]any{"data": data, "layout": map[string]any{"template": "signal", "accent": "#0F766E", "paper": "a4"}})
+	if code, body := do(t, client, http.MethodPut, url, string(b)); code != 200 || !strings.Contains(body, `"template":"signal"`) || !strings.Contains(body, `"accent":"#0f766e"`) {
+		t.Fatalf("save template: %d %.300s", code, body)
+	}
+	code, tex := getBody(t, url+"/tex")
+	if code != 200 || !strings.Contains(tex, "% Signal:") || !strings.Contains(tex, "a4paper") || !strings.Contains(tex, "{0F766E}") {
+		t.Errorf("tex: %d %.400s", code, tex)
+	}
+	code, txt := getBody(t, url+"/txt")
+	if code != 200 || !strings.Contains(txt, "Ada Lovelace") || strings.Contains(txt, `\`) {
+		t.Errorf("txt: %d %.200s", code, txt)
+	}
+
+	// LaTeX for unsaved edits, then edited LaTeX back into a resume.
+	b, _ = json.Marshal(map[string]any{"data": data, "layout": map[string]any{"template": "ledger"}})
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/resumes/tex", string(b))
+	var texOut struct{ TeX, Preamble, Body string }
+	json.Unmarshal([]byte(body), &texOut)
+	if code != 200 || !strings.Contains(texOut.Preamble, "% Ledger:") || !strings.HasPrefix(texOut.Body, `\resumeHeader{Ada Lovelace}`) {
+		t.Fatalf("tex of edits: %d preamble=%q", code, texOut.Preamble[:min(len(texOut.Preamble), 300)])
+	}
+	edited := strings.Replace(texOut.Body, `\resumeHeader{Ada Lovelace}`, `\resumeHeader{Ada King}`, 1)
+	b, _ = json.Marshal(map[string]string{"tex": edited})
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/resumes/parse-tex", string(b))
+	if code != 200 || !strings.Contains(body, `"name":"Ada King"`) || !strings.Contains(body, `"warnings":[]`) {
+		t.Errorf("parse-tex: %d %.300s", code, body)
+	}
+	b, _ = json.Marshal(map[string]string{"tex": `\section{Only}`})
+	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/resumes/parse-tex", string(b)); code != 422 {
+		t.Errorf("unreadable tex: want 422, got %d", code)
+	}
+
+	// Previews carry the review; thumbnails come in every template.
+	b, _ = json.Marshal(map[string]any{"data": data, "layout": map[string]any{}})
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/resumes/preview", string(b))
+	if code != 200 || !strings.Contains(body, `"review":{"score":`) {
+		t.Errorf("preview review: %d %.200s", code, body[:min(len(body), 200)])
+	}
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/resumes/thumbnails", string(b))
+	var th struct{ Thumbnails map[string]string }
+	json.Unmarshal([]byte(body), &th)
+	if code != 200 || len(th.Thumbnails) != 4 || !strings.HasPrefix(strings.TrimSpace(th.Thumbnails["parse"]), "<svg") {
+		t.Errorf("thumbnails: %d %d", code, len(th.Thumbnails))
+	}
+}

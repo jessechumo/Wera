@@ -40,8 +40,8 @@ func TestImportTeX(t *testing.T) {
 		len(exp[0].Bullets) != 2 || exp[0].Bullets[0].Text != "Cut deploy time by 50% with GitHub Actions pipelines across 12 services." {
 		t.Errorf("experience: %+v", exp[0])
 	}
-	if exp[1].Bullets[0].Text != "Built Python tooling for automated provisioning." {
-		t.Errorf("formatting not stripped: %q", exp[1].Bullets[0].Text)
+	if exp[1].Bullets[0].Text != "Built Python tooling for **automated** provisioning." {
+		t.Errorf("bold not kept: %q", exp[1].Bullets[0].Text)
 	}
 	skills := r.Sections[1].Skills
 	if len(skills) != 2 || skills[1].Name != "Infrastructure & Cloud" || !strings.HasPrefix(skills[1].Items, "Kubernetes, Docker") {
@@ -66,15 +66,33 @@ func toStrings(ks []Kind) []string {
 
 func TestExportTeXRoundTripAndEscaping(t *testing.T) {
 	r := sample(t)
-	back, _, err := ImportTeX(r.ExportTeX())
-	if err != nil {
-		t.Fatal(err)
+	r.Headline = "Site Reliability Engineer"
+	r.Sections[2].Entries[0].Dates = "Jan 2024 – Present"
+	r.Sections[2].Entries[0].Bullets[0].Text = "Cut **deploy time** by 50% with GitHub Actions"
+	for _, s := range r.Sections {
+		if s.Kind == KindProjects {
+			s.Entries[0].Dates = "2023"
+		}
 	}
-	if back.PlainText() != r.PlainText() {
-		t.Errorf("round trip changed the resume:\n%s\n---\n%s", r.PlainText(), back.PlainText())
+	for _, tpl := range Templates {
+		l := DefaultLayout
+		l.Template = tpl.ID
+		tex := r.ExportTeX(l)
+		if !strings.Contains(tex, "% "+tpl.Name+":") {
+			t.Errorf("%s: preamble missing", tpl.ID)
+		}
+		back, warnings, err := ImportTeX(tex)
+		if err != nil {
+			t.Fatalf("%s: %v", tpl.ID, err)
+		}
+		if back.PlainText() != r.PlainText() || back.Headline != r.Headline {
+			t.Errorf("%s: round trip changed the resume (%v):\n%s\n---\n%s", tpl.ID, warnings, r.PlainText(), back.PlainText())
+		}
 	}
-	r.Sections[2].Entries[0].Bullets[0].Text = `Saved $5 & 10% \input{/etc/passwd} }{\write18{rm -rf /}} #1 _x_ ^~`
-	tex := r.ExportTeX()
+
+	hostile := `Saved $5 & 10% \input{/etc/passwd} }{\write18{rm -rf /}} #1 _x_ ^~`
+	r.Sections[2].Entries[0].Bullets[0].Text = hostile
+	tex := r.ExportTeX(DefaultLayout)
 	for _, bad := range []string{`\input{/etc/passwd}`, `\write18{`} {
 		if strings.Contains(tex, bad) {
 			t.Errorf("unescaped %q in exported LaTeX", bad)
@@ -82,6 +100,10 @@ func TestExportTeXRoundTripAndEscaping(t *testing.T) {
 	}
 	if !strings.Contains(tex, `Saved \$5 \& 10\% \textbackslash{}input\{/etc/passwd\}`) {
 		t.Errorf("escaping wrong: %s", tex[strings.Index(tex, "Saved"):][:120])
+	}
+	back, _, err := ImportTeX(tex)
+	if err != nil || back.Sections[2].Entries[0].Bullets[0].Text != hostile {
+		t.Errorf("hostile text did not survive the round trip: %q %v", back.Sections[2].Entries[0].Bullets[0].Text, err)
 	}
 }
 

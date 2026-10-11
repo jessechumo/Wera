@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -282,7 +283,7 @@ func (s *Server) previewResume(w http.ResponseWriter, r *http.Request) {
 		out[i] = string(p)
 	}
 	m, _ := s.Resumes.Measure(ctx, &in.Data, in.Layout)
-	s.writeJSON(w, http.StatusOK, map[string]any{"pages": out, "measure": m})
+	s.writeJSON(w, http.StatusOK, map[string]any{"pages": out, "measure": m, "review": in.Data.Review(m.Pages)})
 }
 
 func resumeFilename(name, ext string) string {
@@ -323,7 +324,116 @@ func (s *Server) resumeTeX(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/x-tex; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, resumeFilename(doc.Data.Name, "tex")))
-	_, _ = w.Write([]byte(doc.Data.ExportTeX()))
+	_, _ = w.Write([]byte(doc.Data.ExportTeX(doc.Layout)))
+}
+
+// resumeText is GET /api/resumes/{id}/txt: plain text, for pasting into
+// application forms that want the resume typed out.
+func (s *Server) resumeText(w http.ResponseWriter, r *http.Request) {
+	doc, ok := s.resumeParam(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if r.URL.Query().Get("download") == "1" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, resumeFilename(doc.Data.Name, "txt")))
+	}
+	_, _ = w.Write([]byte(strings.ReplaceAll(doc.Data.PlainText(), "**", "") + "\n"))
+}
+
+// resumeTemplates is GET /api/resumes/templates.
+func (s *Server) resumeTemplates(w http.ResponseWriter, _ *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]any{"templates": resume.Templates, "default_accent": resume.DefaultAccent})
+}
+
+// texOf is POST /api/resumes/tex: the LaTeX for unsaved edits, whole and
+// split into the template's preamble and the editable body.
+func (s *Server) texOf(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Data   resume.Resume `json:"data"`
+		Layout resume.Layout `json:"layout"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if err := in.Data.Normalize(); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	full := in.Data.ExportTeX(in.Layout)
+	preamble, _, _ := strings.Cut(full, `\begin{document}`)
+	s.writeJSON(w, http.StatusOK, map[string]any{"tex": full, "preamble": preamble, "body": in.Data.TeXBody()})
+}
+
+// parseTeX is POST /api/resumes/parse-tex: LaTeX (a whole file or just the
+// body) back into a resume, with notes on anything not understood.
+func (s *Server) parseTeX(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		TeX string `json:"tex"`
+	}
+	if err := decodeJSON(r, &in); err != nil || strings.TrimSpace(in.TeX) == "" {
+		s.writeError(w, http.StatusBadRequest, "send the LaTeX as tex")
+		return
+	}
+	if len(in.TeX) > 200_000 {
+		s.writeError(w, http.StatusRequestEntityTooLarge, "that LaTeX file is too large")
+		return
+	}
+	data, warnings, err := resume.ImportTeX(in.TeX)
+	if err != nil {
+		s.writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	if warnings == nil {
+		warnings = []string{}
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"data": data, "warnings": warnings})
+}
+
+// thumbnails is POST /api/resumes/thumbnails: the first page of a resume
+// in every template, for choosing one.
+func (s *Server) thumbnails(w http.ResponseWriter, r *http.Request) {
+	if !s.renderer(w) {
+		return
+	}
+	if !s.previewLimit.Allow(strconv.FormatInt(currentUser(r).ID, 10)) {
+		s.writeError(w, http.StatusTooManyRequests, "too many previews; slow down a little")
+		return
+	}
+	var in struct {
+		Data   resume.Resume `json:"data"`
+		Layout resume.Layout `json:"layout"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if err := in.Data.Normalize(); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	out := make(map[string]string, len(resume.Templates))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, t := range resume.Templates {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			l := in.Layout
+			l.Template = t.ID
+			pages, err := s.Resumes.SVG(ctx, &in.Data, l)
+			if err == nil && len(pages) > 0 {
+				mu.Lock()
+				out[t.ID] = string(pages[0])
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	s.writeJSON(w, http.StatusOK, map[string]any{"thumbnails": out})
 }
 
 // jobKeywords is GET /api/jobs/{id}/keywords: the posting's keywords and
