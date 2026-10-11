@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"wera/internal/auth"
 	"wera/internal/config"
 	"wera/internal/metrics"
+	"wera/internal/resume"
 	"wera/internal/store"
 	"wera/internal/testutil"
 )
@@ -79,6 +81,7 @@ func testServerWith(t *testing.T, reg *metrics.Registry, configure func(*Server)
 		Industries:    inds.Industries,
 		MatchUser:     func(context.Context, int64) { matchCalls.Add(1) },
 		Moderator:     fakeModerator,
+		Resumes:       resume.NewRenderer(os.Getenv("TYPST_BIN")),
 	}
 	if configure != nil {
 		configure(srv)

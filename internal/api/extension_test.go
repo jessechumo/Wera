@@ -170,11 +170,6 @@ func TestExtensionAIFeatures(t *testing.T) {
 		t.Errorf("salary should ask the user: %s", body)
 	}
 
-	code, body = do(t, client, http.MethodPost, fmt.Sprintf("%s/api/jobs/%d/tailored-resume", ts.URL, testJobIDs[0]), "")
-	if code != 200 || !strings.Contains(body, "Kept services healthy") || strings.Contains(body, `"bullets":["Kept services healthy","Cut costs by 87%"]`) || !strings.Contains(body, "87%") {
-		t.Errorf("tailor (invented 87%% must move to dropped): %d %s", code, body)
-	}
-
 	_, body = do(t, client, http.MethodPost, ts.URL+"/api/applicant/suggest", "")
 	if !strings.Contains(body, `"school":"UT Austin"`) || !strings.Contains(body, `"phone":"(512) 555-0142"`) {
 		t.Errorf("suggest (phone must come from the resume): %s", body)

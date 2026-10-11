@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -60,8 +61,13 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			content = "I want to keep robots online — because reliability work is what I do best."
 		}
-	case strings.HasPrefix(system, "You tailor the candidate's resume"):
-		content = `{"headline":"Site Reliability Engineer","summary":"SRE intern focused on reliability.","skills":[{"group":"Infra","items":["Go","Kubernetes"]}],"experience":[{"title":"SRE Intern","company":"Acme","dates":"2024","bullets":["Kept services healthy","Cut costs by 87%"]}],"projects":[],"education":["B.S. CS"],"changes":["Led with reliability"],"missing_keywords":["Terraform"]}`
+	case strings.HasPrefix(system, "You tailor a resume to one job posting"):
+		// Rewrite the first listed bullet (one invented number, which must be
+		// rejected) and the second (valid).
+		ids := regexp.MustCompile(`\[b:([0-9a-f]+)\]`).FindAllStringSubmatch(req.Messages[1].Content, -1)
+		content = fmt.Sprintf(`{"bullets":{%q:"Cut costs by 87%% on Kubernetes",%q:"Ran Kubernetes on-call for 2,000 requests per second"},"notes":["Led with Kubernetes"]}`, ids[0][1], ids[1][1])
+	case strings.HasPrefix(system, "You convert the text of a resume into JSON"):
+		content = `{"name":"Test User","email":"t@example.com","sections":[{"kind":"entries","title":"Experience","entries":[{"heading":"Acme","subheading":"SRE Intern","bullets":[{"text":"SRE intern at Acme 2024."}]}]}]}`
 	default:
 		http.Error(w, "unexpected prompt", http.StatusBadRequest)
 		return

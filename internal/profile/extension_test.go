@@ -35,27 +35,6 @@ func TestExtractMessagesFencePageText(t *testing.T) {
 	}
 }
 
-func TestParseTailoredDropsInventedNumbers(t *testing.T) {
-	resume := "SRE intern at Acme 2024. Cut deploy time by 40% across 12 services."
-	reply := `{"headline":"Site Reliability Engineer","summary":"Reliability engineer — who cut deploys by 40%.",
-	  "experience":[{"title":"SRE Intern","company":"Acme","dates":"2024","bullets":[
-	    "Cut deploy time by 40% across 12 services",
-	    "Saved $2,000,000 a year in cloud costs",
-	    "Automated on-call runbooks"]}],
-	  "projects":[],"education":[],"changes":["Led with deploy speed"],"missing_keywords":["Terraform"]}`
-	tr, err := ParseTailored(reply, resume)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := tr.Experience[0].Bullets
-	if len(b) != 2 || strings.Contains(strings.Join(b, " "), "2,000,000") {
-		t.Errorf("invented figure kept: %v", b)
-	}
-	if len(tr.Dropped) != 1 || strings.Contains(tr.Summary, "—") {
-		t.Errorf("dropped %v, summary %q", tr.Dropped, tr.Summary)
-	}
-}
-
 func TestParseAnswer(t *testing.T) {
 	if a := ParseAnswer("NEEDS_INPUT: your expected salary", 100); a.NeedsInput != "your expected salary" || a.Answer != "" {
 		t.Errorf("%+v", a)
