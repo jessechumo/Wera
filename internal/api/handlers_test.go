@@ -240,11 +240,14 @@ func TestProfileFlow(t *testing.T) {
 	}
 	var opts struct {
 		RoleFamilies []struct{ Label string } `json:"role_families"`
+		Industries   []struct{ Label string } `json:"industries"`
 	}
 	json.Unmarshal([]byte(body), &opts)
-	for i := 1; i < len(opts.RoleFamilies); i++ {
-		if strings.ToLower(opts.RoleFamilies[i-1].Label) > strings.ToLower(opts.RoleFamilies[i].Label) {
-			t.Fatalf("role families not A to Z: %q before %q", opts.RoleFamilies[i-1].Label, opts.RoleFamilies[i].Label)
+	for name, list := range map[string][]struct{ Label string }{"role families": opts.RoleFamilies, "industries": opts.Industries} {
+		for i := 1; i < len(list); i++ {
+			if strings.ToLower(list[i-1].Label) > strings.ToLower(list[i].Label) {
+				t.Fatalf("%s not A to Z: %q before %q", name, list[i-1].Label, list[i].Label)
+			}
 		}
 	}
 	code, body = getBody(t, ts.URL+"/api/profile")
