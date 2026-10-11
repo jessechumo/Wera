@@ -34,7 +34,7 @@ jobs:
       IMAGE: jessechumo/wera
       TAG: ${{ needs.release-please.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag }}
       - uses: actions/setup-go@v5
