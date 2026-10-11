@@ -34,11 +34,12 @@ Measured on the development data: a new account is ready in about 5 seconds (pre
 ## Features
 
 - **Matching:** per-user filters, local estimates, shared facts, and fit scores with reasons, skills matched and missing, and the sponsorship quote
+- **Resumes:** each user keeps a structured resume (imported exactly from LaTeX in the popular "Jake's resume" template, converted from the uploaded resume by the AI with every line copied verbatim, or started from the template), rendered with [Typst](https://typst.app) in that template's look in about 50 ms. Fitting to one page tries the most readable layout first (down to 10pt) and only then drops the fewest low-priority bullets. Live SVG previews, PDF and `.tex` export, and keyword coverage against each posting. A tailored copy per job reorders skills and rewords bullets through ids only (no new roles, numbers or skills), and drops the bullets least relevant to the job only when the page is full
 - **Cover letters:** written for one job from the user's profile and resume without repeating the resume; editable, with dashes cleaned out
 - **Community:** a blog for offers, interview experiences and tips, with comments and reactions; every post and comment is reviewed by an AI moderator first (violence, harassment, cheating or faked credentials, spam, off-topic) and refused with a reason
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
 - **Sponsorship:** what each company's postings say about visa sponsorship, built from data already extracted while scoring
-- **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), private jobs saved from any page (deduplicated, scored, added to the tracker), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and resumes tailored to a posting (claims citing numbers not in the resume are dropped)
+- **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), private jobs saved from any page (deduplicated, scored, added to the tracker), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
 - **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
 
@@ -54,7 +55,7 @@ New users build their profile in the dashboard: they upload a resume PDF (or pas
 
 ## Quick start
 
-Requirements: Go 1.27+, Docker, and a Coral Bricks API key.
+Requirements: Go 1.27+, Docker, and a Coral Bricks API key. Resume rendering needs [typst](https://github.com/typst/typst/releases) 0.14 on `PATH` (or `TYPST_BIN`); the Docker image includes it.
 
 ```bash
 cp .env.example .env                               # add CORAL_API_KEY
@@ -172,6 +173,7 @@ internal/moderation   Community moderation: rule checks and the AI review
 internal/normalize    HTML to text, content hashing
 internal/pipeline     Fetch, filter, rank and score orchestration
 internal/profile      Resume text, avatars, profile drafts, cover letters
+internal/resume       Structured resumes: Typst rendering, one-page fitting, LaTeX import/export, keywords, AI import and tailoring
 internal/relevance    Local TF-IDF ranking (estimated scores)
 internal/scoring      Coral Bricks client, prompts, facts, fit, cost accounting
 internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters

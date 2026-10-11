@@ -22,6 +22,7 @@ import (
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/moderation"
+	"wera/internal/resume"
 	"wera/internal/store"
 )
 
@@ -74,6 +75,10 @@ type Server struct {
 	postLimit    *auth.Limiter
 	commentLimit *auth.Limiter
 	extAILimit   *auth.Limiter
+	previewLimit *auth.Limiter
+
+	// Resumes renders resume documents (nil-safe: unavailable without typst).
+	Resumes *resume.Renderer
 }
 
 // Handler builds the router with all routes.
@@ -101,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 	s.postLimit = auth.NewLimiter(5, time.Hour)
 	s.commentLimit = auth.NewLimiter(30, time.Hour)
 	s.extAILimit = auth.NewLimiter(120, time.Hour)
+	s.previewLimit = auth.NewLimiter(900, time.Hour)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.sameOrigin)
@@ -152,7 +158,19 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/ext/jobs/lookup", s.lookupJob)
 			r.Post("/ext/jobs", s.addJob)
 			r.Post("/ext/answer", s.answerQuestion)
-			r.Post("/jobs/{id}/tailored-resume", s.tailorResume)
+
+			r.Get("/resumes", s.listResumes)
+			r.Post("/resumes/import", s.importResume)
+			r.Post("/resumes/preview", s.previewResume)
+			r.Get("/resumes/{id}", s.getResumeHandler)
+			r.Put("/resumes/{id}", s.putResume)
+			r.Delete("/resumes/{id}", s.deleteResumeHandler)
+			r.Post("/resumes/{id}/fit", s.fitResume)
+			r.Get("/resumes/{id}/pdf", s.resumePDF)
+			r.Get("/resumes/{id}/tex", s.resumeTeX)
+			r.Get("/jobs/{id}/keywords", s.jobKeywords)
+			r.Get("/jobs/{id}/resume", s.getJobResume)
+			r.Post("/jobs/{id}/resume", s.tailorJobResume)
 			r.Get("/today", s.today)
 			r.Get("/stats", s.stats)
 			r.Get("/runs", s.runs)

@@ -69,7 +69,12 @@ func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
-	st, err := store.Stats(r.Context(), s.Pool, currentUser(r).ID)
+	// Days are the user's own (?tz=America/Chicago); unknown zones fall back to UTC.
+	tz := r.URL.Query().Get("tz")
+	if _, err := time.LoadLocation(tz); err != nil || tz == "" || len(tz) > 64 {
+		tz = "UTC"
+	}
+	st, err := store.Stats(r.Context(), s.Pool, currentUser(r).ID, tz)
 	if err != nil {
 		s.Log.Error("stats failed", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "query failed")

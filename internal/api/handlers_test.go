@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	pngenc "image/png"
@@ -237,6 +238,15 @@ func TestProfileFlow(t *testing.T) {
 	if code != 200 || !strings.Contains(body, `"data_science"`) || !strings.Contains(body, `"aerospace"`) {
 		t.Fatalf("/api/profile/options: %d %.200s", code, body)
 	}
+	var opts struct {
+		RoleFamilies []struct{ Label string } `json:"role_families"`
+	}
+	json.Unmarshal([]byte(body), &opts)
+	for i := 1; i < len(opts.RoleFamilies); i++ {
+		if strings.ToLower(opts.RoleFamilies[i-1].Label) > strings.ToLower(opts.RoleFamilies[i].Label) {
+			t.Fatalf("role families not A to Z: %q before %q", opts.RoleFamilies[i-1].Label, opts.RoleFamilies[i].Label)
+		}
+	}
 	code, body = getBody(t, ts.URL+"/api/profile")
 	if code != 200 || !strings.Contains(body, `"ready":false`) {
 		t.Fatalf("empty profile: %d %s", code, body)
@@ -465,5 +475,37 @@ func TestCoverLetterEdits(t *testing.T) {
 	}
 	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/jobs/999999999/cover-letter", ts.URL), `{"body":"x"}`); code != 404 {
 		t.Errorf("letter for someone else's job: want 404, got %d", code)
+	}
+}
+
+func TestStatsPerDayInUserTimeZone(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	// One of the user's matches, first seen "today" in Tokyo.
+	if _, err := pool.Exec(context.Background(), `UPDATE jobs SET first_seen_at = now() WHERE id = $1`, testJobIDs[0]); err != nil {
+		t.Fatal(err)
+	}
+	for _, tz := range []string{"Asia/Tokyo", "America/Los_Angeles", "Not/AZone"} {
+		_, body := getBody(t, ts.URL+"/api/stats?tz="+tz)
+		var st struct {
+			NewPerDay []struct {
+				Day   string `json:"day"`
+				Count int    `json:"count"`
+			} `json:"new_per_day"`
+		}
+		if err := json.Unmarshal([]byte(body), &st); err != nil || len(st.NewPerDay) == 0 {
+			t.Fatalf("%s: %v %s", tz, err, body)
+		}
+		zone := tz
+		if tz == "Not/AZone" {
+			zone = "UTC"
+		}
+		loc, _ := time.LoadLocation(zone)
+		last := st.NewPerDay[len(st.NewPerDay)-1]
+		if last.Day != time.Now().In(loc).Format("2006-01-02") || last.Count < 1 {
+			t.Errorf("%s: last day %+v, want today in that zone with the new match", tz, last)
+		}
+		if len(st.NewPerDay) > 14 {
+			t.Errorf("%s: %d days, want at most 14", tz, len(st.NewPerDay))
+		}
 	}
 }

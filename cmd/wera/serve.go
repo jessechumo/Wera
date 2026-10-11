@@ -15,6 +15,7 @@ import (
 	"wera/internal/config"
 	"wera/internal/metrics"
 	"wera/internal/pipeline"
+	"wera/internal/resume"
 	"wera/internal/store"
 )
 
@@ -107,6 +108,7 @@ func runServe(ctx context.Context, args []string) error {
 			return err
 		},
 		ScoreNow: p.ScoreNow,
+		Resumes:  resume.NewRenderer(env.TypstBin),
 
 		SignupEnabled:  env.SignupEnabled,
 		SignupsPerHour: env.SignupsPerHour,

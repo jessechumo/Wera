@@ -21,6 +21,7 @@ type Env struct {
 	CoralBaseURL       string
 	CoralModel         string
 	CoralDeepModel     string
+	TypstBin           string // typst binary for resume rendering ("typst" on PATH)
 	ScoringConcurrency int
 	FetchConcurrency   int
 	RunInterval        time.Duration
@@ -110,6 +111,7 @@ func LoadEnv() (*Env, error) {
 	str("DATABASE_URL", &e.DatabaseURL)
 	str("CORAL_API_KEY", &e.CoralAPIKey)
 	str("CORAL_BASE_URL", &e.CoralBaseURL)
+	str("TYPST_BIN", &e.TypstBin)
 	str("CORAL_MODEL", &e.CoralModel)
 	str("CORAL_DEEP_MODEL", &e.CoralDeepModel)
 	intVal("SCORING_CONCURRENCY", &e.ScoringConcurrency)
