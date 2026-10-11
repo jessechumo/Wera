@@ -14,14 +14,15 @@ func TestApplyTailoringEnforcesTheRules(t *testing.T) {
 	skills := base.Sections[1].Skills[1]
 	reply := fmt.Sprintf(`{
 	  "bullets": {%q: "Cut deploy time by 50%% across 12 services with GitHub Actions — CI/CD", %q: "Ran on-call for 40 Kubernetes clusters"},
-	  "hide": [%q],
+	  "least_relevant": [%q],
 	  "skills": {%q: "Terraform, Kubernetes, Docker, AWS (S3, EC2), CI/CD (GitHub Actions)"},
 	  "notes": ["Led with deployment speed — the posting stresses it"]
 	}`, b0.ID, b1.ID, intern.ID, skills.ID)
-	got, notes, err := ApplyTailoring(base, reply)
+	tl, err := ApplyTailoring(base, reply)
 	if err != nil {
 		t.Fatal(err)
 	}
+	got, notes := tl.Resume, tl.Notes
 	e := got.Sections[2].Entries
 	if e[0].Bullets[0].Text != "Cut deploy time by 50% across 12 services with GitHub Actions, CI/CD" {
 		t.Errorf("valid rewrite not applied: %q", e[0].Bullets[0].Text)
@@ -30,7 +31,10 @@ func TestApplyTailoringEnforcesTheRules(t *testing.T) {
 		t.Errorf("a rewrite that invented a number (40) was applied: %q", e[0].Bullets[1].Text)
 	}
 	if e[1].Bullets[0].Hidden {
-		t.Error("hid a role's only bullet")
+		t.Error("hid a bullet while there is room")
+	}
+	if prio := tl.Priority(nil); prio(2, 1, 0, got.Sections[2], e[1].Bullets[0]) >= prio(2, 0, 1, got.Sections[2], e[0].Bullets[1]) {
+		t.Error("the least relevant bullet must rank lowest for fitting")
 	}
 	if got.Sections[1].Skills[1].Items != "Terraform, Kubernetes, Docker, AWS (S3, EC2), CI/CD (GitHub Actions)" {
 		t.Errorf("valid reorder not applied: %q", got.Sections[1].Skills[1].Items)
@@ -44,11 +48,11 @@ func TestApplyTailoringEnforcesTheRules(t *testing.T) {
 
 	// Adding a skill is rejected.
 	bad := fmt.Sprintf(`{"skills": {%q: "Rust, Kubernetes, Docker, Terraform, AWS (S3, EC2), CI/CD (GitHub Actions)"}}`, skills.ID)
-	got, _, _ = ApplyTailoring(base, bad)
-	if got.Sections[1].Skills[1].Items != skills.Items {
+	tl, _ = ApplyTailoring(base, bad)
+	if got = tl.Resume; got.Sections[1].Skills[1].Items != skills.Items {
 		t.Errorf("an added skill was accepted: %q", got.Sections[1].Skills[1].Items)
 	}
-	if _, _, err := ApplyTailoring(base, "not json"); err == nil {
+	if _, err := ApplyTailoring(base, "not json"); err == nil {
 		t.Error("unreadable reply must be an error")
 	}
 }

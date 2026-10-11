@@ -406,14 +406,14 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
 		return
 	}
-	tailored, notes, err := resume.ApplyTailoring(&base.Data, reply)
+	tailored, err := resume.ApplyTailoring(&base.Data, reply)
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI returned an unusable edit; try again")
 		return
 	}
-	doc := &store.ResumeDoc{Title: fmt.Sprintf("%s, %s", title, company), JobID: &id, Data: *tailored, Layout: base.Layout, Notes: notes}
+	doc := &store.ResumeDoc{Title: fmt.Sprintf("%s, %s", title, company), JobID: &id, Data: *tailored.Resume, Layout: base.Layout, Notes: tailored.Notes}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, resume.KeywordPriority(kws)); err == nil {
+		if res, err := s.Resumes.Fit(r.Context(), &doc.Data, tailored.Priority(kws)); err == nil {
 			doc.Layout, doc.Fit = res.Layout, res
 		}
 	}

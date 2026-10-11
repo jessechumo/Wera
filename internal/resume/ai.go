@@ -79,12 +79,12 @@ func ParseImport(reply, source string) (*Resume, []string, error) {
 const tailorInstructions = `You tailor a resume to one job posting by editing it in place. ` + scoring.Untrusted + `
 
 The resume is listed with ids: [b:ID] bullets, [g:ID] skill groups. Return ONLY a JSON object:
-{"bullets": {"ID": "rewritten bullet"}, "hide": ["ID"], "skills": {"ID": "reordered items"}, "notes": [""]}
+{"bullets": {"ID": "rewritten bullet"}, "least_relevant": ["ID"], "skills": {"ID": "reordered items"}, "notes": [""]}
 
 Rules:
 - Rewrite only bullets that become clearly stronger for this posting: lead with what the posting values and use its terms where they truthfully apply. Leave the rest out of "bullets".
 - Never invent facts: no new tools, employers, titles, dates, metrics or achievements. Keep every number exactly as in that bullet.
-- "hide": bullets irrelevant to this posting (never a role's only bullet).
+- "least_relevant": bullets that matter least for this posting, least first. They are dropped only if the resume runs past one page, so do not say in the notes that you hid or removed anything.
 - "skills": the same items of a group in a better order for this posting (most relevant first). Do not add or remove items.
 - "notes": 2 to 5 short notes for the candidate on what you changed, and important posting requirements their resume does not show.
 - No em dashes or en dashes.`
@@ -153,19 +153,49 @@ func splitItems(s string) []string {
 	return append(out, strings.TrimSpace(s[start:]))
 }
 
+// Tailored is a tailored copy of a resume.
+type Tailored struct {
+	Resume *Resume
+	Notes  []string
+	// LeastRelevant ranks bullets the AI judged least useful for the job
+	// (least first): fitting drops these first, and only when needed.
+	LeastRelevant []string
+}
+
+// Priority ranks bullets for fitting the tailored copy: the AI's least
+// relevant bullets go first (in its order), then those that mention none
+// of the posting's keywords.
+func (t *Tailored) Priority(keywords []string) Priority {
+	rank := map[string]int{}
+	for i, id := range t.LeastRelevant {
+		rank[id] = i
+	}
+	kp := KeywordPriority(keywords)
+	n := float64(len(t.LeastRelevant))
+	return func(si, ei, bi int, s Section, b Bullet) float64 {
+		p := kp(si, ei, bi, s, b)
+		if i, ok := rank[b.ID]; ok {
+			p -= 100000 * (n - float64(i)) / n
+		}
+		return p
+	}
+}
+
 // ApplyTailoring applies a tailoring reply to a copy of the base resume,
-// enforcing what can be checked: rewrites may not add numbers, skill
-// groups may only be reordered, and every role keeps a bullet. Rejected
-// edits are reported in notes.
-func ApplyTailoring(base *Resume, reply string) (*Resume, []string, error) {
+// enforcing what can be checked: rewrites may not add numbers and skill
+// groups may only be reordered. Rejected edits are reported in notes.
+// Nothing is hidden here: Fit drops the least relevant bullets only if
+// the page runs out of room.
+func ApplyTailoring(base *Resume, reply string) (*Tailored, error) {
 	var t struct {
-		Bullets map[string]string `json:"bullets"`
-		Hide    []string          `json:"hide"`
-		Skills  map[string]string `json:"skills"`
-		Notes   []string          `json:"notes"`
+		Bullets       map[string]string `json:"bullets"`
+		LeastRelevant []string          `json:"least_relevant"`
+		Hide          []string          `json:"hide"` // older replies
+		Skills        map[string]string `json:"skills"`
+		Notes         []string          `json:"notes"`
 	}
 	if err := json.Unmarshal([]byte(scoring.StripFences(reply)), &t); err != nil {
-		return nil, nil, fmt.Errorf("unreadable tailoring: %w", err)
+		return nil, fmt.Errorf("unreadable tailoring: %w", err)
 	}
 	raw, _ := json.Marshal(base)
 	var r Resume
@@ -175,10 +205,6 @@ func ApplyTailoring(base *Resume, reply string) (*Resume, []string, error) {
 		if n = strings.TrimSpace(cleanDashes(n)); n != "" && len(notes) < 6 {
 			notes = append(notes, n)
 		}
-	}
-	hide := map[string]bool{}
-	for _, id := range t.Hide {
-		hide[id] = true
 	}
 	rejected := 0
 	for si := range r.Sections {
@@ -221,26 +247,16 @@ func ApplyTailoring(base *Resume, reply string) (*Resume, []string, error) {
 						rejected++
 					}
 				}
-				if hide[b.ID] {
-					b.Hidden = true
-				}
-			}
-			// Never leave a shown role with no bullets.
-			shown := 0
-			for _, b := range e.Bullets {
-				if !b.Hidden {
-					shown++
-				}
-			}
-			if shown == 0 && len(e.Bullets) > 0 {
-				e.Bullets[0].Hidden = false
 			}
 		}
 	}
 	if rejected > 0 {
 		notes = append(notes, fmt.Sprintf("Kept your original wording in %d place%s where the suggested edit added facts.", rejected, plural(rejected)))
 	}
-	return &r, notes, r.Normalize()
+	if err := r.Normalize(); err != nil {
+		return nil, err
+	}
+	return &Tailored{Resume: &r, Notes: notes, LeastRelevant: append(t.LeastRelevant, t.Hide...)}, nil
 }
 
 func cleanDashes(s string) string {
