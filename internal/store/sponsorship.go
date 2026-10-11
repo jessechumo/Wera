@@ -9,8 +9,8 @@ import (
 
 // SponsorshipStat summarizes what a company's postings say about visa
 // sponsorship. It is built from data Wera already extracted while scoring
-// (shared job facts, then older full analyses); external filing data (for
-// example H-1B disclosures) can be joined in later.
+// (shared job facts, then older full analyses), and the company's
+// certified H-1B applications from the Department of Labor's disclosures.
 type SponsorshipStat struct {
 	CompanyID   int64      `json:"company_id"`
 	Company     string     `json:"company"`
@@ -23,6 +23,10 @@ type SponsorshipStat struct {
 	Signal      string     `json:"signal"` // sponsors | mixed | does_not_sponsor | unclear
 	LatestQuote *string    `json:"latest_quote"`
 	LastSeen    *time.Time `json:"last_seen"`
+	// H-1B applications certified in the loaded period (nil: no match).
+	H1BFilings    *int64   `json:"h1b_filings"`
+	H1BNewHires   *int64   `json:"h1b_new_hires"`
+	H1BMedianWage *float64 `json:"h1b_median_wage"`
 }
 
 // SponsorshipByCompany aggregates per company, optionally filtered by name.
@@ -38,7 +42,12 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		    SELECT sponsorship, sponsorship_quote FROM analyses
 		    WHERE job_id = j.id AND kind = 'score' AND sponsorship IS NOT NULL
 		    ORDER BY created_at DESC LIMIT 1) a ON f.job_id IS NULL
-		  WHERE j.added_by IS NULL)
+		  WHERE j.added_by IS NULL),
+		h AS (
+		  SELECT m.company_id, count(*) AS filings, count(*) FILTER (WHERE l.new_employment) AS new_hires,
+		         percentile_cont(0.5) WITHIN GROUP (ORDER BY l.wage_from) AS median
+		  FROM company_h1b_employers m JOIN h1b_lca l ON l.employer_key = m.employer_key
+		  GROUP BY m.company_id)
 		SELECT c.id, c.name, c.industry,
 		       count(*) FILTER (WHERE p.open),
 		       count(p.s),
@@ -46,12 +55,14 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		       count(*) FILTER (WHERE p.s = 'no'),
 		       count(*) FILTER (WHERE p.s = 'unknown'),
 		       (array_agg(p.quote ORDER BY p.last_seen_at DESC) FILTER (WHERE p.quote IS NOT NULL))[1],
-		       max(p.last_seen_at)
-		FROM companies c JOIN per_job p ON p.company_id = c.id
+		       max(p.last_seen_at), h.filings, h.new_hires, h.median
+		FROM companies c
+		LEFT JOIN per_job p ON p.company_id = c.id
+		LEFT JOIN h ON h.company_id = c.id
 		WHERE $1 = '' OR c.name ILIKE '%' || $1 || '%'
-		GROUP BY c.id
-		HAVING count(p.s) > 0
-		ORDER BY count(*) FILTER (WHERE p.s = 'yes') DESC, count(p.s) DESC, c.name
+		GROUP BY c.id, h.filings, h.new_hires, h.median
+		HAVING count(p.s) > 0 OR h.filings > 0
+		ORDER BY coalesce(h.filings, 0) DESC, count(*) FILTER (WHERE p.s = 'yes') DESC, count(p.s) DESC, c.name
 		LIMIT $2`, query, normalizeLimit(limit, 50, 200))
 	if err != nil {
 		return nil, err
@@ -61,7 +72,7 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 	for rows.Next() {
 		var s SponsorshipStat
 		if err := rows.Scan(&s.CompanyID, &s.Company, &s.Industry, &s.OpenJobs, &s.Analyzed,
-			&s.Yes, &s.No, &s.Unknown, &s.LatestQuote, &s.LastSeen); err != nil {
+			&s.Yes, &s.No, &s.Unknown, &s.LatestQuote, &s.LastSeen, &s.H1BFilings, &s.H1BNewHires, &s.H1BMedianWage); err != nil {
 			return nil, err
 		}
 		s.Signal = sponsorSignal(s.Yes, s.No)

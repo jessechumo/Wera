@@ -147,6 +147,9 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/interview/quiz", s.interviewQuiz)
 			r.Post("/interview/questions/{id}/answer", s.interviewAnswer)
 			r.Get("/sponsorship", s.sponsorship)
+			r.Get("/sponsorship/{companyID}/h1b", s.companyH1B)
+			r.Get("/h1b/employers", s.h1bEmployers)
+			r.Get("/h1b/employer", s.h1bEmployer)
 
 			// Chrome extension (bearer token or session).
 			r.Get("/ext/tokens", s.listExtTokens)
@@ -169,6 +172,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/resumes/{id}/pdf", s.resumePDF)
 			r.Get("/resumes/{id}/tex", s.resumeTeX)
 			r.Get("/jobs/{id}/keywords", s.jobKeywords)
+			r.Get("/jobs/{id}/h1b", s.jobH1B)
 			r.Get("/jobs/{id}/resume", s.getJobResume)
 			r.Post("/jobs/{id}/resume", s.tailorJobResume)
 			r.Get("/today", s.today)
