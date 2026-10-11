@@ -1,0 +1,5 @@
+{{define "text"}}Email is working.
+
+This test came from your Wera server through {{.Provider}}, sent from {{.From}}.
+If it landed in spam, check your domain's SPF, DKIM and DMARC records.
+{{end}}

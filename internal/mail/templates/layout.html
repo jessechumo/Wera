@@ -1,0 +1,53 @@
+{{define "layout"}}<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{template "subject" .}}</title>
+<style>
+  body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; }
+  a { color: #c4572f; }
+  .btn:hover { background: #b84f2b !important; }
+  @media (max-width: 620px) { .card { padding: 24px 20px !important; } .outer { padding: 12px !important; } }
+  @media (prefers-color-scheme: dark) {
+    .bg { background: #111214 !important; }
+    .card { background: #1b1d21 !important; border-color: #2a2d33 !important; }
+    .ink, .ink td, h1, p, li { color: #e8e9ec !important; }
+    .muted { color: #9aa0ab !important; }
+    .rule { border-color: #2a2d33 !important; }
+    .chip { background: #2a2d33 !important; color: #e8e9ec !important; }
+  }
+</style>
+</head>
+<body class="bg" style="margin:0;padding:0;background:#f4f2ee;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;font-size:1px;line-height:1px;">{{template "preheader" .}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg" style="background:#f4f2ee;">
+  <tr><td align="center" class="outer" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+      <tr><td style="padding:0 4px 18px 4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:-0.5px;" class="ink">
+        <a href="{{.AppURL}}" style="color:#16181d;text-decoration:none;" class="ink">wera<span style="color:#d9653f;">.</span></a>
+      </td></tr>
+      <tr><td class="card ink" style="background:#ffffff;border:1px solid #e7e3dc;border-radius:14px;padding:36px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;color:#16181d;font-size:15px;line-height:1.6;">
+        {{template "content" .}}
+      </td></tr>
+      <tr><td class="muted" style="padding:20px 8px 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#80858f;text-align:center;">
+        {{template "footer" .}}
+        <br>Wera · your job radar · <a href="{{.AppURL}}" style="color:#80858f;">{{.AppHost}}</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>{{end}}
+
+{{define "button"}}<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0;">
+  <tr><td align="center" bgcolor="#d9653f" style="border-radius:10px;">
+    <a href="{{.URL}}" class="btn" style="display:inline-block;padding:13px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;background:#d9653f;">{{.Label}}</a>
+  </td></tr>
+</table>{{end}}
+
+{{define "fallback-link"}}<p class="muted" style="margin:0;font-size:13px;color:#6b7180;">If the button does not work, paste this into your browser:<br><a href="{{.}}" style="word-break:break-all;color:#c4572f;">{{.}}</a></p>{{end}}
+
+{{define "footer"}}You received this because you have a Wera account.{{end}}

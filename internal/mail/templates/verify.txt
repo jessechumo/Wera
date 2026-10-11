@@ -1,0 +1,8 @@
+{{define "text"}}Hi {{.FirstName}},
+
+Confirm that {{.Email}} is yours so Wera can send you job digests and reset your password if you ever need to:
+
+{{.Link}}
+
+The link works for {{.ExpiresIn}}. If you did not create a Wera account, ignore this email; nothing will happen.
+{{end}}

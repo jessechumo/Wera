@@ -1,0 +1,11 @@
+{{define "text"}}Strong match ({{.Job.Score}}): {{.Job.Title}}
+{{.Job.Company}}{{if .Job.Location}} · {{.Job.Location}}{{end}}
+
+{{if .Job.Reason}}{{.Job.Reason}}
+
+{{end}}{{if .Job.Skills}}You have: {{join .Job.Skills ", "}}
+
+{{end}}Open in Wera: {{.Job.URL}}
+
+You get alerts for matches scored {{.MinScore}} or higher. Change or turn off alerts: {{.ManageURL}}
+{{end}}
