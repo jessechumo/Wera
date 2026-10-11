@@ -38,10 +38,21 @@ Measured on the development data: a new account is ready in about 5 seconds (pre
 - **Cover letters:** written for one job from the user's profile and resume without repeating the resume; editable, with dashes cleaned out
 - **Community:** a blog for offers, interview experiences and tips, with comments and reactions; every post and comment is reviewed by an AI moderator first (violence, harassment, cheating or faked credentials, spam, off-topic) and refused with a reason
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
-- **Sponsorship:** what each company's postings say about visa sponsorship, built from data already extracted while scoring
+- **Sponsorship:** what each company's postings say about visa sponsorship (from data already extracted while scoring), beside its certified H-1B applications from the US Department of Labor's LCA disclosure files: counts, new hires, offered wages by job title, place and wage level, a lookup for any employer, and in each job view what the company offered for similar titles at that job's level
 - **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), private jobs saved from any page (deduplicated, scored, added to the tracker), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
 - **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
+
+## H-1B data
+
+The Sponsorship page and job view use the US Department of Labor's public LCA disclosure files (certified Labor Condition Applications, which employers file before hiring or extending someone on an H-1B). Download the quarterly "LCA Programs (H-1B, H-1B1, E-3)" files from the [OFLC performance data page](https://www.dol.gov/agencies/eta/foreign-labor/performance) in a browser (the site refuses scripted downloads), then load them:
+
+```bash
+wera h1b import LCA_Disclosure_Data_FY2025_Q4.xlsx LCA_Disclosure_Data_FY2026_Q3.xlsx
+wera h1b status
+```
+
+A file covers one quarter or the fiscal year to date (up to 450,000 rows, 250 MB, about 4 minutes to load); cases already loaded are skipped, so overlapping files and reloads add nothing. Only business fields are stored, never the contact or attorney names and emails in the files. Employers are matched to tracked companies by name; a company that files under another legal name gets `h1b_names` in `config/companies.yaml` (for example SpaceX files as Space Exploration Technologies), then `wera h1b match`.
 
 ## Make it yours
 
@@ -149,6 +160,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 | `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
 | `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
+| `wera h1b import FILE.xlsx... \| match \| status` | Load the Department of Labor's H-1B disclosure files (see below), match employers to companies |
 | `wera version` | Print the version and commit |
 
 ## Extending
@@ -174,6 +186,7 @@ internal/normalize    HTML to text, content hashing
 internal/pipeline     Fetch, filter, rank and score orchestration
 internal/profile      Resume text, avatars, profile drafts, cover letters
 internal/resume       Structured resumes: Typst rendering, one-page fitting, LaTeX import/export, keywords, AI import and tailoring
+internal/h1b          H-1B disclosure files: streaming reader, wage normalization, employer name matching
 internal/relevance    Local TF-IDF ranking (estimated scores)
 internal/scoring      Coral Bricks client, prompts, facts, fit, cost accounting
 internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters

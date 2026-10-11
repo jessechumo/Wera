@@ -21,8 +21,8 @@ const h1bUsage = `usage:
 
 Download the files ("LCA Programs (H-1B, H-1B1, E-3)", one per quarter) from
 https://www.dol.gov/agencies/eta/foreign-labor/performance in a browser
-(the site refuses scripted downloads). Each quarter's file holds that
-quarter only; importing the same file twice adds nothing`
+(the site refuses scripted downloads). A file covers a quarter or the
+fiscal year to date; cases already loaded are skipped`
 
 func runH1B(ctx context.Context, args []string) error {
 	if len(args) < 1 {
