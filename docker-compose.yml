@@ -125,5 +125,51 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Public access (opt in: `docker compose --profile public up -d`). A second
+  # API instance for traffic from the internet (the Vercel dashboard), with
+  # secure cookies and proxy headers trusted; wera-api keeps serving the LAN
+  # over plain HTTP. Both share the database. Not published on any port:
+  # only the tunnel reaches it.
+  wera-api-public:
+    profiles: [public]
+    image: wera:local
+    container_name: wera-api-public
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
+      HTTP_ADDR: ":8080"
+      LOG_FORMAT: json
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "true"
+      PUBLIC_ORIGINS: ${PUBLIC_ORIGINS:-}
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      wera-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/wera", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Cloudflare quick tunnel to wera-api-public: an outbound connection, so no
+  # router ports are opened. The https://*.trycloudflare.com address is in
+  # `docker logs wera-tunnel` and changes whenever this container restarts;
+  # replace it with a named tunnel once there is a domain.
+  wera-tunnel:
+    profiles: [public]
+    image: cloudflare/cloudflared:2025.9.1
+    container_name: wera-tunnel
+    command: tunnel --no-autoupdate --url http://wera-api-public:8080
+    depends_on:
+      wera-api-public:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   wera-pgdata:
