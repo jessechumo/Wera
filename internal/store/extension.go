@@ -297,6 +297,10 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 
 var applySuffix = regexp.MustCompile(`/(apply|application)(/.*)?$`)
 
+// boardJobParams maps query parameters that carry a job board's id to
+// that board's source.
+var boardJobParams = map[string]string{"gh_jid": "greenhouse", "ashby_jid": "ashby"}
+
 var trailingID = regexp.MustCompile(`([0-9]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/?(?:apply|application)?/?$`)
 
 // LookupJobByURL finds one of the user's jobs for a page URL: the same
@@ -317,6 +321,19 @@ func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw s
 	u, perr := url.Parse(norm)
 	if perr != nil {
 		return 0, pgx.ErrNoRows
+	}
+	// A company's own careers page names the board's job in the query
+	// (?gh_jid=4019309 for Greenhouse, ?ashby_jid=<uuid> for Ashby).
+	for param, source := range boardJobParams {
+		if v := u.Query().Get(param); v != "" {
+			err = pool.QueryRow(ctx, `
+				SELECT j.id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
+				WHERE uj.user_id = $1 AND j.source = $2 AND j.ext_id = $3
+				ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, source, v).Scan(&id)
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return id, err
+			}
+		}
 	}
 	m := trailingID.FindStringSubmatch(u.Path)
 	if m == nil {

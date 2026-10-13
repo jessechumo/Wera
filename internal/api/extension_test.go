@@ -95,6 +95,34 @@ func TestExtensionTokensAndAddJob(t *testing.T) {
 		t.Errorf("unknown URL: %s", body)
 	}
 
+	// A board job opened on the company's own careers page (?gh_jid=...).
+	ctx := context.Background()
+	ghExt := testutil.Unique("9")
+	var ghCompany, ghJob int64
+	if err := pool.QueryRow(ctx, `INSERT INTO companies (name, ats, token, industry, enabled)
+		VALUES ($1, 'greenhouse', $1, 'robotics', false) RETURNING id`, "GH Robotics "+ghExt).Scan(&ghCompany); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		pool.Exec(ctx, `DELETE FROM user_jobs WHERE job_id IN (SELECT id FROM jobs WHERE company_id = $1)`, ghCompany)
+		pool.Exec(ctx, `DELETE FROM jobs WHERE company_id = $1`, ghCompany)
+		pool.Exec(ctx, `DELETE FROM companies WHERE id = $1`, ghCompany)
+	})
+	if err := pool.QueryRow(ctx, `INSERT INTO jobs (company_id, source, ext_id, title, url, content_hash)
+		VALUES ($1, 'greenhouse', $2, 'Platform Engineer', 'https://job-boards.greenhouse.io/ghrobotics/jobs/' || $2, 'h') RETURNING id`,
+		ghCompany, ghExt).Scan(&ghJob); err != nil {
+		t.Fatal(err)
+	}
+	if tag, err := pool.Exec(ctx, `INSERT INTO user_jobs (user_id, job_id, content_hash, stage)
+		SELECT id, $1, 'h', 'pending_score' FROM users WHERE email = $2`, ghJob, email); err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("link job: %v (%d rows)", err, tag.RowsAffected())
+	}
+	_, body = do(t, ext, http.MethodGet, ts.URL+"/api/ext/jobs/lookup?url="+
+		"https%3A%2F%2Fwww.ghrobotics.example%2Fcareers%2Fopen-roles%3Fgh_jid%3D"+ghExt, "")
+	if !strings.Contains(body, fmt.Sprintf(`"id":%d`, ghJob)) {
+		t.Errorf("lookup by gh_jid failed: %s", body)
+	}
+
 	// Only its owner sees the job; the shared lists never do.
 	if code, _ := do(t, client, http.MethodGet, fmt.Sprintf("%s/api/jobs/%d", ts.URL, job.ID), ""); code != 404 {
 		t.Errorf("another user can see an added job: %d", code)
