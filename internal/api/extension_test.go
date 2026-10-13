@@ -73,6 +73,11 @@ func TestExtensionTokensAndAddJob(t *testing.T) {
 	if code, again := do(t, ext, http.MethodPost, ts.URL+"/api/ext/jobs", add); code != 200 || !strings.Contains(again, fmt.Sprintf(`"id":%d`, job.ID)) {
 		t.Errorf("same URL again should return the same job: %d", code)
 	}
+	// A posting without a location (stored as NULL) still saves and reads back.
+	if code, body := do(t, ext, http.MethodPost, ts.URL+"/api/ext/jobs",
+		`{"url":"https://jobs.example.com/acme/124","company":"Acme Robotics E2E","title":"Platform Engineer"}`); code != 201 || !strings.Contains(body, `"location_raw":""`) {
+		t.Errorf("add job without a location: %d %s", code, body)
+	}
 	if code, _ := do(t, ext, http.MethodPost, ts.URL+"/api/ext/jobs", `{"url":"javascript:alert(1)","company":"A","title":"B"}`); code != 400 {
 		t.Errorf("non-http URL: want 400, got %d", code)
 	}
