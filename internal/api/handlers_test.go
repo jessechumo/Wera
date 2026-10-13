@@ -281,6 +281,12 @@ func TestProfileFlow(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(string(b), "Example Airlines") {
 		t.Fatalf("resume upload: %d %s", resp.StatusCode, b)
 	}
+	// The upload starts a profile with no preferences yet; its lists must
+	// still be arrays (the setup wizard reads their length on resume).
+	code, body = getBody(t, ts.URL+"/api/profile")
+	if code != 200 || !strings.Contains(body, `"role_families":[]`) || !strings.Contains(body, `"levels":[]`) {
+		t.Fatalf("profile after upload: %d %.300s", code, body)
+	}
 
 	// Without Coral settings the AI endpoints answer 503, never a crash.
 	req, _ = http.NewRequest(http.MethodPost, ts.URL+"/api/profile/suggest", nil)

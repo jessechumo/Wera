@@ -44,6 +44,14 @@ func scanProfile(row pgx.Row) (*Profile, error) {
 	if err := json.Unmarshal(prefs, &p.Preferences); err != nil {
 		return nil, fmt.Errorf("profile %d preferences: %w", p.UserID, err)
 	}
+	// A profile started by a resume upload has preferences '{}'; keep the
+	// lists non-nil so the API sends [] rather than null.
+	if p.Preferences.RoleFamilies == nil {
+		p.Preferences.RoleFamilies = []string{}
+	}
+	if p.Preferences.Levels == nil {
+		p.Preferences.Levels = []string{}
+	}
 	return &p, nil
 }
 

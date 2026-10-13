@@ -125,6 +125,16 @@ Released images are published to `ghcr.io/jessechumo/wera:<version>`.
 
 To let people outside your network use Wera, give it a public HTTPS address without opening router ports, for example with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to `http://localhost:3000` (or host the dashboard on Vercel and tunnel the API). Then set `COOKIE_SECURE=true`, `TRUST_PROXY=true`, and `PUBLIC_ORIGINS=https://<your-domain>` in `.env` and restart. Served over HTTPS, the dashboard's HSTS header stops downgrade attacks.
 
+Until there is a domain, the `public` compose profile does this with no account: a second API instance (`wera-api-public`, secure cookies, proxy headers trusted) behind a Cloudflare quick tunnel, while `wera-api` keeps serving the LAN over plain HTTP.
+
+```sh
+PUBLIC_ORIGINS=https://<your-app>.vercel.app   # in .env
+docker compose --profile public up -d wera-api-public wera-tunnel
+docker logs wera-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com'
+```
+
+Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, so switch to a named tunnel once a domain exists.
+
 ### Accounts
 
 Every API route except signup and login needs a session. People sign up in the dashboard (turn this off with `SIGNUP_ENABLED=false`; `SIGNUPS_PER_HOUR` limits sign-ups per IP), or you create accounts from the shell; `create` and `passwd` print a generated password:
