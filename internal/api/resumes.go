@@ -32,9 +32,8 @@ func (s *Server) renderer(w http.ResponseWriter) bool {
 }
 
 func (s *Server) resumeParam(w http.ResponseWriter, r *http.Request) (*store.ResumeDoc, bool) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "resume")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad resume id")
 		return nil, false
 	}
 	doc, err := store.GetResume(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -267,9 +266,8 @@ func (s *Server) putResume(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteResumeHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "resume")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad resume id")
 		return
 	}
 	if err := store.DeleteResume(r.Context(), s.Pool, currentUser(r).ID, id); errors.Is(err, pgx.ErrNoRows) {
@@ -499,9 +497,8 @@ func (s *Server) thumbnails(w http.ResponseWriter, r *http.Request) {
 // jobKeywords is GET /api/jobs/{id}/keywords: the posting's keywords and
 // how the user's resume for it (tailored, else base) covers them.
 func (s *Server) jobKeywords(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	user := currentUser(r)
@@ -527,9 +524,8 @@ func (s *Server) jobKeywords(w http.ResponseWriter, r *http.Request) {
 
 // getJobResume is GET /api/jobs/{id}/resume: the copy tailored for a job.
 func (s *Server) getJobResume(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	doc, err := store.JobResume(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -547,9 +543,8 @@ func (s *Server) getJobResume(w http.ResponseWriter, r *http.Request) {
 // tailored to the job by the AI (edits keyed by bullet, checked), then
 // fitted to one page keeping the bullets that match the job.
 func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	user := currentUser(r)

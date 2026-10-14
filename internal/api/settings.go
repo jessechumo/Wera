@@ -2,9 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 
 	"wera/internal/auth"
 	"wera/internal/store"
@@ -51,9 +48,8 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 
 // hideCompany is PUT (hide) / DELETE (unhide) /api/companies/{id}/hidden.
 func (s *Server) hideCompany(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		s.writeError(w, http.StatusBadRequest, "bad company id")
+	id, ok := s.pathID(w, r, "id", "company")
+	if !ok {
 		return
 	}
 	hidden := r.Method == http.MethodPut

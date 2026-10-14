@@ -38,9 +38,8 @@ func (s *Server) interviewQuiz(w http.ResponseWriter, r *http.Request) {
 
 // interviewAnswer is POST /api/interview/questions/{id}/answer {"choice": 0-3}.
 func (s *Server) interviewAnswer(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "question")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad question id")
 		return
 	}
 	var in struct {

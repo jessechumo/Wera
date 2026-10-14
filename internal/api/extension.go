@@ -117,9 +117,8 @@ func (s *Server) deleteExtToken(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad id")
 		return
 	}
 	if err := store.DeleteAPIToken(r.Context(), s.Pool, currentUser(r).ID, id); errors.Is(err, pgx.ErrNoRows) {

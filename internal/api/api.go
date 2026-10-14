@@ -310,9 +310,8 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
+	id, ok := s.pathID(w, r, "id", "job")
+	if !ok {
 		return
 	}
 	user := currentUser(r)
