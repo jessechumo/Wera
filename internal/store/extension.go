@@ -258,7 +258,7 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 	var shared int64
 	err = tx.QueryRow(ctx, `
 		SELECT id FROM jobs WHERE rtrim(url, '/') = rtrim($1, '/') AND closed_at IS NULL
-		ORDER BY added_by IS NOT NULL, id LIMIT 1`, in.URL).Scan(&shared)
+		ORDER BY source = 'manual', id LIMIT 1`, in.URL).Scan(&shared)
 	switch {
 	case err == nil:
 		if _, err := linkAddedJob(ctx, tx, userID, shared); err != nil {

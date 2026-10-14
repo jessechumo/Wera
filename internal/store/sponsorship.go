@@ -43,7 +43,7 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		    SELECT sponsorship, sponsorship_quote FROM analyses
 		    WHERE job_id = j.id AND kind = 'score' AND sponsorship IS NOT NULL
 		    ORDER BY created_at DESC LIMIT 1) a ON f.job_id IS NULL
-		  WHERE j.added_by IS NULL),
+		  WHERE j.source <> 'manual'),
 		h AS (
 		  SELECT m.company_id, count(*) AS filings, count(*) FILTER (WHERE l.new_employment) AS new_hires,
 		         percentile_cont(0.5) WITHIN GROUP (ORDER BY l.wage_from) AS median
