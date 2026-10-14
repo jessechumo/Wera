@@ -29,7 +29,8 @@ type SponsorshipStat struct {
 	H1BMedianWage *float64 `json:"h1b_median_wage"`
 }
 
-// SponsorshipByCompany aggregates per company, optionally filtered by name.
+// SponsorshipByCompany aggregates per company, optionally filtered by name
+// (limit 0: every company).
 func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string, limit int) ([]SponsorshipStat, error) {
 	rows, err := pool.Query(ctx, `
 		WITH per_job AS (
@@ -63,7 +64,7 @@ func SponsorshipByCompany(ctx context.Context, pool *pgxpool.Pool, query string,
 		GROUP BY c.id, h.filings, h.new_hires, h.median
 		HAVING count(p.s) > 0 OR h.filings > 0
 		ORDER BY coalesce(h.filings, 0) DESC, count(*) FILTER (WHERE p.s = 'yes') DESC, count(p.s) DESC, c.name
-		LIMIT $2`, query, normalizeLimit(limit, 50, 1000))
+		LIMIT $2`, query, normalizeLimit(limit, 10000, 10000))
 	if err != nil {
 		return nil, err
 	}
