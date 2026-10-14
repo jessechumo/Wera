@@ -203,3 +203,54 @@ func JobKeywords(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64) (
 	}
 	return out, nil
 }
+
+// ResumeImport is the state of a background import of the uploaded resume.
+type ResumeImport struct {
+	Status     string     `json:"status"` // running | done | failed
+	Error      string     `json:"error"`
+	StartedAt  time.Time  `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+}
+
+// staleImport is how long a running import may take before another can
+// start (the process running it may have stopped).
+const staleImport = 10 * time.Minute
+
+// StartResumeImport records a background import for the user and reports
+// whether the caller should run it (false while another is running).
+func StartResumeImport(ctx context.Context, pool *pgxpool.Pool, userID int64) (bool, error) {
+	tag, err := pool.Exec(ctx, `
+		INSERT INTO resume_imports (user_id, status) VALUES ($1, 'running')
+		ON CONFLICT (user_id) DO UPDATE SET status = 'running', error = '', started_at = now(), finished_at = NULL
+		WHERE resume_imports.status <> 'running' OR resume_imports.started_at < $2`,
+		userID, time.Now().Add(-staleImport))
+	return tag.RowsAffected() == 1, err
+}
+
+// FinishResumeImport records how a background import ended ("" for done).
+func FinishResumeImport(ctx context.Context, pool *pgxpool.Pool, userID int64, failure string) error {
+	status := "done"
+	if failure != "" {
+		status = "failed"
+	}
+	_, err := pool.Exec(ctx, `UPDATE resume_imports SET status = $2, error = $3, finished_at = now() WHERE user_id = $1`,
+		userID, status, failure)
+	return err
+}
+
+// GetResumeImport returns the user's latest background import, or nil.
+func GetResumeImport(ctx context.Context, pool *pgxpool.Pool, userID int64) (*ResumeImport, error) {
+	var ri ResumeImport
+	err := pool.QueryRow(ctx, `SELECT status, error, started_at, finished_at FROM resume_imports WHERE user_id = $1`, userID).
+		Scan(&ri.Status, &ri.Error, &ri.StartedAt, &ri.FinishedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if ri.Status == "running" && time.Since(ri.StartedAt) > staleImport {
+		ri.Status, ri.Error = "failed", "the import did not finish"
+	}
+	return &ri, nil
+}

@@ -161,24 +161,31 @@ func (s *Server) putApplicant(w http.ResponseWriter, r *http.Request) {
 // aiReady checks the server and the user's budget before an AI call; on
 // failure it has written the response.
 func (s *Server) aiReady(w http.ResponseWriter, r *http.Request, what string) bool {
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
-		s.writeError(w, http.StatusServiceUnavailable, what+" is not configured on this server")
-		return false
-	}
 	if !s.extAILimit.Allow(strconv.FormatInt(currentUser(r).ID, 10)) {
 		s.writeError(w, http.StatusTooManyRequests, "too many AI requests this hour; try again later")
 		return false
 	}
-	allowance, why, err := pipeline.Allowance(r.Context(), s.Pool, s.Env, currentUser(r).ID)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "budget check failed")
-		return false
-	}
-	if allowance <= 0 {
-		s.writeError(w, http.StatusPaymentRequired, what+" is unavailable: "+why)
+	if code, msg := s.aiAvailable(r.Context(), currentUser(r).ID, what); code != 0 {
+		s.writeError(w, code, msg)
 		return false
 	}
 	return true
+}
+
+// aiAvailable checks the server and the user's budget, returning an HTTP
+// status and message when an AI call cannot be made (0 when it can).
+func (s *Server) aiAvailable(ctx context.Context, userID int64, what string) (int, string) {
+	if s.Env == nil || s.Env.CoralAPIKey == "" {
+		return http.StatusServiceUnavailable, what + " is not configured on this server"
+	}
+	allowance, why, err := pipeline.Allowance(ctx, s.Pool, s.Env, userID)
+	if err != nil {
+		return http.StatusInternalServerError, "budget check failed"
+	}
+	if allowance <= 0 {
+		return http.StatusPaymentRequired, what + " is unavailable: " + why
+	}
+	return 0, ""
 }
 
 // suggestApplicant is POST /api/applicant/suggest: details read off the

@@ -111,6 +111,7 @@ func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "could not save the resume")
 		return
 	}
+	s.importInBackground(currentUser(r).ID, text)
 	preview := text
 	if len(preview) > 600 {
 		preview = preview[:600]
