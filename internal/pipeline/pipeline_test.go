@@ -275,6 +275,24 @@ func TestShareJob(t *testing.T) {
 	if n, err := store.CloseStaleManualJobs(ctx, pool); err != nil || n < 1 {
 		t.Errorf("close stale: %d, %v", n, err)
 	}
+
+	// Long-closed postings drop the matches nobody acted on; scored and
+	// tracked ones stay.
+	pool.Exec(ctx, `UPDATE jobs SET closed_at = now() - interval '40 days' WHERE id = ANY($1)`, []int64{sre, accountant})
+	pool.Exec(ctx, `UPDATE user_jobs SET stage = 'excluded' WHERE user_id = $1 AND job_id = $2`, other.ID, accountant)
+	pool.Exec(ctx, `DELETE FROM applications WHERE user_id = $1 AND job_id = $2`, other.ID, accountant)
+	if _, err := store.PruneClosedMatches(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, other.ID, accountant); stage != "" {
+		t.Errorf("an untouched closed match should be pruned: %q", stage)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, other.ID, sre); stage != "scored" {
+		t.Errorf("a scored closed match must stay: %q", stage)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, adder.ID, accountant); stage == "" {
+		t.Error("a tracked closed job must stay")
+	}
 }
 
 func TestScoreUserWithoutKeySkips(t *testing.T) {

@@ -69,11 +69,7 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		}
 	}
 
-	if n, err := store.CloseStaleManualJobs(ctx, p.Pool); err != nil {
-		p.Log.Error("closing stale added jobs failed", "err", err)
-	} else if n > 0 {
-		p.Log.Info("closed stale added jobs", "jobs", n)
-	}
+	p.housekeeping(ctx)
 
 	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
 	fstats, fetchErr := fetcher.Run(ctx, p.Companies, "")
@@ -276,4 +272,20 @@ func (p *Pipeline) offer(ctx context.Context, prof *store.Profile, jobID int64) 
 	}
 	stage, err := store.UserJobStage(ctx, p.Pool, prof.UserID, jobID)
 	return stage == "pending_score", err
+}
+
+// housekeeping closes added postings past their lifetime and drops
+// per-user rows for long-closed postings nobody acted on. Failures are
+// logged; they never stop a run.
+func (p *Pipeline) housekeeping(ctx context.Context) {
+	if n, err := store.CloseStaleManualJobs(ctx, p.Pool); err != nil {
+		p.Log.Error("closing stale added jobs failed", "err", err)
+	} else if n > 0 {
+		p.Log.Info("closed stale added jobs", "jobs", n)
+	}
+	if n, err := store.PruneClosedMatches(ctx, p.Pool); err != nil {
+		p.Log.Error("pruning closed matches failed", "err", err)
+	} else if n > 0 {
+		p.Log.Info("pruned matches for closed jobs", "rows", n)
+	}
 }

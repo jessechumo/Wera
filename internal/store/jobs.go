@@ -325,3 +325,22 @@ func UserJobStage(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64) 
 	}
 	return stage, err
 }
+
+// prunedAfter is how long a closed posting keeps its per-user rule
+// outcomes. Matches nobody acted on are dropped after it (a posting that
+// reopens is simply filtered again); scored ones and jobs in a user's
+// tracker are kept.
+const prunedAfter = 30 * 24 * time.Hour
+
+// PruneClosedMatches deletes per-user rows for postings closed longer than
+// prunedAfter that were never scored or tracked, so user_jobs grows with
+// open postings rather than with every posting ever seen.
+func PruneClosedMatches(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		DELETE FROM user_jobs uj USING jobs j
+		WHERE j.id = uj.job_id AND j.closed_at < $1
+		  AND uj.stage IN ('excluded', 'pending_score', 'score_failed') AND uj.analysis_id IS NULL
+		  AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.user_id = uj.user_id AND a.job_id = uj.job_id)`,
+		time.Now().Add(-prunedAfter))
+	return tag.RowsAffected(), err
+}
