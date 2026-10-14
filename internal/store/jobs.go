@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -139,8 +140,7 @@ func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, 
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
 		WHERE j.closed_at IS NULL
-		  AND j.added_by IS NULL -- jobs a user added are theirs alone and never filtered
-		  AND (uj.job_id IS NULL OR uj.content_hash <> j.content_hash)`, userID)
+		  AND (uj.job_id IS NULL OR (uj.content_hash <> j.content_hash AND j.added_by IS DISTINCT FROM $1))`, userID)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("load jobs to filter: %w", err)
 	}
@@ -314,4 +314,14 @@ func storedHashes(ctx context.Context, pool *pgxpool.Pool, companyID int64) (map
 		out[src+"\x00"+id] = h
 	}
 	return out, rows.Err()
+}
+
+// UserJobStage returns the user's stage for a job ("" when they have none).
+func UserJobStage(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64) (string, error) {
+	var stage string
+	err := pool.QueryRow(ctx, `SELECT stage FROM user_jobs WHERE user_id = $1 AND job_id = $2`, userID, jobID).Scan(&stage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return stage, err
 }

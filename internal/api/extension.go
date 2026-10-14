@@ -273,8 +273,9 @@ func (s *Server) lookupJob(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"job": job})
 }
 
-// addJob is POST /api/ext/jobs: save a job from any page to the user's
-// lists (and tracker). Known URLs return the existing job (200).
+// addJob is POST /api/jobs (and /api/ext/jobs): save a job from any page
+// to the user's lists and tracker, then share it with the other users it
+// suits. A URL the user already has returns their job (200).
 func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		URL         string `json:"url"`
@@ -320,14 +321,8 @@ func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "could not add the job")
 		return
 	}
-	if created && s.ScoreNow != nil {
-		go func() { //nolint:gosec // scoring outlives the request on purpose
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer cancel()
-			if err := s.ScoreNow(ctx, user.ID, id); err != nil {
-				s.Log.Warn("scoring an added job failed", "user_id", user.ID, "job_id", id, "err", err)
-			}
-		}()
+	if created {
+		go s.afterAdd(user.ID, id) //nolint:gosec // scoring outlives the request on purpose
 	}
 	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if err != nil {
@@ -339,6 +334,21 @@ func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	s.writeJSON(w, status, job)
+}
+
+// afterAdd scores a just-added job for the user who added it, then
+// offers it to everyone else.
+func (s *Server) afterAdd(userID, jobID int64) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if s.ScoreNow != nil {
+		if err := s.ScoreNow(ctx, userID, jobID); err != nil {
+			s.Log.Warn("scoring an added job failed", "user_id", userID, "job_id", jobID, "err", err)
+		}
+	}
+	if s.ShareJob != nil {
+		s.ShareJob(ctx, jobID, userID)
+	}
 }
 
 // jobContext returns a job's company, title and description for prompts:

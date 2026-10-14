@@ -71,6 +71,8 @@ type Server struct {
 
 	// ScoreNow scores one unscored job immediately (set by `wera serve`).
 	ScoreNow func(ctx context.Context, userID, jobID int64) error
+	// ShareJob offers a job a user added to the other users it suits.
+	ShareJob func(ctx context.Context, jobID, addedBy int64)
 
 	signupLimit  *auth.Limiter
 	loginLimit   *auth.Limiter
@@ -141,6 +143,7 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/companies/{id}/hidden", s.hideCompany)
 
 			r.Get("/jobs", s.listJobs)
+			r.Post("/jobs", s.addJob)
 			r.Get("/jobs/{id}", s.getJob)
 			r.Put("/jobs/{id}/application", s.putApplication)
 			r.Post("/jobs/{id}/score", s.scoreJob)

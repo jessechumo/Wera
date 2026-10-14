@@ -123,10 +123,11 @@ func TestExtensionTokensAndAddJob(t *testing.T) {
 		t.Errorf("lookup by gh_jid failed: %s", body)
 	}
 
-	// Only its owner sees the job; the shared lists never do.
-	if code, _ := do(t, client, http.MethodGet, fmt.Sprintf("%s/api/jobs/%d", ts.URL, job.ID), ""); code != 404 {
-		t.Errorf("another user can see an added job: %d", code)
+	// Another user adding the same posting from the dashboard shares it.
+	if code, body := do(t, client, http.MethodPost, ts.URL+"/api/jobs", add); code != 201 || !strings.Contains(body, fmt.Sprintf(`"id":%d`, job.ID)) {
+		t.Errorf("the same posting added by another user: %d %s", code, body)
 	}
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM user_jobs WHERE job_id = $1`, job.ID) })
 	if _, body := do(t, client, http.MethodGet, ts.URL+"/api/companies", ""); strings.Contains(body, "Acme Robotics E2E") {
 		t.Error("a manual company leaked into the shared company list")
 	}

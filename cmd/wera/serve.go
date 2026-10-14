@@ -110,7 +110,15 @@ func runServe(ctx context.Context, args []string) error {
 			return err
 		},
 		ScoreNow: p.ScoreNow,
-		Resumes:  resume.NewRenderer(env.TypstBin),
+		ShareJob: func(ctx context.Context, jobID, addedBy int64) {
+			offered, scored, err := p.ShareJob(ctx, jobID, addedBy)
+			if err != nil {
+				log.Error("sharing an added job failed", "job_id", jobID, "err", err)
+				return
+			}
+			log.Info("shared an added job", "job_id", jobID, "offered", offered, "scored", scored)
+		},
+		Resumes: resume.NewRenderer(env.TypstBin),
 
 		SignupEnabled:  env.SignupEnabled,
 		SignupsPerHour: env.SignupsPerHour,

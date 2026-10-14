@@ -232,22 +232,41 @@ func NormalizeJobURL(raw string) string {
 	return u.String()
 }
 
-// AddManualJob creates (or finds) the user's job for this URL, links it to
-// them as a pending match saved in their tracker, and returns its id and
-// whether it was new. The company is matched by name to a watched company
-// when one exists; otherwise a private "manual" company is created.
+// AddManualJob creates (or finds) the job for this URL, links it to the
+// user as a pending match saved in their tracker, and returns its id and
+// whether the user did not have it before. A posting someone else already
+// added is shared, not duplicated. The company is matched by name to a
+// watched company when one exists; otherwise a "manual" company is created.
 func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in ManualJob) (int64, bool, error) {
 	in.URL = NormalizeJobURL(in.URL)
-	if id, err := LookupJobByURL(ctx, pool, userID, in.URL); err == nil {
-		return id, false, nil
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, false, err
-	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, false, err
 	}
 	defer tx.Rollback(ctx)
+	if id, err := LookupJobByURL(ctx, pool, userID, in.URL); err == nil {
+		changed, err := linkAddedJob(ctx, tx, userID, id)
+		if err != nil {
+			return 0, false, err
+		}
+		return id, changed, tx.Commit(ctx)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, err
+	}
+
+	// Someone else added this posting already: share it.
+	var shared int64
+	err = tx.QueryRow(ctx, `SELECT id FROM jobs WHERE url = $1 AND closed_at IS NULL ORDER BY added_by IS NOT NULL, id LIMIT 1`,
+		in.URL).Scan(&shared)
+	switch {
+	case err == nil:
+		if _, err := linkAddedJob(ctx, tx, userID, shared); err != nil {
+			return 0, false, err
+		}
+		return shared, true, tx.Commit(ctx)
+	case !errors.Is(err, pgx.ErrNoRows):
+		return 0, false, err
+	}
 
 	industry := in.Industry
 	if industry == "" {
@@ -280,19 +299,44 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 		in.Description, contentHash, userID).Scan(&jobID); err != nil {
 		return 0, false, fmt.Errorf("insert job: %w", err)
 	}
-	// Added on purpose, so never rule-filtered: straight to the scoring queue
-	// and into the tracker as saved.
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO user_jobs (user_id, job_id, content_hash, stage) VALUES ($1, $2, $3, 'pending_score')`,
-		userID, jobID, contentHash); err != nil {
-		return 0, false, fmt.Errorf("link job: %w", err)
+	if _, err := linkAddedJob(ctx, tx, userID, jobID); err != nil {
+		return 0, false, err
+	}
+	return jobID, true, tx.Commit(ctx)
+}
+
+// linkAddedJob gives the user a job they added on purpose: never
+// rule-filtered, straight to the scoring queue and into the tracker as
+// saved. A rule exclusion they had for it is lifted. It reports whether
+// the job is newly in their scoring queue.
+func linkAddedJob(ctx context.Context, tx pgx.Tx, userID, jobID int64) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO user_jobs (user_id, job_id, content_hash, stage)
+		SELECT $1, id, content_hash, 'pending_score' FROM jobs WHERE id = $2
+		ON CONFLICT (user_id, job_id) DO UPDATE
+		SET stage = 'pending_score', exclude_reason = NULL, exclude_evidence = NULL, updated_at = now()
+		WHERE user_jobs.stage = 'excluded' AND user_jobs.analysis_id IS NULL`, userID, jobID)
+	if err != nil {
+		return false, fmt.Errorf("link job: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO applications (user_id, job_id, status, notes) VALUES ($1, $2, 'saved', '')
 		ON CONFLICT DO NOTHING`, userID, jobID); err != nil {
-		return 0, false, fmt.Errorf("save to tracker: %w", err)
+		return false, fmt.Errorf("save to tracker: %w", err)
 	}
-	return jobID, true, tx.Commit(ctx)
+	return tag.RowsAffected() > 0, nil
+}
+
+// manualJobLifetime is how long an added posting stays open: nothing
+// re-checks a page someone pasted, so it is assumed filled after this.
+const manualJobLifetime = 45 * 24 * time.Hour
+
+// CloseStaleManualJobs closes added postings older than their lifetime.
+func CloseStaleManualJobs(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE jobs SET closed_at = now()
+		WHERE source = 'manual' AND closed_at IS NULL AND first_seen_at < $1`, time.Now().Add(-manualJobLifetime))
+	return tag.RowsAffected(), err
 }
 
 var applySuffix = regexp.MustCompile(`/(apply|application)(/.*)?$`)
