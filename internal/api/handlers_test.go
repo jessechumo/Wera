@@ -86,7 +86,7 @@ func TestSummaryEndpoints(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	for _, path := range []string{
 		"/api/today", "/api/stats", "/api/runs?limit=5", "/api/companies",
-		"/api/usage", "/api/usage/me", "/api/today?limit=5", "/api/excluded?reason=title:senior", "/api/industries",
+		"/api/admin/usage", "/api/usage/me", "/api/today?limit=5", "/api/excluded?reason=title:senior", "/api/industries",
 	} {
 		code, body := getBody(t, ts.URL+path)
 		if code != 200 {
@@ -202,8 +202,8 @@ func TestAuthFlow(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(string(body), email) {
 		t.Errorf("/api/auth/me: %d %s", resp.StatusCode, body)
 	}
-	if r := post(user, "/api/runs", ``); r.StatusCode != 403 {
-		t.Errorf("non-admin POST /api/runs: want 403, got %d", r.StatusCode)
+	if r := post(user, "/api/admin/runs", ``); r.StatusCode != 403 {
+		t.Errorf("non-admin POST /api/admin/runs: want 403, got %d", r.StatusCode)
 	}
 
 	if r := post(anon, "/api/auth/login", `{"email":"`+email+`","password":"wrong password"}`); r.StatusCode != 401 {

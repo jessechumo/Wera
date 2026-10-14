@@ -125,6 +125,28 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # The admin console (../wera-admin): nginx serving the app and proxying
+  # /api to wera-api. It answers private networks only; never route it
+  # through the public tunnel.
+  wera-admin:
+    build:
+      context: ../wera-admin
+      args:
+        APP_COMMIT: ${WERA_ADMIN_COMMIT:-dev}
+    image: wera-admin:local
+    container_name: wera-admin
+    ports:
+      - "${ADMIN_PORT:-3001}:80"
+    depends_on:
+      wera-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   # Public access (opt in: `docker compose --profile public up -d`). A second
   # API instance for traffic from the internet (the Vercel dashboard), with
   # secure cookies and proxy headers trusted; wera-api keeps serving the LAN

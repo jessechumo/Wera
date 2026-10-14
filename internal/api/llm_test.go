@@ -226,12 +226,12 @@ func TestTriggerRun(t *testing.T) {
 			return true, nil
 		}
 	})
-	if code, body := do(t, client, http.MethodPost, ts.URL+"/api/runs", ""); code != 202 || !strings.Contains(body, "triggered") {
+	if code, body := do(t, client, http.MethodPost, ts.URL+"/api/admin/runs", ""); code != 202 || !strings.Contains(body, "triggered") {
 		t.Fatalf("trigger: %d %s", code, body)
 	}
 	<-ran
 	ts2, _ := testServer(t, nil)
-	if code, _ := do(t, client, http.MethodPost, ts2.URL+"/api/runs", ""); code != 501 {
+	if code, _ := do(t, client, http.MethodPost, ts2.URL+"/api/admin/runs", ""); code != 501 {
 		t.Errorf("without a pipeline: want 501, got %d", code)
 	}
 }

@@ -15,7 +15,7 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
 
 ![Wera system architecture: browser, nginx, API, worker and PostgreSQL on one host; job boards and the inference API on the internet](docs/architecture.svg)
 
-Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) is the only service reachable from the network; it serves the dashboard and proxies `/api` to `wera-api`. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
+Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) serves the dashboard and proxies `/api` to `wera-api`; `wera-admin` does the same for the admin console, on the LAN only. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
 
 ## How matching works
 
@@ -40,6 +40,7 @@ Measured on the development data: a new account is ready in about 5 seconds (pre
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
 - **Sponsorship:** what each company's postings say about visa sponsorship (from data already extracted while scoring), beside its certified H-1B applications from the US Department of Labor's LCA disclosure files: counts, new hires, offered wages by job title, place and wage level, a lookup for any employer, and in each job view what the company offered for similar titles at that job's level
 - **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), jobs saved from any page or the dashboard (deduplicated across users, scored, added to the tracker, then rule-filtered and scored for every other user they suit; added postings close after 45 days), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
+- **Admin API** (`/api/admin/*`, for the [wera-admin](https://github.com/jessechumo/wera-admin) app): service overview, accounts (budget, admin role, sign out everywhere, delete with the email as confirmation), pipeline runs and AI usage, company fetch health, moderation of community posts and comments (publish, hide, delete), email outbox and tests. Every change lands in an audit log; extension tokens never reach these routes.
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
 - **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
 
@@ -63,7 +64,7 @@ wera mail preview --out email-preview      # every template with sample data; op
 wera mail digest --email you@example.com    # your real digest, rendered to a file (sends nothing)
 ```
 
-Admins can also preview each template from `GET /api/admin/email/preview/{name}`.
+Admins can also preview each template, and send a test, from the admin app (wera-admin).
 
 To turn it on, set `MAIL_PROVIDER=smtp`, `MAIL_FROM`, `PUBLIC_URL` and the `SMTP_*` settings (see `.env.example`), then check with `wera mail test --to you@example.com`. For the mail to reach inboxes, add the sending domain's SPF and DKIM records from your provider, and a DMARC record such as `v=DMARC1; p=quarantine; rua=mailto:dmarc@your-domain.com`. `MAIL_PROVIDER=log` writes messages to the log (and `MAIL_LOG_DIR`) instead of sending them, for development.
 
@@ -110,7 +111,8 @@ To stamp the deployed version into the images (shown in `/healthz` and the dashb
 
 ```bash
 WERA_VERSION=$(git describe --tags --always) WERA_COMMIT=$(git rev-parse --short HEAD) \
-WERA_WEB_COMMIT=$(git -C ../wera-frontend rev-parse --short HEAD) docker compose up -d --build
+WERA_WEB_COMMIT=$(git -C ../wera-frontend rev-parse --short HEAD) \
+WERA_ADMIN_COMMIT=$(git -C ../wera-admin rev-parse --short HEAD) docker compose up -d --build
 ```
 
 The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations run automatically before the API and worker start. Postgres (`5433`) and the API (`8080`) bind to `127.0.0.1` only, so the dashboard is the only service other machines can reach. Docker-published ports bypass `ufw`, so to limit the dashboard to your LAN, add a rule to the `DOCKER-USER` chain:
@@ -118,6 +120,8 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 ```bash
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
+
+The admin console ([wera-admin](https://github.com/jessechumo/wera-admin), checked out beside this repository) is served at `http://<server-ip>:3001` (`ADMIN_PORT`); sign in with an admin account (`wera users admin --email you@example.com`). Its nginx answers private networks only; do not route it through a public tunnel.
 
 Released images are published to `ghcr.io/jessechumo/wera:<version>`.
 

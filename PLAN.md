@@ -549,9 +549,8 @@ All JSON. Default list filters hide `stage IN ('excluded','score_failed')` and `
 | GET | `/api/stats` | Counts by stage/group/category/status, new jobs per day (14 days), applications per week |
 | GET | `/api/runs?limit=20` | Recent runs |
 | GET | `/api/companies` | Companies with last fetch status, job counts |
-| GET | `/api/usage` | Tokens, cached %, cost: per day and totals |
 | GET | `/api/excluded?reason=` | Audit view of excluded jobs with evidence |
-| POST | `/api/runs` | Trigger a pipeline run now (returns 409 if one is running) |
+| * | `/api/admin/*` | The admin app (wera-admin): overview, users (edit, sign out, delete), runs (list, trigger: 409 if one is running), usage, companies, content moderation, email, audit log. Admin browser sessions only |
 
 CORS: allow `http://localhost:5173` in dev (Vite). Bind to `localhost` by default; on the server, access through Tailscale.
 

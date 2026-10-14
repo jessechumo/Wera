@@ -21,7 +21,7 @@ func (s *Server) publicStats(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithoutCancel(r.Context())
 		err := s.Pool.QueryRow(ctx, `
 			SELECT (SELECT count(*) FROM companies WHERE enabled),
-			       (SELECT count(*) FROM jobs WHERE closed_at IS NULL AND added_by IS NULL),
+			       (SELECT count(*) FROM jobs WHERE closed_at IS NULL AND source <> 'manual'),
 			       (SELECT count(*) FROM h1b_lca),
 			       (SELECT count(DISTINCT employer_key) FROM h1b_lca)`).
 			Scan(&st.Companies, &st.OpenJobs, &st.H1BFilings, &st.H1BEmployers)

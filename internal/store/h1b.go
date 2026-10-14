@@ -387,7 +387,7 @@ func JobCompanyTitle(ctx context.Context, pool *pgxpool.Pool, userID, jobID int6
 	var title string
 	err := pool.QueryRow(ctx, `
 		SELECT company_id, title FROM jobs j WHERE id = $1
-		AND (added_by IS NULL OR EXISTS (SELECT 1 FROM user_jobs WHERE job_id = j.id AND user_id = $2))`,
+		AND (source <> 'manual' OR EXISTS (SELECT 1 FROM user_jobs WHERE job_id = j.id AND user_id = $2))`,
 		jobID, userID).Scan(&cid, &title)
 	return cid, title, err
 }

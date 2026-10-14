@@ -293,6 +293,14 @@ func TestShareJob(t *testing.T) {
 	if stage, _ := store.UserJobStage(ctx, pool, adder.ID, accountant); stage == "" {
 		t.Error("a tracked closed job must stay")
 	}
+
+	// The job outlives the account that added it: others still have it.
+	if err := store.DeleteUser(ctx, pool, adder.ID); err != nil {
+		t.Fatal(err)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, other.ID, sre); stage != "scored" {
+		t.Errorf("a shared job must survive its adder's account: %q", stage)
+	}
 }
 
 func TestScoreUserWithoutKeySkips(t *testing.T) {

@@ -229,5 +229,6 @@ func (s *Server) emailTest(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.audit(r, "email.test", "", map[string]string{"to": to})
 	s.writeJSON(w, http.StatusAccepted, map[string]any{"queued_to": to})
 }
