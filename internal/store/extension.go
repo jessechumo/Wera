@@ -256,8 +256,9 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 
 	// Someone else added this posting already: share it.
 	var shared int64
-	err = tx.QueryRow(ctx, `SELECT id FROM jobs WHERE url = $1 AND closed_at IS NULL ORDER BY added_by IS NOT NULL, id LIMIT 1`,
-		in.URL).Scan(&shared)
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM jobs WHERE rtrim(url, '/') = rtrim($1, '/') AND closed_at IS NULL
+		ORDER BY added_by IS NOT NULL, id LIMIT 1`, in.URL).Scan(&shared)
 	switch {
 	case err == nil:
 		if _, err := linkAddedJob(ctx, tx, userID, shared); err != nil {
@@ -354,11 +355,15 @@ func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw s
 	norm := NormalizeJobURL(raw)
 	// An application form often lives at the posting's URL plus /apply.
 	parent := applySuffix.ReplaceAllString(norm, "")
+	addrs := []string{}
+	for _, a := range []string{norm, strings.TrimSpace(raw), parent} {
+		addrs = append(addrs, strings.TrimRight(a, "/"))
+	}
 	var id int64
 	err := pool.QueryRow(ctx, `
-		SELECT j.id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
-		WHERE uj.user_id = $1 AND (j.url = $2 OR j.url = $3 OR rtrim(j.url, '/') = $2 OR j.url = $4)
-		ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, norm, strings.TrimSpace(raw), parent).Scan(&id)
+		SELECT j.id FROM jobs j
+		WHERE rtrim(j.url, '/') = ANY($2::text[]) AND EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id = j.id AND uj.user_id = $1)
+		ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, addrs).Scan(&id)
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return id, err
 	}
@@ -371,8 +376,8 @@ func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw s
 	for param, source := range boardJobParams {
 		if v := u.Query().Get(param); v != "" {
 			err = pool.QueryRow(ctx, `
-				SELECT j.id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
-				WHERE uj.user_id = $1 AND j.source = $2 AND j.ext_id = $3
+				SELECT j.id FROM jobs j
+				WHERE j.source = $2 AND j.ext_id = $3 AND EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id = j.id AND uj.user_id = $1)
 				ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, source, v).Scan(&id)
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return id, err
@@ -384,8 +389,9 @@ func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw s
 		return 0, pgx.ErrNoRows
 	}
 	err = pool.QueryRow(ctx, `
-		SELECT j.id FROM user_jobs uj JOIN jobs j ON j.id = uj.job_id
-		WHERE uj.user_id = $1 AND (j.ext_id = $2 OR j.url LIKE '%' || $2 || '%')
+		SELECT j.id FROM jobs j
+		WHERE (j.ext_id = $2 OR j.url LIKE '%' || $2 || '%')
+		  AND EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id = j.id AND uj.user_id = $1)
 		ORDER BY j.closed_at IS NULL DESC LIMIT 1`, userID, m[1]).Scan(&id)
 	return id, err
 }
