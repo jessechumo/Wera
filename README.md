@@ -15,7 +15,7 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
 
 ![Wera system architecture: browser, nginx, API, worker and PostgreSQL on one host; job boards and the inference API on the internet](docs/architecture.svg)
 
-Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) is the only service reachable from the network; it serves the dashboard and proxies `/api` to `wera-api`. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
+Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) serves the dashboard and proxies `/api` to `wera-api`; `wera-admin` does the same for the admin console, on the LAN only. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
 
 ## How matching works
 
@@ -111,7 +111,8 @@ To stamp the deployed version into the images (shown in `/healthz` and the dashb
 
 ```bash
 WERA_VERSION=$(git describe --tags --always) WERA_COMMIT=$(git rev-parse --short HEAD) \
-WERA_WEB_COMMIT=$(git -C ../wera-frontend rev-parse --short HEAD) docker compose up -d --build
+WERA_WEB_COMMIT=$(git -C ../wera-frontend rev-parse --short HEAD) \
+WERA_ADMIN_COMMIT=$(git -C ../wera-admin rev-parse --short HEAD) docker compose up -d --build
 ```
 
 The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations run automatically before the API and worker start. Postgres (`5433`) and the API (`8080`) bind to `127.0.0.1` only, so the dashboard is the only service other machines can reach. Docker-published ports bypass `ufw`, so to limit the dashboard to your LAN, add a rule to the `DOCKER-USER` chain:
@@ -119,6 +120,8 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 ```bash
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
+
+The admin console ([wera-admin](https://github.com/jessechumo/wera-admin), checked out beside this repository) is served at `http://<server-ip>:3001` (`ADMIN_PORT`); sign in with an admin account (`wera users admin --email you@example.com`). Its nginx answers private networks only; do not route it through a public tunnel.
 
 Released images are published to `ghcr.io/jessechumo/wera:<version>`.
 
