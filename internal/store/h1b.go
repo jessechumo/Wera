@@ -381,11 +381,13 @@ func quantiles(v []float64) (float64, float64, float64) {
 }
 
 // JobCompanyTitle returns a job's company and title, if the user can see
-// the job (shared jobs, or a private one they added).
+// it: any fetched posting, or an added one they have.
 func JobCompanyTitle(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64) (int64, string, error) {
 	var cid int64
 	var title string
-	err := pool.QueryRow(ctx, `SELECT company_id, title FROM jobs WHERE id = $1 AND (added_by IS NULL OR added_by = $2)`,
+	err := pool.QueryRow(ctx, `
+		SELECT company_id, title FROM jobs j WHERE id = $1
+		AND (added_by IS NULL OR EXISTS (SELECT 1 FROM user_jobs WHERE job_id = j.id AND user_id = $2))`,
 		jobID, userID).Scan(&cid, &title)
 	return cid, title, err
 }

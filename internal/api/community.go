@@ -76,9 +76,8 @@ func (s *Server) listPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getPost(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "post")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad post id")
 		return
 	}
 	p, err := store.GetPost(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -140,9 +139,8 @@ func (s *Server) createPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deletePost(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "post")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad post id")
 		return
 	}
 	u := currentUser(r)
@@ -157,9 +155,8 @@ func (s *Server) deletePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "post")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad post id")
 		return
 	}
 	user := currentUser(r)
@@ -199,9 +196,8 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "commentID"), 10, 64)
-	if err != nil || id <= 0 {
-		s.writeError(w, http.StatusBadRequest, "bad comment id")
+	id, ok := s.pathID(w, r, "commentID", "comment")
+	if !ok {
 		return
 	}
 	u := currentUser(r)
@@ -217,9 +213,12 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 
 // react is PUT (add) / DELETE (remove) /api/posts/{id}/reactions/{kind}.
 func (s *Server) react(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "post")
+	if !ok {
+		return
+	}
 	kind := chi.URLParam(r, "kind")
-	if !ok || !store.ValidReactions[kind] {
+	if !store.ValidReactions[kind] {
 		s.writeError(w, http.StatusBadRequest, "bad reaction")
 		return
 	}

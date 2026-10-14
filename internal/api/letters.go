@@ -14,16 +14,25 @@ import (
 	"wera/internal/store"
 )
 
-func jobIDParam(r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	return id, err == nil && id > 0
+// pathID parses a positive id from the URL parameter name; when it is not
+// one, it writes "bad <what> id" (400) and returns false.
+func (s *Server) pathID(w http.ResponseWriter, r *http.Request, name, what string) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, name), 10, 64)
+	if err != nil || id <= 0 {
+		msg := "bad id"
+		if what != "" {
+			msg = "bad " + what + " id"
+		}
+		s.writeError(w, http.StatusBadRequest, msg)
+		return 0, false
+	}
+	return id, true
 }
 
 // getCoverLetter is GET /api/jobs/{id}/cover-letter.
 func (s *Server) getCoverLetter(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	c, err := store.GetCoverLetter(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -42,9 +51,8 @@ func (s *Server) getCoverLetter(w http.ResponseWriter, r *http.Request) {
 // rewrite) the letter for a job from the user's profile, resume and the
 // posting. It is stored so reopening the job costs nothing.
 func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	user := currentUser(r)
@@ -114,9 +122,8 @@ func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
 
 // putCoverLetter is PUT /api/jobs/{id}/cover-letter: save the user's edits.
 func (s *Server) putCoverLetter(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	var in struct {

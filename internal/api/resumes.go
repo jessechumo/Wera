@@ -32,9 +32,8 @@ func (s *Server) renderer(w http.ResponseWriter) bool {
 }
 
 func (s *Server) resumeParam(w http.ResponseWriter, r *http.Request) (*store.ResumeDoc, bool) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "resume")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad resume id")
 		return nil, false
 	}
 	doc, err := store.GetResume(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -67,7 +66,11 @@ func (s *Server) listResumes(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"resumes": list})
+	imp, err := store.GetResumeImport(r.Context(), s.Pool, currentUser(r).ID)
+	if err != nil {
+		s.Log.Error("resume import state failed", "err", err)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"resumes": list, "import": imp})
 }
 
 func (s *Server) getResumeHandler(w http.ResponseWriter, r *http.Request) {
@@ -112,13 +115,9 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 		if !s.aiReady(w, r, "importing resumes") {
 			return
 		}
-		reply, err := s.chatForUser(r.Context(), user.ID, "resume_import", 4000, resume.ImportMessages(prof.ResumeText))
-		if err != nil {
-			s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
-			return
-		}
-		if doc, warnings, err = resume.ParseImport(reply, prof.ResumeText); err != nil {
-			s.writeError(w, http.StatusBadGateway, "the AI could not read your resume; try LaTeX import or start from blank")
+		var ierr *importError
+		if doc, warnings, ierr = s.importUpload(r.Context(), user.ID, prof.ResumeText); ierr != nil {
+			s.writeError(w, ierr.code, ierr.msg)
 			return
 		}
 	case "blank":
@@ -127,33 +126,93 @@ func (s *Server) importResume(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "source must be tex, profile or blank")
 		return
 	}
-	existing, err := store.BaseResume(r.Context(), s.Pool, user.ID)
+	id, ierr := s.saveBase(r.Context(), user.ID, doc, warnings, in.Replace)
+	if ierr != nil {
+		s.writeError(w, ierr.code, ierr.msg)
+		return
+	}
+	doc2, _ := store.GetResume(r.Context(), s.Pool, user.ID, id)
+	s.writeJSON(w, http.StatusCreated, s.view(r, doc2))
+}
+
+// importError is a failed import step with the response it maps to.
+type importError struct {
+	code int
+	msg  string
+}
+
+// importUpload has the AI arrange the uploaded resume text into sections.
+func (s *Server) importUpload(ctx context.Context, userID int64, text string) (*resume.Resume, []string, *importError) {
+	reply, err := s.chatForUser(ctx, userID, "resume_import", 4000, resume.ImportMessages(text))
+	if err != nil {
+		return nil, nil, &importError{http.StatusBadGateway, "the AI service did not answer; try again"}
+	}
+	doc, warnings, err := resume.ParseImport(reply, text)
+	if err != nil {
+		return nil, nil, &importError{http.StatusBadGateway, "the AI could not read your resume; try LaTeX import or start from blank"}
+	}
+	return doc, warnings, nil
+}
+
+// saveBase stores doc as the user's main resume, fitted to a page. An
+// existing one is overwritten only with replace (keeping its template).
+func (s *Server) saveBase(ctx context.Context, userID int64, doc *resume.Resume, warnings []string, replace bool) (int64, *importError) {
+	existing, err := store.BaseResume(ctx, s.Pool, userID)
 	saved := &store.ResumeDoc{Title: "My resume", Data: *doc, Layout: resume.DefaultLayout, Notes: warnings}
 	if err == nil {
 		saved.Layout = existing.Layout // re-importing keeps the chosen template
 	}
 	switch {
-	case err == nil && !in.Replace:
-		s.writeError(w, http.StatusConflict, "you already have a resume; import with replace to overwrite it")
-		return
+	case err == nil && !replace:
+		return 0, &importError{http.StatusConflict, "you already have a resume; import with replace to overwrite it"}
 	case err == nil:
 		saved.ID = existing.ID
 	case !errors.Is(err, pgx.ErrNoRows):
-		s.writeError(w, http.StatusInternalServerError, "query failed")
-		return
+		return 0, &importError{http.StatusInternalServerError, "query failed"}
 	}
 	if s.Resumes.Available() {
-		if res, err := s.Resumes.Fit(r.Context(), &saved.Data, saved.Layout, nil); err == nil {
+		if res, err := s.Resumes.Fit(ctx, &saved.Data, saved.Layout, nil); err == nil {
 			saved.Layout, saved.Fit = res.Layout, res
 		}
 	}
-	id, err := store.SaveResume(r.Context(), s.Pool, user.ID, saved)
+	id, err := store.SaveResume(ctx, s.Pool, userID, saved)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "could not save the resume")
+		return 0, &importError{http.StatusInternalServerError, "could not save the resume"}
+	}
+	return id, nil
+}
+
+// importInBackground builds the user's main resume from a fresh upload
+// while they carry on, so the Resume tab opens on a finished resume. It
+// does nothing when they already have one, the AI is unavailable, or an
+// import is already running.
+func (s *Server) importInBackground(userID int64, text string) {
+	ctx := context.Background()
+	if _, err := store.BaseResume(ctx, s.Pool, userID); !errors.Is(err, pgx.ErrNoRows) {
 		return
 	}
-	doc2, _ := store.GetResume(r.Context(), s.Pool, user.ID, id)
-	s.writeJSON(w, http.StatusCreated, s.view(r, doc2))
+	if code, _ := s.aiAvailable(ctx, userID, "importing resumes"); code != 0 {
+		return
+	}
+	if ok, err := store.StartResumeImport(ctx, s.Pool, userID); err != nil || !ok {
+		return
+	}
+	go func() { //nolint:gosec // the import outlives the upload request on purpose
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		failure := ""
+		doc, warnings, ierr := s.importUpload(ctx, userID, text)
+		if ierr == nil {
+			_, ierr = s.saveBase(ctx, userID, doc, warnings, false)
+		}
+		if ierr != nil && ierr.code != http.StatusConflict {
+			failure = ierr.msg
+			s.Log.Warn("background resume import failed", "user_id", userID, "err", ierr.msg)
+		}
+		if err := store.FinishResumeImport(ctx, s.Pool, userID, failure); err != nil {
+			s.Log.Error("recording a resume import failed", "user_id", userID, "err", err)
+		}
+	}()
 }
 
 func starterResume(u *store.User) *resume.Resume {
@@ -207,9 +266,8 @@ func (s *Server) putResume(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteResumeHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "resume")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad resume id")
 		return
 	}
 	if err := store.DeleteResume(r.Context(), s.Pool, currentUser(r).ID, id); errors.Is(err, pgx.ErrNoRows) {
@@ -439,9 +497,8 @@ func (s *Server) thumbnails(w http.ResponseWriter, r *http.Request) {
 // jobKeywords is GET /api/jobs/{id}/keywords: the posting's keywords and
 // how the user's resume for it (tailored, else base) covers them.
 func (s *Server) jobKeywords(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	user := currentUser(r)
@@ -467,9 +524,8 @@ func (s *Server) jobKeywords(w http.ResponseWriter, r *http.Request) {
 
 // getJobResume is GET /api/jobs/{id}/resume: the copy tailored for a job.
 func (s *Server) getJobResume(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	doc, err := store.JobResume(r.Context(), s.Pool, currentUser(r).ID, id)
@@ -487,9 +543,8 @@ func (s *Server) getJobResume(w http.ResponseWriter, r *http.Request) {
 // tailored to the job by the AI (edits keyed by bullet, checked), then
 // fitted to one page keeping the bullets that match the job.
 func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "job")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
 		return
 	}
 	user := currentUser(r)

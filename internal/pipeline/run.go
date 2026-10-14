@@ -69,6 +69,8 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		}
 	}
 
+	p.housekeeping(ctx)
+
 	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
 	fstats, fetchErr := fetcher.Run(ctx, p.Companies, "")
 	p.CatchUpAt = time.Time{}
@@ -214,4 +216,76 @@ func (p *Pipeline) ScoreNow(ctx context.Context, userID, jobID int64) error {
 	}
 	_, err = ScoreUser(ctx, p.Pool, p.Env, p.Log, prof, 1, []int64{jobID}, allowance, p.Metrics)
 	return err
+}
+
+// ShareJob offers a job one user added to everyone else: each user's
+// rules filter it like a fetched posting, and the users it suits get it
+// scored now (within their allowance), so it reaches their lists and
+// digests without waiting for the next run. Users being matched right now
+// are skipped; that match or the next run picks the job up.
+func (p *Pipeline) ShareJob(ctx context.Context, jobID, addedBy int64) (offered, scored int, err error) {
+	profiles, err := store.ReadyProfiles(ctx, p.Pool)
+	if err != nil {
+		return 0, 0, fmt.Errorf("load profiles: %w", err)
+	}
+	for _, prof := range profiles {
+		if prof.UserID == addedBy {
+			continue
+		}
+		if ctx.Err() != nil {
+			return offered, scored, ctx.Err()
+		}
+		suits, err := p.offer(ctx, prof, jobID)
+		if err != nil {
+			p.Log.Warn("sharing an added job failed", "user_id", prof.UserID, "job_id", jobID, "err", err)
+			continue
+		}
+		offered++
+		if !suits {
+			continue
+		}
+		if err := p.ScoreNow(ctx, prof.UserID, jobID); err != nil {
+			p.Log.Info("added job left for the next run", "user_id", prof.UserID, "job_id", jobID, "why", err)
+			continue
+		}
+		if stage, _ := store.UserJobStage(ctx, p.Pool, prof.UserID, jobID); stage != "pending_score" {
+			scored++
+		}
+	}
+	return offered, scored, nil
+}
+
+// offer filters the user's new jobs (the shared one among them) under
+// their lock and reports whether the job passed their rules.
+func (p *Pipeline) offer(ctx context.Context, prof *store.Profile, jobID int64) (bool, error) {
+	got, release, err := store.TryUserLock(ctx, p.Pool, prof.UserID)
+	if err != nil || !got {
+		return false, err
+	}
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		release(unlockCtx)
+	}()
+	if _, err := FilterUser(ctx, p.Pool, p.Engine, prof, p.Metrics); err != nil {
+		return false, err
+	}
+	stage, err := store.UserJobStage(ctx, p.Pool, prof.UserID, jobID)
+	return stage == "pending_score", err
+}
+
+// housekeeping closes added postings past their lifetime and drops
+// per-user rows for long-closed postings nobody acted on. Failures are
+// logged; they never stop a run.
+func (p *Pipeline) housekeeping(ctx context.Context) {
+	if n, err := store.CloseStaleManualJobs(ctx, p.Pool); err != nil {
+		p.Log.Error("closing stale added jobs failed", "err", err)
+	} else if n > 0 {
+		p.Log.Info("closed stale added jobs", "jobs", n)
+	}
+	if n, err := store.PruneClosedMatches(ctx, p.Pool); err != nil {
+		p.Log.Error("pruning closed matches failed", "err", err)
+	} else if n > 0 {
+		p.Log.Info("pruned matches for closed jobs", "rows", n)
+	}
 }

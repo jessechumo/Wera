@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
 	"wera/internal/config"
@@ -17,9 +16,8 @@ import (
 )
 
 func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
+	id, ok := s.pathID(w, r, "id", "job")
+	if !ok {
 		return
 	}
 	var body struct {
@@ -36,7 +34,7 @@ func (s *Server) putApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := currentUser(r)
-	err = store.PutApplication(r.Context(), s.Pool, user.ID, id, store.ApplicationInput{
+	err := store.PutApplication(r.Context(), s.Pool, user.ID, id, store.ApplicationInput{
 		Status: body.Status, Notes: body.Notes,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -230,9 +228,8 @@ func (s *Server) industries(w http.ResponseWriter, r *http.Request) {
 // scoreJob is POST /api/jobs/{id}/score: score one of the user's unscored
 // jobs now (they opened it before the queue got to it) and return it.
 func (s *Server) scoreJob(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		s.writeError(w, http.StatusBadRequest, "bad job id")
+	id, ok := s.pathID(w, r, "id", "job")
+	if !ok {
 		return
 	}
 	if s.ScoreNow == nil {

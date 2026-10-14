@@ -67,7 +67,7 @@ type JobView struct {
 // callers append conditions starting at $2.
 const jobViewSelect = `
 	SELECT j.id, j.company_id, c.name, c.industry, j.source, j.ext_id, j.title,
-	       j.location_raw, j.is_remote, j.url, j.department, j.posted_at,
+	       COALESCE(j.location_raw, ''), j.is_remote, j.url, j.department, j.posted_at,
 	       j.first_seen_at, uj.stage, uj.matched_categories,
 	       uj.exclude_reason, uj.exclude_evidence,
 	       a.fit_score, a.verdict, a.seniority, a.years_required,

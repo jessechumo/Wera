@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -139,8 +140,7 @@ func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, 
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON uj.job_id = j.id AND uj.user_id = $1
 		WHERE j.closed_at IS NULL
-		  AND j.added_by IS NULL -- jobs a user added are theirs alone and never filtered
-		  AND (uj.job_id IS NULL OR uj.content_hash <> j.content_hash)`, userID)
+		  AND (uj.job_id IS NULL OR (uj.content_hash <> j.content_hash AND j.added_by IS DISTINCT FROM $1))`, userID)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("load jobs to filter: %w", err)
 	}
@@ -314,4 +314,33 @@ func storedHashes(ctx context.Context, pool *pgxpool.Pool, companyID int64) (map
 		out[src+"\x00"+id] = h
 	}
 	return out, rows.Err()
+}
+
+// UserJobStage returns the user's stage for a job ("" when they have none).
+func UserJobStage(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64) (string, error) {
+	var stage string
+	err := pool.QueryRow(ctx, `SELECT stage FROM user_jobs WHERE user_id = $1 AND job_id = $2`, userID, jobID).Scan(&stage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return stage, err
+}
+
+// prunedAfter is how long a closed posting keeps its per-user rule
+// outcomes. Matches nobody acted on are dropped after it (a posting that
+// reopens is simply filtered again); scored ones and jobs in a user's
+// tracker are kept.
+const prunedAfter = 30 * 24 * time.Hour
+
+// PruneClosedMatches deletes per-user rows for postings closed longer than
+// prunedAfter that were never scored or tracked, so user_jobs grows with
+// open postings rather than with every posting ever seen.
+func PruneClosedMatches(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		DELETE FROM user_jobs uj USING jobs j
+		WHERE j.id = uj.job_id AND j.closed_at < $1
+		  AND uj.stage IN ('excluded', 'pending_score', 'score_failed') AND uj.analysis_id IS NULL
+		  AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.user_id = uj.user_id AND a.job_id = uj.job_id)`,
+		time.Now().Add(-prunedAfter))
+	return tag.RowsAffected(), err
 }

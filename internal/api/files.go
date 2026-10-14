@@ -57,9 +57,8 @@ func (s *Server) getAvatar(w http.ResponseWriter, r *http.Request) {
 // only for members who have published on the community blog (the others'
 // pictures stay private).
 func (s *Server) getUserAvatar(w http.ResponseWriter, r *http.Request) {
-	id, ok := jobIDParam(r)
+	id, ok := s.pathID(w, r, "id", "user")
 	if !ok {
-		s.writeError(w, http.StatusBadRequest, "bad user id")
 		return
 	}
 	public, err := store.IsCommunityAuthor(r.Context(), s.Pool, id)

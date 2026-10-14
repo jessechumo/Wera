@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,6 +59,19 @@ func TestH1BEndpoints(t *testing.T) {
 	if code != 200 || len(list.Companies) != 1 || list.Companies[0].H1BFilings == nil || *list.Companies[0].H1BFilings != 3 ||
 		*list.Companies[0].H1BNewHires != 1 {
 		t.Fatalf("sponsorship: %d %s", code, body)
+	}
+	// Pages: only filers, one row at a time, with the total that match.
+	code, body = getBody(t, ts.URL+"/api/sponsorship?filers=1&limit=1&offset=0&q="+url.QueryEscape(name))
+	var page struct {
+		Companies []store.SponsorshipStat `json:"companies"`
+		Total     int                     `json:"total"`
+	}
+	json.Unmarshal([]byte(body), &page)
+	if code != 200 || page.Total != 1 || len(page.Companies) != 1 {
+		t.Errorf("filers page: %d %s", code, body)
+	}
+	if _, body = getBody(t, ts.URL+"/api/sponsorship?limit=1&offset=5&q="+url.QueryEscape(name)); !strings.Contains(body, `"companies":[]`) {
+		t.Errorf("past the end: %s", body)
 	}
 
 	code, body = getBody(t, fmt.Sprintf("%s/api/sponsorship/%d/h1b", ts.URL, cid))

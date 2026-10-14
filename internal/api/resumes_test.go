@@ -1,16 +1,20 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"wera/internal/resume"
+	"wera/internal/store"
 )
 
 func needTypst(t *testing.T) {
@@ -178,6 +182,42 @@ func TestImportResumeFromProfile(t *testing.T) {
 	}
 	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/resumes/import", `{"source":"pdf"}`); code != 400 {
 		t.Errorf("unknown source: want 400, got %d", code)
+	}
+}
+
+// TestBackgroundResumeImport checks that uploading a resume builds the
+// main resume in the background, so the Resume tab opens on it.
+func TestBackgroundResumeImport(t *testing.T) {
+	ts, _ := llmServer(t)
+	pool := testPool(t)
+	pool.Exec(context.Background(), `DELETE FROM resumes WHERE user_id = $1`, testUserID)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	mw.WriteField("text", "Test User\nSRE intern at Acme 2024. Kept Kubernetes clusters healthy and on call.")
+	mw.Close()
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/profile/resume", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("upload: %v %v", err, resp)
+	}
+	resp.Body.Close()
+	var list string
+	for range 100 {
+		if _, list = do(t, client, http.MethodGet, ts.URL+"/api/resumes", ""); strings.Contains(list, `"status":"done"`) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !strings.Contains(list, `"status":"done"`) || !strings.Contains(list, `"title":"My resume"`) {
+		t.Fatalf("background import: %s", list)
+	}
+	// Another upload leaves the existing resume alone.
+	if ok, err := store.StartResumeImport(context.Background(), pool, testUserID); err != nil || !ok {
+		t.Errorf("a finished import can be restarted: %v %v", ok, err)
+	}
+	if ok, _ := store.StartResumeImport(context.Background(), pool, testUserID); ok {
+		t.Error("two imports must not run at once")
 	}
 }
 

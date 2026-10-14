@@ -214,6 +214,87 @@ func TestMatchingEndToEnd(t *testing.T) {
 	}
 }
 
+// TestShareJob checks that a job one user adds reaches the others it
+// suits, scored, and is filtered out for the rest.
+func TestShareJob(t *testing.T) {
+	pool := testutil.Pool(t)
+	ctx := context.Background()
+	coral := &fakeCoral{}
+	srv := httptest.NewServer(coral)
+	t.Cleanup(srv.Close)
+	env := testEnv(srv.URL)
+	env.MaxCostPerRunUSD, env.MaxMonthlyCostUSD = 1, 1e6
+	p := &Pipeline{Pool: pool, Env: env, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Engine: testEngine(t)}
+
+	adder := testutil.User(t, pool, false)
+	other := testutil.User(t, pool, false)
+	testutil.Profile(t, pool, other.ID, sreProfile, srePrefs)
+	add := func(title string) int64 {
+		t.Helper()
+		id, created, err := store.AddManualJob(ctx, pool, adder.ID, store.ManualJob{
+			URL: "https://careers.example.com/" + testutil.Unique("job"), Company: "Shared Co " + testutil.Unique("c"),
+			Title: title, Location: "Remote, US", Description: "Keep our Go services healthy with Kubernetes.",
+		})
+		if err != nil || !created {
+			t.Fatalf("add %q: %v (created %v)", title, err, created)
+		}
+		t.Cleanup(func() {
+			pool.Exec(ctx, `DELETE FROM companies WHERE id = (SELECT company_id FROM jobs WHERE id = $1)`, id)
+		})
+		return id
+	}
+	sre, accountant := add("Site Reliability Engineer"), add("Accountant")
+
+	if _, scored, err := p.ShareJob(ctx, sre, adder.ID); err != nil || scored != 1 {
+		t.Fatalf("share: scored %d, %v", scored, err)
+	}
+	if stage, _ := stageOf(t, pool, other.ID, sre); stage != "scored" {
+		t.Errorf("a suitable added job should be scored for other users: %s", stage)
+	}
+	if _, scored, err := p.ShareJob(ctx, accountant, adder.ID); err != nil || scored != 0 {
+		t.Fatalf("share off-topic: scored %d, %v", scored, err)
+	}
+	if stage, _ := stageOf(t, pool, other.ID, accountant); stage != "excluded" {
+		t.Errorf("an off-topic added job should be rule-filtered: %s", stage)
+	}
+
+	// The other user adding the posting themselves gets the shared job,
+	// even though their rules excluded it.
+	var url string
+	pool.QueryRow(ctx, `SELECT url FROM jobs WHERE id = $1`, accountant).Scan(&url)
+	id, created, err := store.AddManualJob(ctx, pool, other.ID, store.ManualJob{URL: url, Company: "X", Title: "Accountant"})
+	if err != nil || id != accountant || !created {
+		t.Fatalf("re-add: id %d (want %d), created %v, %v", id, accountant, created, err)
+	}
+	if stage, _ := stageOf(t, pool, other.ID, accountant); stage != "pending_score" {
+		t.Errorf("adding a job on purpose lifts its rule exclusion: %s", stage)
+	}
+
+	// Added postings close after their lifetime.
+	pool.Exec(ctx, `UPDATE jobs SET first_seen_at = now() - interval '60 days' WHERE id = $1`, sre)
+	if n, err := store.CloseStaleManualJobs(ctx, pool); err != nil || n < 1 {
+		t.Errorf("close stale: %d, %v", n, err)
+	}
+
+	// Long-closed postings drop the matches nobody acted on; scored and
+	// tracked ones stay.
+	pool.Exec(ctx, `UPDATE jobs SET closed_at = now() - interval '40 days' WHERE id = ANY($1)`, []int64{sre, accountant})
+	pool.Exec(ctx, `UPDATE user_jobs SET stage = 'excluded' WHERE user_id = $1 AND job_id = $2`, other.ID, accountant)
+	pool.Exec(ctx, `DELETE FROM applications WHERE user_id = $1 AND job_id = $2`, other.ID, accountant)
+	if _, err := store.PruneClosedMatches(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, other.ID, accountant); stage != "" {
+		t.Errorf("an untouched closed match should be pruned: %q", stage)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, other.ID, sre); stage != "scored" {
+		t.Errorf("a scored closed match must stay: %q", stage)
+	}
+	if stage, _ := store.UserJobStage(ctx, pool, adder.ID, accountant); stage == "" {
+		t.Error("a tracked closed job must stay")
+	}
+}
+
 func TestScoreUserWithoutKeySkips(t *testing.T) {
 	st, err := ScoreUser(context.Background(), nil, &config.Env{}, slog.New(slog.NewTextHandler(io.Discard, nil)), &store.Profile{}, 0, nil, 1, nil)
 	if st != nil || err != nil {
