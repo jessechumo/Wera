@@ -161,6 +161,10 @@ func (s *Server) putApplicant(w http.ResponseWriter, r *http.Request) {
 // aiReady checks the server and the user's budget before an AI call; on
 // failure it has written the response.
 func (s *Server) aiReady(w http.ResponseWriter, r *http.Request, what string) bool {
+	if s.Env == nil || s.Env.CoralAPIKey == "" {
+		s.writeError(w, http.StatusServiceUnavailable, what+" is not configured on this server")
+		return false
+	}
 	if !s.extAILimit.Allow(strconv.FormatInt(currentUser(r).ID, 10)) {
 		s.writeError(w, http.StatusTooManyRequests, "too many AI requests this hour; try again later")
 		return false
