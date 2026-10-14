@@ -80,10 +80,12 @@ func (s *Server) requireUser(next http.Handler) http.Handler {
 	})
 }
 
-// requireAdmin allows only admins (403); it must run after requireUser.
+// requireAdmin allows only admins signed in with a browser session (403):
+// an extension token never reaches admin routes. It must run after
+// requireUser.
 func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if u := currentUser(r); u == nil || !u.IsAdmin {
+		if u := currentUser(r); u == nil || !u.IsAdmin || bearerHash(r) != "" {
 			s.writeError(w, http.StatusForbidden, "admins only")
 			return
 		}
