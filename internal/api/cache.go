@@ -3,16 +3,20 @@ package api
 import (
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // ttlCache keeps computed answers for a while (H-1B data changes only when
 // a new disclosure file is imported). It holds at most max entries;
-// when full, expired entries go first, then everything.
+// when full, expired entries go first, then everything. Concurrent misses
+// for one key share a single computation.
 type ttlCache struct {
-	mu   sync.Mutex
-	ttl  time.Duration
-	max  int
-	data map[string]cacheEntry
+	group singleflight.Group
+	mu    sync.Mutex
+	ttl   time.Duration
+	max   int
+	data  map[string]cacheEntry
 }
 
 type cacheEntry struct {
@@ -24,7 +28,8 @@ func newTTLCache(ttl time.Duration, max int) *ttlCache {
 	return &ttlCache{ttl: ttl, max: max, data: map[string]cacheEntry{}}
 }
 
-// get returns the cached value for key, or computes, stores and returns it.
+// get returns the cached value for key, or computes, stores and returns it
+// (compute must not depend on one caller's cancellation: others may wait on it).
 // Errors are not cached.
 func (c *ttlCache) get(key string, compute func() (any, error)) (any, error) {
 	now := time.Now()
@@ -34,10 +39,18 @@ func (c *ttlCache) get(key string, compute func() (any, error)) (any, error) {
 		return e.value, nil
 	}
 	c.mu.Unlock()
-	v, err := compute()
-	if err != nil {
-		return nil, err
-	}
+	v, err, _ := c.group.Do(key, func() (any, error) {
+		v, err := compute()
+		if err == nil {
+			c.put(key, v)
+		}
+		return v, err
+	})
+	return v, err
+}
+
+func (c *ttlCache) put(key string, v any) {
+	now := time.Now()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.data) >= c.max {
@@ -51,5 +64,4 @@ func (c *ttlCache) get(key string, compute func() (any, error)) (any, error) {
 		}
 	}
 	c.data[key] = cacheEntry{value: v, until: now.Add(c.ttl)}
-	return v, nil
 }
