@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1](https://github.com/jessechumo/Wera/compare/wera-v0.2.0...wera-v0.2.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** bump chi to 5.4.0 and goose to 3.29.0 ([ae81860](https://github.com/jessechumo/Wera/commit/ae818600081d16066dd0132603f6946a32114f0a))
+* **deps:** bump chi to 5.4.0 and goose to 3.29.0 ([f5265c9](https://github.com/jessechumo/Wera/commit/f5265c97af04e25e90e661f200f3735b4e1c5da8))
+* **deps:** close 15 security alerts and update CI ([709db14](https://github.com/jessechumo/Wera/commit/709db14b3e6bf46f860810d8057a34ce4fa3e3e4))
+* **deps:** update excelize to close 15 security alerts ([32d0c5a](https://github.com/jessechumo/Wera/commit/32d0c5acf1fcc2da1004d64c5819c8c0566ccfd6))
+
 ## [0.2.0](https://github.com/jessechumo/Wera/compare/wera-v0.1.0...wera-v0.2.0) (2026-10-14)
 
 
