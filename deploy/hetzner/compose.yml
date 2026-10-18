@@ -1,0 +1,149 @@
+# Wera on a single server (Hetzner or any Linux VPS with Docker).
+#
+# Everything runs from the published images on GitHub Container Registry,
+# so the server needs only this folder: no source code, no builds.
+#
+#   Caddy (80/443, automatic HTTPS)
+#     ├── /api/*, /healthz ──> wera-api
+#     └── everything else ──> wera-web (the dashboard)
+#   wera-admin: 127.0.0.1:3001 only, reached through an SSH tunnel
+#   wera-worker: fetches and scores jobs on RUN_SCHEDULE, sends digests
+#   postgres: no published port; backups go through ./deploy.sh backup
+#
+# Use ./deploy.sh rather than calling docker compose directly; see README.md.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-wera: &wera
+  image: ghcr.io/jessechumo/wera:${WERA_TAG:-latest}
+  env_file: .env
+  environment: &wera-env
+    DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/wera?sslmode=disable
+    LOG_FORMAT: json
+  logging: *logging
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wera
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: wera
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wera -d wera"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *logging
+    restart: unless-stopped
+
+  # One-shot: applies migrations, then exits. API and worker wait on it.
+  wera-migrate:
+    <<: *wera
+    command: ["migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # The service name matters: wera-web and wera-admin proxy to "wera-api".
+  wera-api:
+    <<: *wera
+    environment:
+      <<: *wera-env
+      HTTP_ADDR: ":8080"
+      # Served over HTTPS behind Caddy.
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "true"
+      PUBLIC_ORIGINS: https://${WERA_DOMAIN:?set WERA_DOMAIN in .env}
+      PUBLIC_URL: https://${WERA_DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wera-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/wera", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  wera-worker:
+    <<: *wera
+    command: ["worker"]
+    environment:
+      <<: *wera-env
+      PUBLIC_URL: https://${WERA_DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wera-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/wera", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  wera-web:
+    image: ghcr.io/jessechumo/wera-frontend:${WERA_WEB_TAG:-latest}
+    depends_on:
+      wera-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+    restart: unless-stopped
+
+  # Never exposed to the internet: bound to the server's loopback, so it is
+  # reachable only through `ssh -L 3001:127.0.0.1:3001 wera@<server>`.
+  wera-admin:
+    image: ghcr.io/jessechumo/wera-admin:${WERA_ADMIN_TAG:-latest}
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-3001}:80"
+    depends_on:
+      wera-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      WERA_DOMAIN: ${WERA_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - wera-web
+      - wera-api
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy-data:
+  caddy-config:
