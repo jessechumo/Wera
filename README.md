@@ -100,7 +100,9 @@ go run ./cmd/wera users import-profile --email you@example.com --file profile/pr
 
 ## Run as a server
 
-To run everything in Docker, with the frontend cloned next to this repo as `../wera-frontend`:
+For a VPS with a domain (HTTPS, published images, no source checkout), see [deploy/hetzner](deploy/hetzner/README.md).
+
+To build and run everything in Docker, with the frontend cloned next to this repo as `../wera-frontend`:
 
 ```bash
 cp .env.example .env            # set CORAL_API_KEY and a random POSTGRES_PASSWORD

@@ -1,0 +1,28 @@
+# Caddy gets and renews a free Let's Encrypt certificate for WERA_DOMAIN
+# (and www.) on its own, as soon as DNS points at this server.
+{
+	email {$ACME_EMAIL}
+}
+
+{$WERA_DOMAIN} {
+	encode zstd gzip
+
+	# The API goes straight to wera-api, so X-Real-IP is the visitor's
+	# address (the API rate-limits sign-ups and logins by it). Through
+	# wera-web's nginx every visitor would share Caddy's address.
+	@api path /api/* /healthz
+	handle @api {
+		reverse_proxy wera-api:8080 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	handle {
+		header Cross-Origin-Opener-Policy same-origin
+		reverse_proxy wera-web:80
+	}
+}
+
+www.{$WERA_DOMAIN} {
+	redir https://{$WERA_DOMAIN}{uri} permanent
+}
