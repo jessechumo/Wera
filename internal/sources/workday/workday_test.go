@@ -97,7 +97,7 @@ func TestParseToken(t *testing.T) {
 
 func TestMaintenanceWindow(t *testing.T) {
 	a := New(sources.NewHTTP("Wera/test"))
-	pt := func(day, h, min int) time.Time { return time.Date(2026, 10, day, h, min, 0, 0, pacific) }
+	pt := func(day, h, minute int) time.Time { return time.Date(2026, 10, day, h, minute, 0, 0, pacific) }
 	end := pt(10, 3, 0) // Saturday 3 a.m.
 	tests := []struct {
 		now     time.Time

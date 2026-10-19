@@ -202,7 +202,7 @@ func (s *Server) emailPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(out.HTML)) //nolint:gosec // our own template, escaped by html/template
+	_, _ = w.Write([]byte(out.HTML))
 }
 
 // emailTest is POST /api/admin/email/test {to}: queue the setup test.

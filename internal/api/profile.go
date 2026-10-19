@@ -19,7 +19,7 @@ import (
 
 // profileOptions is GET /api/profile/options: everything the signup and
 // profile forms let a user pick from.
-func (s *Server) profileOptions(w http.ResponseWriter, r *http.Request) {
+func (s *Server) profileOptions(w http.ResponseWriter, _ *http.Request) {
 	// Role families A to Z by label, so every client lists them the same
 	// way; levels keep their seniority order.
 	families := slices.Clone(s.Roles.RoleFamilies)

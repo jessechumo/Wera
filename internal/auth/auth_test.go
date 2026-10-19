@@ -7,7 +7,7 @@ import (
 
 func TestNormalizeEmail(t *testing.T) {
 	good := map[string]string{
-		" Jesse@Example.com ":   "jesse@example.com",
+		" Jesse@Example.com ":   "jesse@example.com", //nolint:gocritic // surrounding spaces are what is tested
 		"a.b+c@sub.example.org": "a.b+c@sub.example.org",
 	}
 	for in, want := range good {

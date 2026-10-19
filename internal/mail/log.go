@@ -19,6 +19,8 @@ type Log struct {
 
 var unsafeName = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
+// Send writes the message to the log (and MAIL_LOG_DIR) instead of
+// delivering it, and returns its Message-ID.
 func (l *Log) Send(_ context.Context, m Message) (string, error) {
 	raw, id, err := Build(l.From, "", m, time.Now())
 	if err != nil {

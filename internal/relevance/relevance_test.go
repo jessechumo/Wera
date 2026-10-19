@@ -37,7 +37,7 @@ func TestRankKeepsTopMatchesApart(t *testing.T) {
 	profile := "go kubernetes terraform prometheus linux networking"
 	var docs []Doc
 	// 200 filler postings, then five whose overlap with the profile grows.
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		docs = append(docs, Doc{ID: int64(1000 + i), Title: "Sales", Body: "quota pipeline crm territory"})
 	}
 	words := []string{"go", "kubernetes", "terraform", "prometheus", "linux"}

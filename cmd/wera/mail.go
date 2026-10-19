@@ -68,8 +68,7 @@ func runMail(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	switch sub {
-	case "preview":
+	if sub == "preview" {
 		for _, name := range mail.Templates() {
 			r, err := mail.Render(name, mail.Sample(name, publicURL, "ada@example.com", "Ada Lovelace"))
 			if err != nil {

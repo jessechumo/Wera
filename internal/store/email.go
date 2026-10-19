@@ -34,7 +34,7 @@ func CreateEmailToken(ctx context.Context, pool *pgxpool.Pool, userID int64, pur
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `UPDATE email_tokens SET used_at = now() WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL`, userID, purpose); err != nil {
 		return "", err
 	}

@@ -19,17 +19,17 @@ import (
 type Kind string
 
 const (
-	// KindEntries: bold heading and dates, italic subheading and location,
+	// KindEntries renders a bold heading and dates, italic subheading and location,
 	// then bullets (education, experience).
 	KindEntries Kind = "entries"
-	// KindProjects: bold name with the tech stack on the right, then a
+	// KindProjects renders a bold name with the tech stack on the right, then a
 	// short description.
 	KindProjects Kind = "projects"
-	// KindCompact: one line, "Title | Organization" and dates.
+	// KindCompact renders one line: "Title | Organization" and dates.
 	KindCompact Kind = "compact"
-	// KindSkills: "Group: items" lines.
+	// KindSkills renders "Group: items" lines.
 	KindSkills Kind = "skills"
-	// KindSummary: a short paragraph.
+	// KindSummary renders a short paragraph.
 	KindSummary Kind = "summary"
 )
 
@@ -324,7 +324,8 @@ func (r *Resume) PlainText() string {
 	}
 	line(r.Name)
 	line(r.Headline)
-	contacts := []string{r.Phone, r.Email, r.Location}
+	contacts := make([]string, 0, 3+len(r.Links))
+	contacts = append(contacts, r.Phone, r.Email, r.Location)
 	for _, l := range r.Links {
 		contacts = append(contacts, l.Label)
 	}

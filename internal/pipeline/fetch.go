@@ -89,7 +89,7 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 	g.SetLimit(f.Env.FetchConcurrency)
 	now := time.Now()
 	for _, c := range todo {
-		c := c
+
 		// Known maintenance window: skip without a request.
 		if ma, ok := f.Sources[c.ATS].(sources.MaintenanceAware); ok {
 			if end, in := ma.MaintenanceUntil(now); in {
@@ -157,7 +157,7 @@ func (f *Fetcher) fetchCompany(ctx context.Context, c config.Company, companyID 
 			raw, err = src.Fetch(ctx, c.Token)
 			listed = len(raw)
 			if err == nil {
-				seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
+				seen, newly, err = f.saveCompanyJobs(ctx, src, companyID, raw, nil, true)
 			}
 		}
 		if f.Metrics != nil {
@@ -216,7 +216,7 @@ func (f *Fetcher) fetchConditional(ctx context.Context, c config.Company, src so
 	if err != nil {
 		return 0, 0, 0, false, err
 	}
-	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, raw, nil, true)
+	seen, newly, err = f.saveCompanyJobs(ctx, src, companyID, raw, nil, true)
 	if err != nil {
 		return len(raw), seen, newly, false, err
 	}
@@ -308,7 +308,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	if !complete {
 		allIDs = nil // a partial listing must not close anything
 	}
-	seen, newly, err = f.saveCompanyJobs(ctx, c, src, companyID, detailed, allIDs, complete)
+	seen, newly, err = f.saveCompanyJobs(ctx, src, companyID, detailed, allIDs, complete)
 	if err == nil && complete {
 		if merr := store.MarkFullFetch(ctx, f.Pool, companyID); merr != nil {
 			f.Log.Warn("recording full sweep failed", "company", c.Name, "err", merr)
@@ -322,7 +322,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 // marks the fetch as successful. openIDs lists every posting still on the
 // board (nil = exactly the saved ones). It returns
 // the number of jobs seen and newly inserted.
-func (f *Fetcher) saveCompanyJobs(ctx context.Context, c config.Company, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string, closeMissing bool) (seen, newly int, err error) {
+func (f *Fetcher) saveCompanyJobs(ctx context.Context, src sources.Source, companyID int64, raw []sources.RawJob, openIDs []string, closeMissing bool) (seen, newly int, err error) {
 	inputs := make([]store.JobInput, 0, len(raw))
 	collectIDs := openIDs == nil
 	for _, rj := range raw {

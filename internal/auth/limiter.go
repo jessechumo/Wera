@@ -20,9 +20,9 @@ type window struct {
 	count int
 }
 
-// NewLimiter allows max events per key per window.
-func NewLimiter(max int, w time.Duration) *Limiter {
-	return &Limiter{Max: max, Window: w, windows: map[string]*window{}}
+// NewLimiter allows limit events per key per window.
+func NewLimiter(limit int, w time.Duration) *Limiter {
+	return &Limiter{Max: limit, Window: w, windows: map[string]*window{}}
 }
 
 // Allow records one event for key and reports whether it is within the limit.

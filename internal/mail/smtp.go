@@ -19,6 +19,8 @@ type SMTP struct {
 	Dial func(ctx context.Context, addr string) (net.Conn, error)
 }
 
+// Send delivers the message through the configured server and returns
+// its Message-ID.
 func (s *SMTP) Send(ctx context.Context, m Message) (string, error) {
 	c := s.Config
 	raw, id, err := Build(c.From, c.ReplyTo, m, time.Now())

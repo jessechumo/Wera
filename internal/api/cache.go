@@ -24,8 +24,8 @@ type cacheEntry struct {
 	until time.Time
 }
 
-func newTTLCache(ttl time.Duration, max int) *ttlCache {
-	return &ttlCache{ttl: ttl, max: max, data: map[string]cacheEntry{}}
+func newTTLCache(ttl time.Duration, capacity int) *ttlCache {
+	return &ttlCache{ttl: ttl, max: capacity, data: map[string]cacheEntry{}}
 }
 
 // get returns the cached value for key, or computes, stores and returns it
