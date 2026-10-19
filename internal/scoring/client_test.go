@@ -59,7 +59,7 @@ func TestChatAuthAndBody(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "cb_test", Model: "glm-5.3-flash-fast"})
+	c := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "cb_test", Model: "glm-5.3-flash-fast", CacheKeys: true})
 	if _, err := c.Chat(context.Background(), "wera-profile-xyz", []Message{{Role: "user", Content: "hi"}}); err != nil {
 		t.Fatalf("Chat: %v", err)
 	}
@@ -68,6 +68,40 @@ func TestChatAuthAndBody(t *testing.T) {
 	}
 	if gotCache != "wera-profile-xyz" {
 		t.Errorf("prompt_cache_key: %q", gotCache)
+	}
+
+	// Providers that do not route by cache key never see one.
+	c = NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "k", Model: "m"})
+	if _, err := c.Chat(context.Background(), "wera-profile-xyz", []Message{{Role: "user", Content: "hi"}}); err != nil {
+		t.Fatal(err)
+	}
+	if gotCache != "" {
+		t.Errorf("prompt_cache_key sent without CacheKeys: %q", gotCache)
+	}
+}
+
+func TestChatExtraBodyAndReportedCost(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = nil
+		if err := jsonDecode(r, &got); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		w.Write([]byte(`{"choices":[{"message":{"content":"{}"}}],"usage":{"prompt_tokens":10,"completion_tokens":2,"estimated_cost":0.0042}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "k", Model: "deepseek-ai/DeepSeek-V4.1-Flash",
+		ExtraBody: map[string]any{"reasoning_effort": "none", "model": "ignored"}})
+	comp, err := c.Chat(context.Background(), "", []Message{{Role: "user", Content: "hi"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["reasoning_effort"] != "none" || got["model"] != "deepseek-ai/DeepSeek-V4.1-Flash" {
+		t.Errorf("extra body not merged (own fields must win): %v", got)
+	}
+	if comp.CostUSD == nil || *comp.CostUSD != 0.0042 {
+		t.Errorf("DeepInfra estimated_cost not read: %v", comp.CostUSD)
 	}
 }
 

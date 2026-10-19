@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// request is the Coral chat-completions request body.
+// request is the chat-completions request body.
 type request struct {
 	Model          string    `json:"model"`
 	PromptCacheKey string    `json:"prompt_cache_key,omitempty"`
@@ -30,6 +30,10 @@ type completionUsage struct {
 	PromptTokensDetails struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
+	// Providers' own per-call cost in USD: Coral reports "cost",
+	// DeepInfra "estimated_cost".
+	Cost          *float64 `json:"cost"`
+	EstimatedCost *float64 `json:"estimated_cost"`
 }
 
 // response is the (subset of the) chat-completions reply we consume.
@@ -40,8 +44,8 @@ type response struct {
 		} `json:"message"`
 	} `json:"choices"`
 	Usage completionUsage `json:"usage"`
-	// Cost is Coral's own authoritative per-call cost in USD; used when
-	// present, otherwise we compute from the price table.
+	// Cost is a top-level per-call cost in USD, for providers that put it
+	// there; otherwise the usage block's, otherwise the price table.
 	Cost *float64 `json:"cost"`
 }
 
@@ -60,8 +64,8 @@ type UsageStats struct {
 	CompletionTokens int64
 }
 
-// Client talks to a Coral Bricks (OpenAI-compatible) chat-completions
-// endpoint. It applies 60s timeouts and retries 429s with backoff.
+// Client talks to an OpenAI-compatible chat-completions endpoint (Coral
+// Bricks, DeepInfra, OpenAI, a local server, ...). It applies 60s timeouts and retries 429s with backoff.
 type Client struct {
 	http    *http.Client
 	baseURL string
@@ -73,12 +77,14 @@ type Client struct {
 	OnRateLimit func()
 
 	// logFirstCall ensures the full usage object is logged once so field
-	// names can be checked against what Coral actually returns.
+	// names can be checked against what the provider actually returns.
 	logFirst sync.Once
 	log      *slog.Logger
 
 	maxTokens   int
-	baseBackoff time.Duration // first 429 backoff; doubles each retry
+	baseBackoff time.Duration  // first 429 backoff; doubles each retry
+	cacheKeys   bool           // send prompt_cache_key
+	extraBody   map[string]any // merged into every request body
 }
 
 // ClientOptions configures NewClient.
@@ -92,6 +98,12 @@ type ClientOptions struct {
 	// Backoff is the base delay before the first 429 retry; the sequence
 	// doubles each time (1s, 2s, 4s, 8s by default). Tests shrink it.
 	Backoff time.Duration
+	// CacheKeys sends prompt_cache_key, for providers that route by it
+	// (Coral). Others cache shared prefixes on their own.
+	CacheKeys bool
+	// ExtraBody is merged into every request body, for provider- or
+	// model-specific options (e.g. turning off reasoning).
+	ExtraBody map[string]any
 }
 
 // NewClient builds a scoring client.
@@ -116,6 +128,8 @@ func NewClient(opts ClientOptions) *Client {
 		log:         opts.Log,
 		maxTokens:   maxTokens,
 		baseBackoff: backoff,
+		cacheKeys:   opts.CacheKeys,
+		extraBody:   opts.ExtraBody,
 	}
 }
 
@@ -131,7 +145,10 @@ func trimTrailingSlash(s string) string {
 // Retry-After when present and exponential backoff (1s, 2s, 4s, 8s)
 // otherwise, notifying OnRateLimit each time.
 func (c *Client) Chat(ctx context.Context, cacheKey string, messages []Message) (*Completion, error) {
-	body, err := json.Marshal(request{
+	if !c.cacheKeys {
+		cacheKey = ""
+	}
+	body, err := c.body(request{
 		Model:          c.model,
 		PromptCacheKey: cacheKey,
 		Temperature:    0.1,
@@ -224,8 +241,39 @@ func (c *Client) decode(raw []byte) (*Completion, error) {
 			CachedTokens:     int64(u.PromptTokensDetails.CachedTokens),
 			CompletionTokens: int64(u.CompletionTokens),
 		},
-		CostUSD: resp.Cost,
+		CostUSD: firstCost(resp.Cost, u.Cost, u.EstimatedCost),
 	}, nil
+}
+
+// body encodes the request with any extra fields merged in (the request's
+// own fields win).
+func (c *Client) body(r request) ([]byte, error) {
+	b, err := json.Marshal(r)
+	if err != nil || len(c.extraBody) == 0 {
+		return b, err
+	}
+	merged := make(map[string]any, len(c.extraBody)+6)
+	for k, v := range c.extraBody {
+		merged[k] = v
+	}
+	var own map[string]any
+	if err := json.Unmarshal(b, &own); err != nil {
+		return nil, err
+	}
+	for k, v := range own {
+		merged[k] = v
+	}
+	return json.Marshal(merged)
+}
+
+// firstCost is the first positive reported cost, or nil.
+func firstCost(costs ...*float64) *float64 {
+	for _, c := range costs {
+		if c != nil && *c > 0 {
+			return c
+		}
+	}
+	return nil
 }
 
 func truncate(b []byte, n int) string {
