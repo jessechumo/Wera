@@ -24,12 +24,13 @@ Three containers share one PostgreSQL database on a single host. `wera-web` (ngi
 1. **Fetch** each company's board once, for everyone. Boards that support ETags answer `304 Not Modified` when nothing changed; Workday boards list only new postings, with a full sweep once a day. A shared throttle keeps requests few and spaced out.
 2. **Store** only new or changed postings (by content hash), with a bulk `COPY`.
 3. **Filter** per user with `config/roles.yaml` and their preferences: role families, seniority, US-only, and explicit sponsorship refusals. No LLM cost; a new user's 40,000 jobs take about 4 seconds.
-4. **Rank locally** with TF-IDF against the user's profile. These estimates show a new user ranked matches within seconds of signing up and decide which jobs the LLM scores first.
-5. **Extract shared facts** once per posting with the LLM: seniority, years required, sponsorship (the quote must appear verbatim in the posting), work mode and a short digest. Every user reuses them.
+4. **Rank locally** with TF-IDF against the user's profile. These estimates show a new user ranked matches within seconds of signing up.
+5. **Extract shared facts** once per posting with the LLM: seniority, years required, sponsorship (the quote must appear verbatim in the posting), work mode, skills and a short digest. Every user reuses them.
 6. **Exclude on facts** at no cost: jobs needing too many years, refusing sponsorship, outside the US or too senior never reach a per-user call.
-7. **Score fit** per user from a compact job card plus their profile, sent as a cached prompt prefix. Opening an unscored job scores it immediately.
+7. **Rank by embeddings**: each posting's facts and each profile are embedded once by a small local model (the `wera-embed` container, no API cost), and every remaining job is ranked by similarity.
+8. **Score fit** per user, for the best-ranked jobs only: at most `SCORES_PER_DAY` per user (default 100, at most `SCORES_PER_RUN` per run once their profile has scores; users away for a week get just enough for their digest). The call sends a compact job card plus the cached profile and returns only a score, a verdict and one sentence; matched and missing skills are worked out in code. Jobs below the cut keep their estimate, and opening one scores it immediately.
 
-Measured on the development data: a new account is ready in about 5 seconds (previously 5 minutes), a fit call costs $0.00038 against $0.00075 for a full-posting call, and about half of a user's candidates are excluded from shared facts without any per-user call.
+Measured on the development data: a new account is ready in about 5 seconds. Embedding ranking puts 83% of the jobs the LLM rates 80+ in a user's top fifth (TF-IDF: 47%), so the score limit keeps nearly all strong matches. A fit call costs about $0.00018 (it was $0.00057 before the shorter reply and cache warm-up), and with the limit a user's scoring costs roughly a tenth of scoring every candidate.
 
 ## Features
 
