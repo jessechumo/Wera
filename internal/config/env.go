@@ -34,6 +34,18 @@ type Env struct {
 	UserBudgetUSD      float64 // monthly budget given to new accounts
 	MaxMonthlyCostUSD  float64 // all users together, per calendar month
 
+	// Ranking and score limits. Jobs are ranked for each user by embedding
+	// similarity (EMBED_BASE_URL, an OpenAI-compatible /embeddings
+	// endpoint; empty falls back to the built-in TF-IDF ranking), and only
+	// the best-ranked get a per-user AI score.
+	EmbedBaseURL         string
+	EmbedModel           string
+	EmbedAPIKey          string
+	ScoresPerDay         int // AI scores per user per rolling 24 hours; 0 = no limit
+	ScoresPerRun         int // per scheduled run, after the first scores for a profile; 0 = no limit
+	InactiveAfterDays    int // users unseen this long get InactiveScoresPerDay
+	InactiveScoresPerDay int // enough for their digest; 0 when they get no digest
+
 	// Accounts and browser security.
 	SignupEnabled  bool     // POST /api/auth/signup open to anyone
 	SignupsPerHour int      // sign-ups allowed per client IP per hour
@@ -48,21 +60,26 @@ type Env struct {
 // LoadEnv builds an Env from the process environment with defaults.
 func LoadEnv() (*Env, error) {
 	e := &Env{ //nolint:gosec // DatabaseURL is a local development default; deployments set DATABASE_URL
-		DatabaseURL:        "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
-		CoralBaseURL:       "https://inference.coralbricks.ai/v1",
-		CoralModel:         "deepseek-v4.1-flash-fast",
-		CoralDeepModel:     "glm-5.3-fast",
-		ScoringConcurrency: 12,
-		FetchConcurrency:   6,
-		RunInterval:        30 * time.Minute,
-		HTTPAddr:           "127.0.0.1:8080",
-		LogFormat:          "text",
-		UserAgent:          "Wera/" + strings.TrimPrefix(buildinfo.Version, "v") + " (personal job tracker; contact: jessechumo@gmail.com)",
-		MaxCostPerRunUSD:   1.00,
-		UserBudgetUSD:      10,
-		MaxMonthlyCostUSD:  100,
-		SignupEnabled:      true,
-		SignupsPerHour:     5,
+		DatabaseURL:          "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
+		CoralBaseURL:         "https://inference.coralbricks.ai/v1",
+		CoralModel:           "deepseek-v4.1-flash-fast",
+		CoralDeepModel:       "glm-5.3-fast",
+		ScoringConcurrency:   12,
+		FetchConcurrency:     6,
+		RunInterval:          30 * time.Minute,
+		HTTPAddr:             "127.0.0.1:8080",
+		LogFormat:            "text",
+		UserAgent:            "Wera/" + strings.TrimPrefix(buildinfo.Version, "v") + " (personal job tracker; contact: jessechumo@gmail.com)",
+		MaxCostPerRunUSD:     1.00,
+		UserBudgetUSD:        10,
+		MaxMonthlyCostUSD:    100,
+		EmbedModel:           "BAAI/bge-small-en-v1.5",
+		ScoresPerDay:         100,
+		ScoresPerRun:         30,
+		InactiveAfterDays:    7,
+		InactiveScoresPerDay: 10,
+		SignupEnabled:        true,
+		SignupsPerHour:       5,
 	}
 
 	var errs []string
@@ -136,6 +153,14 @@ func LoadEnv() (*Env, error) {
 	floatVal("MAX_COST_PER_RUN_USD", &e.MaxCostPerRunUSD)
 	floatVal("USER_MONTHLY_BUDGET_USD", &e.UserBudgetUSD)
 	floatVal("MAX_MONTHLY_COST_USD", &e.MaxMonthlyCostUSD)
+	str("EMBED_BASE_URL", &e.EmbedBaseURL)
+	e.EmbedBaseURL = strings.TrimRight(e.EmbedBaseURL, "/")
+	str("EMBED_MODEL", &e.EmbedModel)
+	str("EMBED_API_KEY", &e.EmbedAPIKey)
+	intVal("SCORES_PER_DAY", &e.ScoresPerDay)
+	intVal("SCORES_PER_RUN", &e.ScoresPerRun)
+	intVal("INACTIVE_AFTER_DAYS", &e.InactiveAfterDays)
+	intVal("INACTIVE_SCORES_PER_DAY", &e.InactiveScoresPerDay)
 	boolVal("SIGNUP_ENABLED", &e.SignupEnabled)
 	intVal("SIGNUPS_PER_HOUR", &e.SignupsPerHour)
 	boolVal("COOKIE_SECURE", &e.CookieSecure)
@@ -176,6 +201,12 @@ func LoadEnv() (*Env, error) {
 	if e.UserBudgetUSD < 0 || e.MaxMonthlyCostUSD <= 0 {
 		errs = append(errs, "USER_MONTHLY_BUDGET_USD must be >= 0 and MAX_MONTHLY_COST_USD positive")
 	}
+	if e.ScoresPerDay < 0 || e.ScoresPerRun < 0 || e.InactiveScoresPerDay < 0 || e.InactiveAfterDays < 1 {
+		errs = append(errs, "SCORES_PER_DAY, SCORES_PER_RUN and INACTIVE_SCORES_PER_DAY must be >= 0, INACTIVE_AFTER_DAYS >= 1")
+	}
+	if e.EmbedBaseURL != "" && !internalURL(e.EmbedBaseURL) {
+		errs = append(errs, fmt.Sprintf("EMBED_BASE_URL must use https (or http to localhost or a container name), got %q", e.EmbedBaseURL))
+	}
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))
 	}
@@ -210,4 +241,15 @@ func secureURL(raw string) bool {
 	}
 	h := u.Hostname()
 	return u.Scheme == "http" && (h == "localhost" || h == "127.0.0.1" || h == "::1")
+}
+
+// internalURL is secureURL plus plain http to a single-label host: a
+// container on the same Docker network (e.g. http://wera-embed), which
+// never leaves the machine.
+func internalURL(raw string) bool {
+	if secureURL(raw) {
+		return true
+	}
+	u, err := url.Parse(raw)
+	return err == nil && u.Scheme == "http" && u.Hostname() != "" && !strings.Contains(u.Hostname(), ".")
 }

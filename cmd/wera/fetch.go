@@ -66,7 +66,7 @@ func runFetch(ctx context.Context, args []string) error {
 		var profiles []*store.Profile
 		if profiles, err = store.ReadyProfiles(ctx, pool); err == nil {
 			for _, prof := range profiles {
-				fst, ferr := pipeline.FilterUser(ctx, pool, eng, prof, nil)
+				fst, ferr := pipeline.FilterUser(ctx, pool, eng, pipeline.NewEmbedder(env, log), prof, nil)
 				if ferr != nil {
 					err = ferr
 					break

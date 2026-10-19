@@ -105,11 +105,7 @@ func Rank(profile string, docs []Doc) map[int64]int {
 		return out
 	}
 
-	type scored struct {
-		id  int64
-		sim float64
-	}
-	sims := make([]scored, len(docs))
+	sims := make(map[int64]float64, len(docs))
 	for i, d := range docs {
 		jv, jnorm := weigh(tfs[i])
 		var dot float64
@@ -120,18 +116,29 @@ func Rank(profile string, docs []Doc) map[int64]int {
 		if jnorm > 0 {
 			sim = dot / (jnorm * pnorm)
 		}
-		sims[i] = scored{d.ID, sim}
+		sims[d.ID] = sim
 	}
-	lo, hi := sims[0].sim, sims[0].sim
+	return Scale(sims)
+}
+
+// Scale maps similarities onto estimates in 35..85: the best gets 85 and
+// the weakest 35, linearly in between.
+func Scale(sims map[int64]float64) map[int64]int {
+	out := make(map[int64]int, len(sims))
+	first := true
+	var lo, hi float64
 	for _, s := range sims {
-		lo, hi = math.Min(lo, s.sim), math.Max(hi, s.sim)
+		if first {
+			lo, hi, first = s, s, false
+		}
+		lo, hi = math.Min(lo, s), math.Max(hi, s)
 	}
-	for _, s := range sims {
+	for id, s := range sims {
 		pct := 1.0
 		if hi > lo {
-			pct = (s.sim - lo) / (hi - lo)
+			pct = (s - lo) / (hi - lo)
 		}
-		out[s.id] = 35 + int(math.Round(50*pct))
+		out[id] = 35 + int(math.Round(50*pct))
 	}
 	return out
 }

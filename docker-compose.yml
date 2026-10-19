@@ -22,6 +22,23 @@ services:
   #   docker compose up -d --build
   # `docker compose up -d postgres` still starts only the database.
 
+  # Local embedding model (BAAI/bge-small-en-v1.5, CPU, ~700 MB RAM): ranks
+  # every pending job for each user without an AI call, so only the best
+  # ranked get a paid AI score. Downloads the model (~130 MB) on first start.
+  wera-embed:
+    container_name: wera-embed
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    command: ["--model-id", "BAAI/bge-small-en-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
+    volumes:
+      - wera-embed-models:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
   # One-shot: applies embedded migrations, then exits. API and worker wait on it.
   wera-migrate:
     build:
@@ -55,6 +72,7 @@ services:
       DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
       HTTP_ADDR: ":8080"
       LOG_FORMAT: json
+      EMBED_BASE_URL: http://wera-embed/v1
     volumes:
       - ./config:/app/config:ro
       - ./profile:/app/profile:ro   # only for `wera users import-profile`
@@ -88,6 +106,7 @@ services:
     environment:
       DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
       LOG_FORMAT: json
+      EMBED_BASE_URL: http://wera-embed/v1
     volumes:
       - ./config:/app/config:ro
       - ./profile:/app/profile:ro   # only for `wera users import-profile`
@@ -166,6 +185,7 @@ services:
       COOKIE_SECURE: "true"
       TRUST_PROXY: "true"
       PUBLIC_ORIGINS: ${PUBLIC_ORIGINS:-}
+      EMBED_BASE_URL: http://wera-embed/v1
     volumes:
       - ./config:/app/config:ro
     depends_on:
@@ -195,3 +215,4 @@ services:
 
 volumes:
   wera-pgdata:
+  wera-embed-models:

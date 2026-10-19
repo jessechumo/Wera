@@ -8,6 +8,7 @@
 #     └── everything else ──> wera-web (the dashboard)
 #   wera-admin: 127.0.0.1:3001 only, reached through an SSH tunnel
 #   wera-worker: fetches and scores jobs on RUN_SCHEDULE, sends digests
+#   wera-embed: local embedding model that ranks jobs (no API cost)
 #   postgres: no published port; backups go through ./deploy.sh backup
 #
 # Use ./deploy.sh rather than calling docker compose directly; see README.md.
@@ -24,6 +25,7 @@ x-wera: &wera
   environment: &wera-env
     DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/wera?sslmode=disable
     LOG_FORMAT: json
+    EMBED_BASE_URL: http://wera-embed/v1
   logging: *logging
   restart: unless-stopped
 
@@ -41,6 +43,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: *logging
+    restart: unless-stopped
+
+  # Local embedding model (BAAI/bge-small-en-v1.5, CPU, ~700 MB RAM): ranks
+  # every pending job for each user without an AI call, so only the best
+  # ranked get a paid AI score. Downloads the model (~130 MB) on first start.
+  wera-embed:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    command: ["--model-id", "BAAI/bge-small-en-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
+    volumes:
+      - wera-embed-models:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     logging: *logging
     restart: unless-stopped
 
@@ -145,5 +164,6 @@ services:
 
 volumes:
   pgdata:
+  wera-embed-models:
   caddy-data:
   caddy-config:

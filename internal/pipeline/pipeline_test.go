@@ -130,7 +130,7 @@ func TestMatchingEndToEnd(t *testing.T) {
 
 	u1 := testutil.User(t, pool, false)
 	p1 := testutil.Profile(t, pool, u1.ID, sreProfile, srePrefs)
-	if _, err := FilterUser(ctx, pool, eng, p1, nil); err != nil {
+	if _, err := FilterUser(ctx, pool, eng, nil, p1, nil); err != nil {
 		t.Fatalf("filter: %v", err)
 	}
 	for id, want := range map[int64]string{senior: "title:", uk: "location:non_us", noSponsor: "sponsorship:explicit_no", offTopic: "title:no_category"} {
@@ -186,7 +186,7 @@ func TestMatchingEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	callsBefore := coral.facts.Load() + coral.fits.Load()
-	if _, err := FilterUser(ctx, pool, eng, p1, nil); err != nil {
+	if _, err := FilterUser(ctx, pool, eng, nil, p1, nil); err != nil {
 		t.Fatalf("refilter: %v", err)
 	}
 	if stage, _ := stageOf(t, pool, u1.ID, good); stage != "scored" {
@@ -200,7 +200,7 @@ func TestMatchingEndToEnd(t *testing.T) {
 	// too-senior job drops out at filter time and only one fit call is made.
 	u2 := testutil.User(t, pool, false)
 	p2 := testutil.Profile(t, pool, u2.ID, sreProfile+"\nPrefers remote work.", srePrefs)
-	if _, err := FilterUser(ctx, pool, eng, p2, nil); err != nil {
+	if _, err := FilterUser(ctx, pool, eng, nil, p2, nil); err != nil {
 		t.Fatalf("filter user 2: %v", err)
 	}
 	if stage, _ := stageOf(t, pool, u2.ID, tooSenior); stage != "excluded" {

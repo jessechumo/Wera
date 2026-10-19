@@ -57,6 +57,7 @@ func (s *Server) requireUser(next http.Handler) http.Handler {
 				s.writeError(w, http.StatusInternalServerError, "token lookup failed")
 				return
 			}
+			s.touch(r.Context(), u.ID)
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 			return
 		}
@@ -76,8 +77,17 @@ func (s *Server) requireUser(next http.Handler) http.Handler {
 			s.writeError(w, http.StatusInternalServerError, "session lookup failed")
 			return
 		}
+		s.touch(r.Context(), u.ID)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 	})
+}
+
+// touch records that the user is active (the worker scores fewer jobs
+// for users who stay away). A failure only costs accuracy, so it is logged.
+func (s *Server) touch(ctx context.Context, userID int64) {
+	if err := store.TouchUser(ctx, s.Pool, userID); err != nil {
+		s.Log.Warn("recording activity failed", "user_id", userID, "err", err)
+	}
 }
 
 // requireAdmin allows only admins signed in with a browser session (403):
