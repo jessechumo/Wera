@@ -82,6 +82,7 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 	var sstats *ScoreStats
 	var scoreErr error
 	if fetchErr == nil {
+		p.embedBackfill(ctx)
 		excluded, sstats, scoreErr = p.matchAll(ctx)
 	}
 
@@ -176,7 +177,7 @@ func (p *Pipeline) MatchUser(ctx context.Context, prof *store.Profile) (excluded
 		release(unlockCtx)
 	}()
 
-	fst, err := FilterUser(ctx, p.Pool, p.Engine, prof, p.Metrics)
+	fst, err := FilterUser(ctx, p.Pool, p.Engine, NewEmbedder(p.Env, p.Log), prof, p.Metrics)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -267,11 +268,28 @@ func (p *Pipeline) offer(ctx context.Context, prof *store.Profile, jobID int64) 
 		defer cancel()
 		release(unlockCtx)
 	}()
-	if _, err := FilterUser(ctx, p.Pool, p.Engine, prof, p.Metrics); err != nil {
+	if _, err := FilterUser(ctx, p.Pool, p.Engine, NewEmbedder(p.Env, p.Log), prof, p.Metrics); err != nil {
 		return false, err
 	}
 	stage, err := store.UserJobStage(ctx, p.Pool, prof.UserID, jobID)
 	return stage == "pending_score", err
+}
+
+// embedBackfill embeds postings that have facts but no embedding yet
+// (after a deploy or a model change), for at most ten minutes a run, so
+// ranking users rarely waits on it. Failures are logged; ranking falls
+// back to word matching for jobs without embeddings.
+func (p *Pipeline) embedBackfill(ctx context.Context) {
+	e := NewEmbedder(p.Env, p.Log)
+	if e == nil {
+		return
+	}
+	n, err := e.Backfill(ctx, p.Pool, 10*time.Minute)
+	if err != nil {
+		p.Log.Warn("embedding postings failed", "embedded", n, "err", err)
+	} else if n > 0 {
+		p.Log.Info("embedded postings", "jobs", n)
+	}
 }
 
 // housekeeping closes added postings past their lifetime and drops

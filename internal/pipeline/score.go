@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/config"
 	"wera/internal/filter"
 	"wera/internal/metrics"
-	"wera/internal/relevance"
 	"wera/internal/scoring"
 	"wera/internal/store"
 )
@@ -23,8 +24,9 @@ type FilterStats struct {
 }
 
 // FilterUser applies the rule engine with the user's preferences to every
-// open job they have no current outcome for.
-func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, prof *store.Profile, m *metrics.Registry) (*FilterStats, error) {
+// open job they have no current outcome for, then ranks what is left (emb
+// may be nil: TF-IDF ranking only).
+func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, emb *Embedder, prof *store.Profile, m *metrics.Registry) (*FilterStats, error) {
 	excluded, pending, byReason, err := store.FilterForUser(ctx, pool, eng, prof.UserID, &prof.Preferences)
 	if err != nil {
 		return nil, fmt.Errorf("filter for user %d: %w", prof.UserID, err)
@@ -52,7 +54,7 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, pro
 	if err != nil {
 		return nil, err
 	}
-	if err := RankPending(ctx, pool, prof); err != nil {
+	if _, err := RankPending(ctx, pool, emb, prof); err != nil {
 		return nil, err
 	}
 	return &FilterStats{Excluded: excluded + byFacts, Pending: pending - byFacts}, nil
@@ -98,17 +100,6 @@ func linkCached(ctx context.Context, pool *pgxpool.Pool, userID int64, pj store.
 	return store.LinkAnalysis(ctx, pool, userID, pj.Job.ID, pj.Cached.ID, stage, reason, evidence)
 }
 
-// RankPending re-ranks the user's unscored matches against their profile
-// with the local relevance model (no LLM). The estimates order the LLM
-// queue and preview jobs on the dashboard until real scores arrive.
-func RankPending(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile) error {
-	docs, err := store.RankDocs(ctx, pool, prof.UserID)
-	if err != nil {
-		return err
-	}
-	return store.SetEstimates(ctx, pool, prof.UserID, relevance.Rank(prof.Markdown, docs))
-}
-
 // ExclusionsFor maps a user's preferences to their post-LLM rules.
 func ExclusionsFor(p *config.Preferences) scoring.Exclusions {
 	return scoring.Exclusions{
@@ -128,6 +119,7 @@ type ScoreStats struct {
 	Reused           int // linked to an existing analysis, no LLM call
 	FactsExtracted   int // postings whose shared facts were extracted now
 	ExcludedByFacts  int // excluded from shared facts, no per-user LLM call
+	Deferred         int // ranked below the user's score limit: estimate only for now
 	PromptTokens     int64
 	CachedTokens     int64
 	CompletionTokens int64
@@ -146,6 +138,7 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 	s.Reused += o.Reused
 	s.FactsExtracted += o.FactsExtracted
 	s.ExcludedByFacts += o.ExcludedByFacts
+	s.Deferred += o.Deferred
 	s.PromptTokens += o.PromptTokens
 	s.CachedTokens += o.CachedTokens
 	s.CompletionTokens += o.CompletionTokens
@@ -283,67 +276,89 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	}
 
 	// Work through the queue (best estimates first) in small chunks:
-	// shared facts (reused, or extracted once for everyone), exclusions
-	// from facts without an LLM call, then compact fit scoring. The first
-	// scores land after two quick round trips instead of after the batch.
-	const chunk = 24
-	for start := 0; start < len(jobs) && ctx.Err() == nil; start += chunk {
-		part := jobs[start:min(start+chunk, len(jobs))]
-		remaining := maxCostUSD - extractor.Spent() - scorer.Spent()
-		if remaining <= 0 {
-			st.Skipped += len(jobs) - start
-			break
+	// 1. Shared facts (extracted once per posting, for everyone), best
+	// ranked first. They may use at most half of the allowance, so a new
+	// user with thousands of unseen postings still gets scores this run.
+	ids := make([]int64, len(jobs))
+	for i, j := range jobs {
+		ids[i] = j.ID
+	}
+	facts, err := store.FactsFor(ctx, pool, ids)
+	if err != nil {
+		return st, err
+	}
+	var missing []scoring.Job
+	for _, j := range jobs {
+		if facts[j.ID] == nil {
+			missing = append(missing, j)
 		}
-		ids := make([]int64, len(part))
-		for i, j := range part {
-			ids[i] = j.ID
+	}
+	factsBudget := maxCostUSD / 2
+	if len(onlyIDs) > 0 {
+		factsBudget = maxCostUSD
+	}
+	const chunk = 48
+	for start := 0; start < len(missing) && ctx.Err() == nil && extractor.Spent() < factsBudget; start += chunk {
+		extractor.MaxCostUSD = factsBudget
+		for _, r := range extractor.Extract(ctx, missing[start:min(start+chunk, len(missing))]) {
+			if r.Facts != nil {
+				facts[r.JobID] = r.Facts
+			}
 		}
-		facts, err := store.FactsFor(ctx, pool, ids)
+	}
+
+	// 2. The user's rules on those facts, at no cost.
+	var candidates []scoring.Job
+	for _, j := range jobs {
+		if f := facts[j.ID]; f != nil {
+			if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
+				if err := store.ExcludeUserJob(ctx, pool, prof.UserID, j.ID, reason, evidence); err != nil {
+					log.Warn("excluding job failed", "job_id", j.ID, "err", err)
+				}
+				st.ExcludedByFacts++
+				continue
+			}
+		}
+		candidates = append(candidates, j)
+	}
+
+	// 3. Rank what is left (embeddings now cover the new facts) and keep
+	// the best within the user's limit. The rest keep their estimate and
+	// get an AI score when the user opens them or on a later run.
+	if len(onlyIDs) == 0 && len(candidates) > 0 {
+		if est, err := RankPending(ctx, pool, NewEmbedder(env, log), prof); err != nil {
+			log.Warn("ranking before scoring failed; keeping the previous order", "user_id", prof.UserID, "err", err)
+		} else {
+			sort.SliceStable(candidates, func(a, b int) bool { return est[candidates[a].ID] > est[candidates[b].ID] })
+		}
+		n, why, err := ScoreLimit(ctx, pool, env, prof)
 		if err != nil {
 			return st, err
 		}
-		var missing []scoring.Job
-		for _, j := range part {
-			if facts[j.ID] == nil {
-				missing = append(missing, j)
-			}
+		if n >= 0 && n < len(candidates) {
+			st.Deferred = len(candidates) - n
+			candidates = candidates[:n]
+			log.Info("score limit reached; the rest stay estimated", "user_id", prof.UserID,
+				"scoring", n, "deferred", st.Deferred, "why", why)
 		}
-		if len(missing) > 0 {
-			extractor.MaxCostUSD = extractor.Spent() + remaining
-			for _, r := range extractor.Extract(ctx, missing) {
-				if r.Facts != nil {
-					facts[r.JobID] = r.Facts
-				}
-			}
-		}
+	}
 
-		var toScore []scoring.Job
-		for _, j := range part {
-			f := facts[j.ID]
-			if f != nil {
-				if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
-					if err := store.ExcludeUserJob(ctx, pool, prof.UserID, j.ID, reason, evidence); err != nil {
-						log.Warn("excluding job failed", "job_id", j.ID, "err", err)
-					}
-					st.ExcludedByFacts++
-					continue
-				}
-			}
-			toScore = append(toScore, j)
-		}
-		if len(toScore) == 0 {
-			continue
-		}
+	// 4. Per-user AI fit scores.
+	if len(candidates) > 0 && ctx.Err() == nil {
 		scorer.Facts = facts
-		scorer.MaxCostUSD = scorer.Spent() + (maxCostUSD - extractor.Spent() - scorer.Spent())
-		scorer.Score(ctx, toScore)
+		scorer.MaxCostUSD = maxCostUSD - extractor.Spent()
+		if scorer.MaxCostUSD > 0 {
+			scorer.Score(ctx, candidates)
+		} else {
+			st.Skipped += len(candidates)
+		}
 	}
 	st.CostUSD = scorer.Spent() + extractor.Spent()
 
 	log.Info("scoring pass finished", "user_id", prof.UserID,
 		"scored", st.Scored, "excluded", st.Excluded, "score_failed", st.Failed,
 		"skipped", st.Skipped, "reused", st.Reused,
-		"facts_extracted", st.FactsExtracted, "excluded_by_facts", st.ExcludedByFacts,
+		"facts_extracted", st.FactsExtracted, "excluded_by_facts", st.ExcludedByFacts, "deferred", st.Deferred,
 		"prompt_tokens", st.PromptTokens, "cached_tokens", st.CachedTokens,
 		"completion_tokens", st.CompletionTokens, "cost_usd", fmt.Sprintf("%.6f", st.CostUSD))
 	return st, nil
@@ -354,4 +369,36 @@ func scoreInt(a *scoring.Analysis) any {
 		return nil
 	}
 	return a.FitScore
+}
+
+// ScoreLimit is how many AI scores the user may get now: -1 for no limit.
+// Active users get SCORES_PER_DAY in any 24 hours, at most SCORES_PER_RUN
+// per run once their current profile has scores (a new or edited profile
+// gets its first day's worth at once). Users unseen for
+// INACTIVE_AFTER_DAYS get INACTIVE_SCORES_PER_DAY, enough for their
+// digest, or none when no digest would be sent.
+func ScoreLimit(ctx context.Context, pool *pgxpool.Pool, env *config.Env, prof *store.Profile) (int, string, error) {
+	act, err := store.UserScoreActivity(ctx, pool, prof.UserID, prof.ProfileHash)
+	if err != nil {
+		return 0, "", err
+	}
+	inactive := env.InactiveAfterDays > 0 &&
+		(act.LastSeen == nil || time.Since(*act.LastSeen) > time.Duration(env.InactiveAfterDays)*24*time.Hour)
+	daily, why := env.ScoresPerDay, "daily limit"
+	switch {
+	case inactive && (!env.Mail.Enabled() || !act.DigestRequested):
+		return 0, "inactive, no digest to fill", nil
+	case inactive:
+		daily, why = env.InactiveScoresPerDay, "inactive: digest-sized limit"
+	case daily == 0 && env.ScoresPerRun == 0:
+		return -1, "", nil
+	}
+	left := -1
+	if daily > 0 || inactive {
+		left = max(0, daily-act.ScoredLastDay)
+	}
+	if env.ScoresPerRun > 0 && act.ScoredProfile && !inactive && (left < 0 || env.ScoresPerRun < left) {
+		left, why = env.ScoresPerRun, "per-run limit"
+	}
+	return left, why, nil
 }

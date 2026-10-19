@@ -106,7 +106,7 @@ func runServe(ctx context.Context, args []string) error {
 			if err != nil || prof == nil || !prof.Ready() {
 				return err
 			}
-			_, err = pipeline.FilterUser(ctx, pool, p.Engine, prof, reg)
+			_, err = pipeline.FilterUser(ctx, pool, p.Engine, pipeline.NewEmbedder(env, log), prof, reg)
 			return err
 		},
 		ScoreNow: p.ScoreNow,

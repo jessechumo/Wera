@@ -119,7 +119,7 @@ func runRefilter(ctx context.Context, args []string) error {
 	}
 	var excluded, pending int
 	for _, prof := range profiles {
-		st, err := pipeline.FilterUser(ctx, pool, eng, prof, nil)
+		st, err := pipeline.FilterUser(ctx, pool, eng, pipeline.NewEmbedder(env, log), prof, nil)
 		if err != nil {
 			return fmt.Errorf("requeued %d jobs but refiltering failed: %w", n, err)
 		}
