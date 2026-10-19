@@ -13,7 +13,7 @@ import (
 )
 
 // runScore implements `wera score [--limit N] [--user EMAIL]`: it scores
-// each user's jobs in stage pending_score against their profile via Coral
+// each user's jobs in stage pending_score against their profile via the AI provider
 // Bricks, stores structured analyses with token/cost accounting, and
 // applies the user's post-LLM exclusions. Without --user every user with a
 // ready profile is scored.
@@ -29,8 +29,8 @@ func runScore(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if env.CoralAPIKey == "" {
-		return errors.New("CORAL_API_KEY is not set: add it to .env (see .env.example)")
+	if !env.AI.Enabled() {
+		return errors.New("AI_API_KEY is not set: add it to .env (see .env.example)")
 	}
 	log := config.NewLogger(env)
 

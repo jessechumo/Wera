@@ -142,7 +142,7 @@ func (s *Server) validateInput(in *profileInput) error {
 // cost, which counts toward the user's budget.
 func (s *Server) draftProfile(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, "profile drafting is not configured on this server")
 		return
 	}
@@ -240,20 +240,19 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 	s.getProfile(w, r)
 }
 
-// chatForUser makes one Coral chat call on behalf of a user and records
+// chatForUser makes one AI chat call on behalf of a user and records
 // its cost (kind names the purpose in llm_usage). It returns the reply.
 func (s *Server) chatForUser(ctx context.Context, userID int64, kind string, maxTokens int, msgs []scoring.Message) (string, error) {
-	return s.chatWithModel(ctx, userID, kind, s.Env.CoralModel, maxTokens, msgs)
+	return s.chatWithModel(ctx, userID, kind, s.Env.AI.Model, maxTokens, msgs)
 }
 
 // chatWithModel is chatForUser with an explicit model.
 func (s *Server) chatWithModel(ctx context.Context, userID int64, kind, model string, maxTokens int, msgs []scoring.Message) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 110*time.Second)
 	defer cancel()
-	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: s.Env.CoralBaseURL, APIKey: s.Env.CoralAPIKey, Model: model,
-		Timeout: 105 * time.Second, MaxTokens: maxTokens, Log: s.Log,
-	})
+	opts := s.Env.AI.Options(model)
+	opts.Timeout, opts.MaxTokens, opts.Log = 105*time.Second, maxTokens, s.Log
+	client := scoring.NewClient(opts)
 	start := time.Now()
 	comp, err := client.Chat(ctx, "", msgs)
 	if err != nil {
@@ -281,7 +280,7 @@ func (s *Server) chatWithModel(ctx context.Context, userID int64, kind, model st
 // user's budget.
 func (s *Server) suggestPreferences(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, "suggestions are not configured on this server")
 		return
 	}

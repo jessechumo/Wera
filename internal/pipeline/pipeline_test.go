@@ -92,8 +92,8 @@ func stageOf(t *testing.T, pool *pgxpool.Pool, userID, jobID int64) (stage, reas
 
 func testEnv(url string) *config.Env {
 	return &config.Env{
-		CoralAPIKey: "cb_test", CoralBaseURL: url,
-		CoralModel: "deepseek-v4.1-flash-fast", ScoringConcurrency: 2,
+		AI:                 config.AI{APIKey: "cb_test", BaseURL: url, Model: "deepseek-v4.1-flash-fast"},
+		ScoringConcurrency: 2,
 	}
 }
 

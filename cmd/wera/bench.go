@@ -32,8 +32,8 @@ func runBench(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if env.CoralAPIKey == "" {
-		return errors.New("CORAL_API_KEY is not set: add it to .env (see .env.example)")
+	if !env.AI.Enabled() {
+		return errors.New("AI_API_KEY is not set: add it to .env (see .env.example)")
 	}
 	log := config.NewLogger(env)
 
@@ -64,20 +64,15 @@ func runBench(ctx context.Context, args []string) error {
 	}
 	log.Info("bench: scoring jobs (nothing is persisted; stages unchanged)",
 		"parallel_jobs", nParallel, "serial_jobs", *serialN,
-		"concurrency", env.ScoringConcurrency, "model", env.CoralModel)
+		"concurrency", env.ScoringConcurrency, "model", env.AI.Model)
 
 	profileHash := prof.ProfileHash
 	newScorer := func(concurrency int) *scoring.Scorer {
 		return &scoring.Scorer{
-			Client: scoring.NewClient(scoring.ClientOptions{
-				BaseURL: env.CoralBaseURL,
-				APIKey:  env.CoralAPIKey,
-				Model:   env.CoralModel,
-				Log:     log,
-			}),
+			Client:      scoring.NewClient(withLog(env.AI.Options(env.AI.Model), log)),
 			Profile:     profile,
 			ProfileHash: profileHash,
-			Model:       env.CoralModel,
+			Model:       env.AI.Model,
 			Rules:       pipeline.ExclusionsFor(&prof.Preferences),
 			Concurrency: concurrency,
 			Log:         log,

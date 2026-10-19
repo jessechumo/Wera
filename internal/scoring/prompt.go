@@ -22,7 +22,7 @@ Your reply must be exactly this JSON shape (types matter: fit_score is an intege
 // maxDescriptionChars is the plain-text description truncation limit.
 const maxDescriptionChars = 12000
 
-// Message is one chat message in a Coral request.
+// Message is one chat message in a chat-completions request.
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

@@ -148,13 +148,13 @@ func (s *ScoreStats) Add(o *ScoreStats) {
 // ScoreUser scores up to limit of one user's pending jobs (0 = all) and
 // stores their analyses, spending at most maxCostUSD. Jobs that already
 // have an analysis for the user's exact profile text reuse it for free.
-// It returns (nil, nil) when CORAL_API_KEY is not set, so the pipeline
+// It returns (nil, nil) when AI_API_KEY is not set, so the pipeline
 // simply skips the LLM stage.
 // onlyIDs, when not empty, scores just those jobs (on-demand scoring of
 // a job the user opened).
 func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *slog.Logger, prof *store.Profile, limit int, onlyIDs []int64, maxCostUSD float64, m *metrics.Registry) (*ScoreStats, error) {
-	if env.CoralAPIKey == "" {
-		log.Info("CORAL_API_KEY not set; skipping scoring stage")
+	if !env.AI.Enabled() {
+		log.Info("AI_API_KEY not set; skipping scoring stage")
 		return nil, nil
 	}
 	if prof.Markdown == "" {
@@ -184,24 +184,21 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		return st, nil
 	}
 
-	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: env.CoralBaseURL,
-		APIKey:  env.CoralAPIKey,
-		Model:   env.CoralModel,
-		Log:     log,
-	})
+	opts := env.AI.Options(env.AI.Model)
+	opts.Log = log
+	client := scoring.NewClient(opts)
 	scorer := &scoring.Scorer{
 		Client:      client,
 		Profile:     []byte(prof.Markdown),
 		ProfileHash: prof.ProfileHash,
-		Model:       env.CoralModel,
+		Model:       env.AI.Model,
 		Rules:       rules,
 		MaxCostUSD:  maxCostUSD,
 		Concurrency: env.ScoringConcurrency,
 		Log:         log,
 	}
 	log.Info("scoring jobs", "user_id", prof.UserID, "jobs", len(jobs), "reused", st.Reused,
-		"model", env.CoralModel, "concurrency", env.ScoringConcurrency,
+		"model", env.AI.Model, "concurrency", env.ScoringConcurrency,
 		"max_cost_usd", fmt.Sprintf("%.4f", maxCostUSD))
 
 	// Each outcome is saved as soon as it arrives, so the dashboard shows
@@ -218,10 +215,10 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			if result == "" {
 				result = "skipped"
 			}
-			m.LLMRequests.WithLabelValues(env.CoralModel, result).Inc()
+			m.LLMRequests.WithLabelValues(env.AI.Model, result).Inc()
 		}
 		if out.Stage != "" {
-			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.CoralModel, prof.ProfileHash, out); err != nil {
+			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.AI.Model, prof.ProfileHash, out); err != nil {
 				log.Error("saving analysis failed", "job_id", out.JobID, "err", err)
 			} else {
 				log.Debug("job scored", "user_id", prof.UserID, "job_id", out.JobID,
@@ -251,12 +248,12 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	}
 	extractor := &scoring.Extractor{
 		Client:      client,
-		Model:       env.CoralModel,
+		Model:       env.AI.Model,
 		Concurrency: env.ScoringConcurrency,
 		Log:         log,
 		OnResult: func(r scoring.FactsResult) {
 			if r.Usage.PromptTokens > 0 {
-				if err := store.RecordLLMUsage(ctx, pool, prof.UserID, "facts", env.CoralModel,
+				if err := store.RecordLLMUsage(ctx, pool, prof.UserID, "facts", env.AI.Model,
 					r.Usage.PromptTokens, r.Usage.CachedTokens, r.Usage.CompletionTokens, r.CostUSD); err != nil {
 					log.Warn("recording facts usage failed", "err", err)
 				}
@@ -268,7 +265,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 				mu.Unlock()
 			}
 			if r.Facts != nil {
-				if err := store.SaveFacts(ctx, pool, r, env.CoralModel); err != nil {
+				if err := store.SaveFacts(ctx, pool, r, env.AI.Model); err != nil {
 					log.Warn("saving facts failed", "job_id", r.JobID, "err", err)
 				}
 			}
