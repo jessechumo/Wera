@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/jessechumo/Wera/compare/wera-v0.3.0...wera-v0.3.1) (2026-10-19)
+
+
+### Documentation
+
+* redraw architecture diagrams with logos and legends ([beaa4ca](https://github.com/jessechumo/Wera/commit/beaa4ca84034ecf7edab53088a78c8fb1e288159))
+
 ## [0.3.0](https://github.com/jessechumo/Wera/compare/wera-v0.2.1...wera-v0.3.0) (2026-10-19)
 
 
