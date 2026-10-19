@@ -15,16 +15,16 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
-  <img alt="Wera system architecture: people reach Caddy over HTTPS; the web app, API, embedding model, worker and PostgreSQL run on one Docker host; the worker calls job boards, the AI provider and email" src="docs/architecture.svg">
+  <img alt="Wera system architecture on one Hetzner VM: Caddy routes /api to wera-api and pages to wera-web; wera-api and wera-worker (one Go binary) use wera-embed and PostgreSQL and call the LLM API; the worker polls job boards, the API sends email; wera-admin is reached only through an SSH tunnel" src="docs/architecture.svg">
 </picture>
 
-Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) serves the dashboard and proxies `/api` to `wera-api`; `wera-admin` does the same for the admin console, on the LAN only. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
+Everything runs with Docker Compose on one host (see [deploy/hetzner](deploy/hetzner)). Caddy is the only public service: it terminates TLS and sends `/api/*` to `wera-api` and everything else to `wera-web` (nginx serving the dashboard). `wera-api` and `wera-worker` are the same Go binary: the API serves requests and sends queued email, the worker runs the matching pipeline on a schedule. Both rank jobs with `wera-embed`, a small local embedding model, and keep everything in PostgreSQL. `wera-admin` listens on 127.0.0.1 only and is reached through an SSH tunnel.
 
 ## How matching works
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/pipeline-dark.svg">
-  <img alt="The matching funnel: 88k open jobs, rules leave 2,900, shared facts and fact rules leave 1,800, local embeddings rank them, and at most 100 a day get an AI score" src="docs/pipeline.svg">
+  <img alt="The matching funnel, to scale: 88k open jobs are fetched once for everyone, rules leave 2,900 per user, shared LLM facts and fact rules leave 1,800, a local model ranks them, and at most 100 a day get an LLM fit score at $0.0001 each" src="docs/pipeline.svg">
 </picture>
 
 1. **Fetch** each company's board once, for everyone. Boards that support ETags answer `304 Not Modified` when nothing changed; Workday boards list only new postings, with a full sweep once a day. A shared throttle keeps requests few and spaced out.

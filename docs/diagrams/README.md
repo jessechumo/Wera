@@ -15,5 +15,8 @@ To change one:
    `docs/<name>.svg`, once with **Dark mode** as `docs/<name>-dark.svg`.
    The README shows whichever matches the reader's theme.
 
-Keep the style: Excalifont for text, Excalidraw's own colors, dashed
-boundaries for hosts and trust zones, and short labels.
+Keep the style: one logo, a name and one technology line per box; dashed
+boundaries for hosts and trust zones; short protocol labels on arrows; and a
+legend for every color and line style used. Excalifont for names, Excalidraw's
+own colors. Logos come from [Simple Icons](https://simpleicons.org) and
+[Lucide](https://lucide.dev).
