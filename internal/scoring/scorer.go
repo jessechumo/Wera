@@ -59,11 +59,13 @@ type Scorer struct {
 	OnOutcome func(Outcome)
 
 	// Mutable run state.
-	limit     atomic.Int32 // current effective concurrency
-	inUse     atomic.Int32
-	costMu    sync.Mutex
-	spent     float64
-	budgetHit bool
+	skillsOnce sync.Once
+	skills     SkillSet     // profile terms, for matching job skills
+	limit      atomic.Int32 // current effective concurrency
+	inUse      atomic.Int32
+	costMu     sync.Mutex
+	spent      float64
+	budgetHit  bool
 }
 
 // Score scores every job with up to Concurrency parallel calls, starting
@@ -90,6 +92,15 @@ func (s *Scorer) Score(ctx context.Context, jobs []Job) []Outcome {
 				s.emit(outcomes[k])
 			}
 			break
+		}
+		if i == 0 && len(jobs) > 1 {
+			// The first call runs alone: it writes the profile to the
+			// provider's prompt cache, so the parallel calls after it read
+			// the cache instead of each paying to write it again.
+			outcomes[0] = s.scoreOne(ctx, jobs[0])
+			s.release()
+			s.emit(outcomes[0])
+			continue
 		}
 		wg.Add(1)
 		go func(i int) {
@@ -307,6 +318,10 @@ func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
 	if err != nil {
 		out.Stage = StageFailed
 		return out
+	}
+	if len(fit.SkillsMatched) == 0 && len(fit.SkillsMissing) == 0 {
+		s.skillsOnce.Do(func() { s.skills = NewSkillSet(string(s.Profile)) })
+		fit.SkillsMatched, fit.SkillsMissing = MatchSkills(s.skills, f.SkillsRequired)
 	}
 	out.Analysis = Merge(f, fit)
 	if reason, evidence := PostLLMExclusion(out.Analysis, s.Rules); reason != "" {

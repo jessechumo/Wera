@@ -171,3 +171,17 @@ func TestScorerCompactPathUsesFacts(t *testing.T) {
 		t.Errorf("compact prompt not used: %+v", msgs)
 	}
 }
+
+func TestScorerCompactMatchesSkillsInCode(t *testing.T) {
+	s, _ := newTestScorer(t, `{"fit_score":70,"verdict":"good","reason":"Fits the Linux work."}`)
+	s.Facts = map[int64]*Facts{1: {Seniority: "junior", Sponsorship: "unknown", WorkMode: "remote",
+		SkillsRequired: []string{"Linux", "Haskell"}, Digest: "Run Linux fleets."}}
+	out := s.Score(context.Background(), testJobs(1))[0]
+	if out.Stage != StageScored {
+		t.Fatalf("stage %q", out.Stage)
+	}
+	if len(out.Analysis.SkillsMatched) != 1 || out.Analysis.SkillsMatched[0] != "Linux" ||
+		len(out.Analysis.SkillsMissing) != 1 || out.Analysis.SkillsMissing[0] != "Haskell" {
+		t.Fatalf("skills: matched %v missing %v", out.Analysis.SkillsMatched, out.Analysis.SkillsMissing)
+	}
+}
