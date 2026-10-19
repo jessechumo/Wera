@@ -195,7 +195,7 @@ func SetContentStatus(ctx context.Context, pool *pgxpool.Pool, kind string, id i
 	if !ContentStatuses[status] {
 		return fmt.Errorf("unknown status %q", status)
 	}
-	tag, err := pool.Exec(ctx, `UPDATE `+table+` SET status = $2 WHERE id = $1`, id, status) //nolint:gosec // table is one of two constants
+	tag, err := pool.Exec(ctx, `UPDATE `+table+` SET status = $2 WHERE id = $1`, id, status)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func DeleteContent(ctx context.Context, pool *pgxpool.Pool, kind string, id int6
 	if err != nil {
 		return err
 	}
-	tag, err := pool.Exec(ctx, `DELETE FROM `+table+` WHERE id = $1`, id) //nolint:gosec // table is one of two constants
+	tag, err := pool.Exec(ctx, `DELETE FROM `+table+` WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}

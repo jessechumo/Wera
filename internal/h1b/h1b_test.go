@@ -24,7 +24,7 @@ func TestEmployerKey(t *testing.T) {
 }
 
 func TestMatch(t *testing.T) {
-	var keys []string
+	keys := make([]string, 0, 12)
 	for _, n := range []string{"Amazon.com Services LLC", "Amazon Web Services, Inc.", "Amazon Hospitality LLC", "Apple Inc.",
 		"Apple Hospitality REIT", "Planet, Inc.", "Planet Labs PBC", "Compass, Inc.", "Compass Health", "Bank of America N.A.", "Bank of China", "Meta Platforms Inc"} {
 		keys = append(keys, EmployerKey(n))

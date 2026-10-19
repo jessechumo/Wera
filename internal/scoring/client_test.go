@@ -23,7 +23,7 @@ func jsonDecode(r *http.Request, out any) error {
 const fakeReply = `{"choices":[{"message":{"content":"{\"fit_score\":80,\"verdict\":\"good\",\"seniority\":\"junior\",\"years_required\":null,\"sponsorship\":\"unknown\",\"sponsorship_quote\":null,\"us_eligible\":true,\"work_mode\":\"remote\",\"location_summary\":\"Remote\",\"skills_matched\":[],\"skills_missing\":[],\"reason\":\"ok\"}"}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}}}`
 
 func okHandler(body string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(body))
 	}
@@ -108,7 +108,7 @@ func TestChatExtraBodyAndReportedCost(t *testing.T) {
 func TestChat429Backoff(t *testing.T) {
 	var calls atomic.Int32
 	var rateLimitSeen atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) <= 2 {
 			w.Header().Set("Retry-After", "0")
 			http.Error(w, `{"error":"rate limited"}`, http.StatusTooManyRequests)
@@ -136,7 +136,7 @@ func TestChat429Backoff(t *testing.T) {
 }
 
 func TestChat429GivesUp(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Retry-After", "0")
 		http.Error(w, "slow down", http.StatusTooManyRequests)
 	}))
@@ -149,7 +149,7 @@ func TestChat429GivesUp(t *testing.T) {
 }
 
 func TestChatServerError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)

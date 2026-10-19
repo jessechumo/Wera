@@ -13,7 +13,7 @@ import (
 
 // runHealthcheck opens (and pings) the database pool; store.Open fails
 // if the database is unreachable, which main turns into exit code 1.
-func runHealthcheck(ctx context.Context, args []string) error {
+func runHealthcheck(ctx context.Context, _ []string) error {
 	env, err := config.LoadEnv()
 	if err != nil {
 		return err

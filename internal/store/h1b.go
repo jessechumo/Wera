@@ -25,6 +25,7 @@ type H1BWriter struct {
 	Saved int64
 }
 
+// NewH1BWriter returns a writer that loads H-1B disclosure rows.
 func NewH1BWriter(pool *pgxpool.Pool) *H1BWriter { return &H1BWriter{pool: pool} }
 
 // Add queues a case, writing a batch every 5,000.
@@ -54,7 +55,7 @@ func (w *H1BWriter) Flush(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE h1b_in (LIKE h1b_lca INCLUDING DEFAULTS) ON COMMIT DROP`); err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func rekeyH1B(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE h1b_rekey (employer_name TEXT, employer_key TEXT) ON COMMIT DROP`); err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func MatchH1BEmployers(ctx context.Context, pool *pgxpool.Pool, aliases map[stri
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `DELETE FROM company_h1b_employers`); err != nil {
 		return 0, err
 	}
@@ -185,6 +186,7 @@ type H1BPeriod struct {
 	To   *time.Time `json:"to"`
 }
 
+// H1BDataPeriod returns the date range the loaded H-1B data covers.
 func H1BDataPeriod(ctx context.Context, pool *pgxpool.Pool) (H1BPeriod, error) {
 	var p H1BPeriod
 	err := pool.QueryRow(ctx, `SELECT min(decision_date), max(decision_date) FROM h1b_lca`).Scan(&p.From, &p.To)

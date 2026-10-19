@@ -16,6 +16,7 @@ import (
 // Kind is what is being moderated.
 type Kind string
 
+// The kinds of content that are moderated.
 const (
 	Post    Kind = "post"
 	Comment Kind = "comment"

@@ -43,11 +43,11 @@ func ParseSchedule(spec string, loc *time.Location) (*Schedule, error) {
 // times are resolved per day, so DST changes keep runs at 09:00 local.
 func (s *Schedule) Next(now time.Time) time.Time {
 	local := now.In(s.Location)
-	for day := 0; day <= 1; day++ {
+	for day := range 2 {
 		y, m, d := local.AddDate(0, 0, day).Date()
 		for _, off := range s.Times {
-			h, min := int(off/time.Hour), int(off%time.Hour/time.Minute)
-			t := time.Date(y, m, d, h, min, 0, 0, s.Location)
+			h, minute := int(off/time.Hour), int(off%time.Hour/time.Minute)
+			t := time.Date(y, m, d, h, minute, 0, 0, s.Location)
 			if t.After(now) {
 				return t
 			}

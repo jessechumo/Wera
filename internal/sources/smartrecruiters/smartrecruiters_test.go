@@ -15,7 +15,7 @@ import (
 func newTestAdapter(t *testing.T) *Adapter {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		file := ""
+		var file string
 		switch r.URL.Path {
 		case "/v1/companies/TestCo/postings":
 			file = "testdata/list.json"

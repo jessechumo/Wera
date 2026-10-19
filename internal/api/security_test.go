@@ -63,7 +63,7 @@ func TestLoginLimitedPerAccount(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	anon := &http.Client{}
 	var last int
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/auth/login",
 			strings.NewReader(`{"email":"victim@example.com","password":"wrong password"}`))
 		req.Header.Set("Content-Type", "application/json")

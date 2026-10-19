@@ -181,7 +181,7 @@ func (c *Client) CreateBackgroundResponse(ctx context.Context, cacheKey, instruc
 				return "", fmt.Errorf("decode response: %w", err)
 			}
 			if rs.ID == "" {
-				return "", fmt.Errorf("response has no id: %s", truncate(raw, 300))
+				return "", fmt.Errorf("response has no id: %s", truncate(raw))
 			}
 			return rs.ID, nil
 		case http.StatusTooManyRequests:
@@ -190,7 +190,7 @@ func (c *Client) CreateBackgroundResponse(ctx context.Context, cacheKey, instruc
 				c.OnRateLimit()
 			}
 		default:
-			return "", fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw, 300))
+			return "", fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw))
 		}
 
 		if attempt >= len(backoffs) {
@@ -233,7 +233,7 @@ func (c *Client) RetrieveResponse(ctx context.Context, id string) (*ResponseStat
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw, 300))
+		return nil, fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw))
 	}
 
 	var rs responsesStatus

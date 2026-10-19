@@ -13,7 +13,7 @@ func TestThrottle(t *testing.T) {
 	var inFlight, peak atomic.Int32
 	var wg sync.WaitGroup
 	start := time.Now()
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

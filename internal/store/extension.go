@@ -355,7 +355,7 @@ func LookupJobByURL(ctx context.Context, pool *pgxpool.Pool, userID int64, raw s
 	norm := NormalizeJobURL(raw)
 	// An application form often lives at the posting's URL plus /apply.
 	parent := applySuffix.ReplaceAllString(norm, "")
-	addrs := []string{}
+	addrs := make([]string, 0, 3)
 	for _, a := range []string{norm, strings.TrimSpace(raw), parent} {
 		addrs = append(addrs, strings.TrimRight(a, "/"))
 	}

@@ -81,10 +81,10 @@ func ParseDeepAnalysis(text string) (*DeepAnalysis, error) {
 }
 
 // validateDeepStrings checks that a string-array field is present with a
-// non-empty entry count between min and max and no empty entries.
-func validateDeepStrings(field string, vals []string, min, max int) error {
-	if len(vals) < min || len(vals) > max {
-		return fmt.Errorf("%w: %s: want %d-%d entries, got %d", ErrInvalidSchema, field, min, max, len(vals))
+// non-empty entry count between lo and hi and no empty entries.
+func validateDeepStrings(field string, vals []string, lo, hi int) error {
+	if len(vals) < lo || len(vals) > hi {
+		return fmt.Errorf("%w: %s: want %d-%d entries, got %d", ErrInvalidSchema, field, lo, hi, len(vals))
 	}
 	for i, v := range vals {
 		if strings.TrimSpace(v) == "" {

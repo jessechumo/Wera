@@ -227,7 +227,7 @@ func macroCalls(body, name string, n int) []call {
 		args := make([]string, 0, n)
 		pos := at
 		ok := true
-		for a := 0; a < n; a++ {
+		for range n {
 			var v string
 			v, pos, ok = readArg(body, pos)
 			if !ok {

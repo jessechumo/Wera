@@ -12,7 +12,7 @@ import (
 	"wera/internal/sources"
 )
 
-func newTestAdapter(t *testing.T) (*Adapter, *httptest.Server) {
+func newTestAdapter(t *testing.T) *Adapter {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/boards/testco/jobs" {
@@ -32,11 +32,11 @@ func newTestAdapter(t *testing.T) (*Adapter, *httptest.Server) {
 		w.Write(data)
 	}))
 	t.Cleanup(srv.Close)
-	return NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL), srv
+	return NewWithBaseURL(sources.NewHTTP("Wera/test"), srv.URL)
 }
 
 func TestFetchParsesFixture(t *testing.T) {
-	adapter, _ := newTestAdapter(t)
+	adapter := newTestAdapter(t)
 	jobs, err := adapter.Fetch(context.Background(), "testco")
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
@@ -142,7 +142,7 @@ func TestFetchParsesFixture(t *testing.T) {
 func boolPtr(b bool) *bool { return &b }
 
 func TestFetchBoardNotFound(t *testing.T) {
-	adapter, _ := newTestAdapter(t)
+	adapter := newTestAdapter(t)
 	_, err := adapter.Fetch(context.Background(), "missing")
 	if err == nil {
 		t.Fatal("expected error for unknown board")
@@ -182,7 +182,7 @@ func mustTime(t *testing.T, s string) *time.Time {
 }
 
 func TestFetchIfChanged(t *testing.T) {
-	adapter, _ := newTestAdapter(t)
+	adapter := newTestAdapter(t)
 	jobs, etag, err := adapter.FetchIfChanged(context.Background(), "testco", "")
 	if err != nil || len(jobs) != 3 || etag != `W/"v1"` {
 		t.Fatalf("first fetch: %d jobs, etag %q, %v", len(jobs), etag, err)

@@ -28,7 +28,7 @@ func TestImportTeX(t *testing.T) {
 		r.Links[1].Label != "github.com/ada-example" || r.Links[1].URL != "https://github.com/ada-example" {
 		t.Fatalf("header: %+v", r)
 	}
-	kinds := []Kind{}
+	kinds := make([]Kind, 0, len(r.Sections))
 	for _, s := range r.Sections {
 		kinds = append(kinds, s.Kind)
 	}
@@ -99,7 +99,7 @@ func TestExportTeXRoundTripAndEscaping(t *testing.T) {
 		}
 	}
 	if !strings.Contains(tex, `Saved \$5 \& 10\% \textbackslash{}input\{/etc/passwd\}`) {
-		t.Errorf("escaping wrong: %s", tex[strings.Index(tex, "Saved"):][:120])
+		t.Errorf("escaping wrong: %s", tex)
 	}
 	back, _, err := ImportTeX(tex)
 	if err != nil || back.Sections[2].Entries[0].Bullets[0].Text != hostile {
@@ -240,9 +240,9 @@ func withRoles(t *testing.T, roles, bullets int) *Resume {
 	t.Helper()
 	r := sample(t)
 	exp := &r.Sections[2]
-	for i := 0; i < roles; i++ {
+	for i := range roles {
 		e := Entry{Heading: "Company " + string(rune('A'+i)), Subheading: "Engineer", Dates: "2020", Location: "Remote"}
-		for j := 0; j < bullets; j++ {
+		for range bullets {
 			e.Bullets = append(e.Bullets, Bullet{Text: "Delivered a substantial improvement to a production system used by many people every single day, measured carefully."})
 		}
 		exp.Entries = append(exp.Entries, e)

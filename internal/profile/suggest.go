@@ -78,11 +78,11 @@ func ParseSuggestions(reply string, roles *config.Roles) (*Suggestions, error) {
 	return &s, nil
 }
 
-func keepKnown(ids []string, known map[string]bool, max int) []string {
+func keepKnown(ids []string, known map[string]bool, limit int) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	for _, id := range ids {
-		if known[id] && !seen[id] && len(out) < max {
+		if known[id] && !seen[id] && len(out) < limit {
 			out = append(out, id)
 			seen[id] = true
 		}

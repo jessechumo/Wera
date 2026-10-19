@@ -100,16 +100,17 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 		totals.CompletionTokens = sstats.CompletionTokens
 		totals.CostUSD = sstats.CostUSD
 	}
-	if ctx.Err() != nil {
+	switch {
+	case ctx.Err() != nil:
 		totals.Status = "failed"
 		totals.Error = "run canceled: " + ctx.Err().Error()
-	} else if fetchErr != nil {
+	case fetchErr != nil:
 		totals.Status = "failed"
 		totals.Error = fetchErr.Error()
-	} else if scoreErr != nil {
+	case scoreErr != nil:
 		totals.Status = "failed"
 		totals.Error = scoreErr.Error()
-	} else if totals.CompaniesFailed > 0 {
+	case totals.CompaniesFailed > 0:
 		totals.Status = "partial"
 	}
 	if p.Metrics != nil && totals.Status != "failed" {

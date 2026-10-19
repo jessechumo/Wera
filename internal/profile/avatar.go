@@ -7,10 +7,10 @@ import (
 	"image/color"
 	_ "image/gif" // decoders registered for image.Decode
 	"image/jpeg"
-	_ "image/png"
+	_ "image/png" // decoder registered for image.Decode
 
 	"golang.org/x/image/draw"
-	_ "golang.org/x/image/webp"
+	_ "golang.org/x/image/webp" // decoder registered for image.Decode
 )
 
 // Avatar limits: uploads up to MaxAvatarBytes, decoded only when the
