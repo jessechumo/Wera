@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/jessechumo/Wera/compare/wera-v0.2.1...wera-v0.3.0) (2026-10-19)
+
+
+### Features
+
+* **config:** AI_* settings with coral, deepinfra and openai presets ([f4b67ee](https://github.com/jessechumo/Wera/commit/f4b67eeab1a3ce633807f58c8a7d419967c5083e))
+* **deploy:** one-folder server deploy with Caddy HTTPS ([b657b7a](https://github.com/jessechumo/Wera/commit/b657b7ac3210d547ef0f8b98621a81e52dfcf69a))
+* **deploy:** one-folder server deploy with Caddy HTTPS ([1c4b1c8](https://github.com/jessechumo/Wera/commit/1c4b1c8af228e11152d1b45e43607bf61d29503a))
+* **deploy:** run a local embedding model alongside the API ([9002f50](https://github.com/jessechumo/Wera/commit/9002f507a767bcdb93074782abc636337be8be43))
+* **embed:** client for OpenAI-compatible embedding endpoints ([b6fc97a](https://github.com/jessechumo/Wera/commit/b6fc97aa66d0eac333176e1053373032716fd766))
+* **pipeline:** rank by embeddings and limit AI scores per user ([915f26e](https://github.com/jessechumo/Wera/commit/915f26ec21a430d6918e25f279133bad97f5bf00))
+* rank jobs by embeddings and limit per-user AI scores ([f70dded](https://github.com/jessechumo/Wera/commit/f70ddedf6283af540f0590f39adb09ff2d99d1e7))
+* **scoring:** provider-neutral client and cost accounting ([0b4a0f7](https://github.com/jessechumo/Wera/commit/0b4a0f74ee99f8fc48321b594df4c276c7f757c8))
+* **scoring:** shorter fit replies and a warm prompt cache ([e0668db](https://github.com/jessechumo/Wera/commit/e0668db9e85ba1740070950247d32faddcdf90d7))
+
+
+### Documentation
+
+* describe embedding ranking and the AI score limits ([f7297e4](https://github.com/jessechumo/Wera/commit/f7297e4aa551db4caf23a94b4bfeec7390917f68))
+* document switching AI providers ([dd7d348](https://github.com/jessechumo/Wera/commit/dd7d3484286aaeaf8dbe16990be588d5949f8481))
+
 ## [0.2.1](https://github.com/jessechumo/Wera/compare/wera-v0.2.0...wera-v0.2.1) (2026-10-16)
 
 
