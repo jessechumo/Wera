@@ -13,13 +13,19 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
 
 ## Architecture
 
-![Wera system architecture: browser, nginx, API, worker and PostgreSQL on one host; job boards and the inference API on the internet](docs/architecture.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+  <img alt="Wera system architecture: people reach Caddy over HTTPS; the web app, API, embedding model, worker and PostgreSQL run on one Docker host; the worker calls job boards, the AI provider and email" src="docs/architecture.svg">
+</picture>
 
 Three containers share one PostgreSQL database on a single host. `wera-web` (nginx) serves the dashboard and proxies `/api` to `wera-api`; `wera-admin` does the same for the admin console, on the LAN only. `wera-worker` runs the matching pipeline on a schedule. Both are the same Go binary.
 
 ## How matching works
 
-![The matching pipeline: fetch, store, rule filter, local ranking, shared facts, fact exclusions, fit score](docs/pipeline.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/pipeline-dark.svg">
+  <img alt="The matching funnel: 88k open jobs, rules leave 2,900, shared facts and fact rules leave 1,800, local embeddings rank them, and at most 100 a day get an AI score" src="docs/pipeline.svg">
+</picture>
 
 1. **Fetch** each company's board once, for everyone. Boards that support ETags answer `304 Not Modified` when nothing changed; Workday boards list only new postings, with a full sweep once a day. A shared throttle keeps requests few and spaced out.
 2. **Store** only new or changed postings (by content hash), with a bulk `COPY`.
@@ -238,7 +244,7 @@ internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightf
 internal/store        PostgreSQL repository (pgx)
 internal/testutil     Test database and fixtures
 migrations/           Embedded SQL migrations (goose)
-docs/                 Architecture diagrams (generated from docs/diagrams)
+docs/                 Architecture and pipeline diagrams (Excalidraw sources in docs/diagrams)
 ```
 
 ## Stack
