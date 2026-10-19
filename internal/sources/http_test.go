@@ -55,7 +55,7 @@ func TestConditionalGet(t *testing.T) {
 
 func TestRetriesServerErrorsThenSucceeds(t *testing.T) {
 	var calls atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) < 3 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
@@ -71,7 +71,7 @@ func TestRetriesServerErrorsThenSucceeds(t *testing.T) {
 
 func TestGivesUpAfterMaxRetries(t *testing.T) {
 	var calls atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
@@ -84,7 +84,7 @@ func TestGivesUpAfterMaxRetries(t *testing.T) {
 
 func TestLongRetryAfterStopsAtOnce(t *testing.T) {
 	var calls atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls.Add(1)
 		w.Header().Set("Retry-After", "3600")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -100,7 +100,7 @@ func TestLongRetryAfterStopsAtOnce(t *testing.T) {
 func TestNotFoundAndBadStatusesFailFast(t *testing.T) {
 	for status, want := range map[int]error{http.StatusNotFound: ErrBoardNotFound, http.StatusForbidden: nil} {
 		var calls atomic.Int64
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			calls.Add(1)
 			w.WriteHeader(status)
 		}))
@@ -114,7 +114,7 @@ func TestNotFoundAndBadStatusesFailFast(t *testing.T) {
 
 func TestMaintenanceRedirect(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/maintenance-page", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("down")) })
+	mux.HandleFunc("/maintenance-page", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("down")) })
 	mux.HandleFunc("/jobs", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/maintenance-page", http.StatusFound)
 	})
@@ -141,7 +141,7 @@ func TestPostJSONSendsBody(t *testing.T) {
 }
 
 func TestBadJSONAndCancellation(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`not json`))
 	}))
 	defer srv.Close()

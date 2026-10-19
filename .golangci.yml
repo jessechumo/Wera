@@ -7,13 +7,22 @@ linters:
   default: standard # errcheck, govet, ineffassign, staticcheck, unused
   enable:
     - bodyclose     # HTTP response bodies are closed
+    - copyloopvar   # no per-iteration copies (Go 1.22+ loop variables)
+    - errname       # error types end in Error, sentinels start with Err
     - errorlint     # errors are compared with errors.Is/As
+    - gocritic      # common bugs and clearer alternatives
     - gosec         # security problems
+    - intrange      # range over integers (Go 1.22+)
     - misspell
     - nilerr        # returning nil after checking err != nil
     - noctx         # HTTP requests carry a context
+    - nolintlint    # every nolint names a linter and says why
+    - prealloc      # slices with a known size are preallocated
+    - revive        # exported names are documented; no shadowed builtins
     - unconvert
+    - unparam       # parameters and results that are always the same
     - usestdlibvars
+    - wastedassign
   settings:
     errcheck:
       exclude-functions:
@@ -23,6 +32,9 @@ linters:
         - (io.Closer).Close
         - (*database/sql.DB).Close
         - (net/http.ResponseWriter).Write
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     gosec:
       excludes:
         - G104 # unchecked errors: errcheck covers these

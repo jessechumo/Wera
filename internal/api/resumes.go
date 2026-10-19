@@ -197,7 +197,7 @@ func (s *Server) importInBackground(userID int64, text string) {
 	if ok, err := store.StartResumeImport(ctx, s.Pool, userID); err != nil || !ok {
 		return
 	}
-	go func() { //nolint:gosec // the import outlives the upload request on purpose
+	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		failure := ""
@@ -371,7 +371,7 @@ func (s *Server) resumePDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, resumeFilename(doc.Data.Name, "pdf")))
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; object-src 'self'; frame-ancestors 'self'")
-	w.Write(pdf) //nolint:gosec // a PDF we rendered, served with its type and nosniff
+	w.Write(pdf)
 }
 
 // resumeTeX is GET /api/resumes/{id}/tex: the LaTeX source.

@@ -31,7 +31,7 @@ func TestPutApplicationPersists(t *testing.T) {
 		pool.Exec(context.Background(), `DELETE FROM applications WHERE job_id = $1 AND user_id = $2`, id, testUserID)
 	})
 
-	put := func(payload string) int {
+	put := func(payload string) {
 		req, err := http.NewRequest(http.MethodPut, jobURL(ts, id, "/application"),
 			strings.NewReader(payload))
 		if err != nil {
@@ -46,7 +46,6 @@ func TestPutApplicationPersists(t *testing.T) {
 		if resp.StatusCode != 200 {
 			t.Fatalf("PUT %s: %d %s", payload, resp.StatusCode, body)
 		}
-		return resp.StatusCode
 	}
 
 	// Invalid status is rejected.

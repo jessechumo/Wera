@@ -15,7 +15,7 @@ func ReadFile(path string, fn func(Case) error) (read, kept int, err error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("open %s: %w", path, err)
 	}
-	defer f.Close() //nolint:errcheck // read-only
+	defer f.Close()
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
 		return 0, 0, fmt.Errorf("%s has no sheets", path)
@@ -24,7 +24,7 @@ func ReadFile(path string, fn func(Case) error) (read, kept int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	defer rows.Close() //nolint:errcheck // read-only
+	defer rows.Close()
 	var h Header
 	for rows.Next() {
 		row, err := rows.Columns()

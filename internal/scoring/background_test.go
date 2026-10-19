@@ -111,7 +111,7 @@ func TestRetrieveResponseLifecycle(t *testing.T) {
 // TestRetrieveResponseAggregateOutputText prefers the top-level
 // output_text when the provider includes it.
 func TestRetrieveResponseAggregateOutputText(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"id":"resp_1","status":"completed","output_text":"aggregated"}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -128,7 +128,7 @@ func TestRetrieveResponseAggregateOutputText(t *testing.T) {
 
 // TestRetrieveResponseFailed checks the terminal failed path.
 func TestRetrieveResponseFailed(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"id":"resp_9","status":"failed","error":{"message":"upstream broke","code":"upstream_error"}}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -148,7 +148,7 @@ func TestRetrieveResponseFailed(t *testing.T) {
 // ends "incomplete" with no output, and the Responses API names usage
 // fields input_tokens/output_tokens/input_tokens_details.
 func TestRetrieveResponseIncomplete(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{
 		  "id": "resp_2", "status": "incomplete", "model": "glm-5.3-fp4",
 		  "output": [],
@@ -205,7 +205,7 @@ func TestRetrieveResponseUsageNames(t *testing.T) {
 func TestCreateBackground429Retries(t *testing.T) {
 	var mu sync.Mutex
 	calls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		calls++
 		mu.Unlock()

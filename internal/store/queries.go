@@ -96,12 +96,12 @@ func jobViewScan(v *JobView) []any {
 }
 
 // normalizeLimit clamps a page size for API queries.
-func normalizeLimit(limit, def, max int) int {
+func normalizeLimit(limit, def, ceiling int) int {
 	if limit <= 0 {
 		return def
 	}
-	if limit > max {
-		return max
+	if limit > ceiling {
+		return ceiling
 	}
 	return limit
 }

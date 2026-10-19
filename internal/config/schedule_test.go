@@ -17,8 +17,8 @@ func TestScheduleNext(t *testing.T) {
 	if len(s.Times) != 3 {
 		t.Fatalf("want 3 deduped times, got %v", s.Times)
 	}
-	at := func(y int, m time.Month, d, h, min int) time.Time {
-		return time.Date(y, m, d, h, min, 0, 0, loc)
+	at := func(y int, m time.Month, d, h, minute int) time.Time {
+		return time.Date(y, m, d, h, minute, 0, 0, loc)
 	}
 	tests := []struct {
 		now, want time.Time

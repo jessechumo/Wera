@@ -7,7 +7,7 @@ func TestNormalizeJobURL(t *testing.T) {
 		"https://Boards.Greenhouse.io/acme/jobs/123/?utm_source=x&gh_src=y#apply": "https://boards.greenhouse.io/acme/jobs/123",
 		"https://jobs.lever.co/acme/abc?lever-source=LinkedIn":                    "https://jobs.lever.co/acme/abc",
 		"https://example.com/careers?id=42":                                       "https://example.com/careers?id=42",
-		"  not a url ":                                                            "not a url",
+		"  not a url ":                                                            "not a url", //nolint:gocritic // surrounding spaces are what is tested
 	} {
 		if got := NormalizeJobURL(in); got != want {
 			t.Errorf("NormalizeJobURL(%q) = %q, want %q", in, got, want)

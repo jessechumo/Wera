@@ -117,7 +117,7 @@ func TestScorerBudgetGuard(t *testing.T) {
 }
 
 func TestScorerUsesAPICostWhenPresent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		content, _ := json.Marshal(validReply)
 		w.Write([]byte(`{"choices":[{"message":{"content":` + string(content) + `}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}},"cost":0.00042}`))
 	}))
@@ -133,7 +133,7 @@ func TestScorerUsesAPICostWhenPresent(t *testing.T) {
 }
 
 func TestScorerSkipsOnError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "upstream broke", http.StatusBadGateway)
 	}))
 	t.Cleanup(srv.Close)

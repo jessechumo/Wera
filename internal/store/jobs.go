@@ -169,7 +169,7 @@ func FilterForUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, 
 	// Title and location rules on every core (the engine is read-only).
 	workers := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		wg.Add(1)
 		go func(w int) {
 			defer wg.Done()

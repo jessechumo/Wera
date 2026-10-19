@@ -192,7 +192,7 @@ func (c *Client) Chat(ctx context.Context, cacheKey string, messages []Message) 
 				c.OnRateLimit()
 			}
 		default:
-			return nil, fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw, 300))
+			return nil, fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, endpoint, truncate(raw))
 		}
 
 		if attempt >= len(backoffs) {
@@ -276,7 +276,9 @@ func firstCost(costs ...*float64) *float64 {
 	return nil
 }
 
-func truncate(b []byte, n int) string {
+// truncate keeps error messages short: the first 300 bytes of a body.
+func truncate(b []byte) string {
+	const n = 300
 	if len(b) > n {
 		return string(b[:n]) + "..."
 	}
