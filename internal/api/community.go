@@ -25,7 +25,7 @@ func (s *Server) moderate(ctx context.Context, userID int64, kind moderation.Kin
 	if s.Moderator != nil {
 		return s.Moderator(ctx, kind, title, body)
 	}
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		return moderation.Verdict{}, errors.New("moderation is not configured")
 	}
 	if allowance, _, err := pipeline.Allowance(ctx, s.Pool, s.Env, userID); err != nil || allowance <= 0 {

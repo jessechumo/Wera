@@ -28,7 +28,8 @@ type deepPending struct {
 // runDeep implements `wera deep [--top N]`: it picks the top scored
 // jobs (latest score fit_score >= --min-score, default 75) that have no
 // deep analysis for the current profile hash, submits one background
-// request per job to Coral's Responses API (background: true), polls
+// request per job to the provider's Responses API (background: true;
+// Coral and OpenAI support it, DeepInfra does not), polls
 // until every response is terminal, and stores each structured reply as
 // analyses.kind='deep'. Reruns pick up only jobs still missing a review.
 func runDeep(ctx context.Context, args []string) error {
@@ -47,8 +48,8 @@ func runDeep(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if env.CoralAPIKey == "" {
-		return errors.New("CORAL_API_KEY is not set: add it to .env (see .env.example)")
+	if !env.AI.Enabled() {
+		return errors.New("AI_API_KEY is not set: add it to .env (see .env.example)")
 	}
 	log := config.NewLogger(env)
 
@@ -73,12 +74,7 @@ func runDeep(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	client := scoring.NewClient(scoring.ClientOptions{
-		BaseURL: env.CoralBaseURL,
-		APIKey:  env.CoralAPIKey,
-		Model:   env.CoralDeepModel,
-		Log:     log,
-	})
+	client := scoring.NewClient(withLog(env.AI.Options(env.AI.DeepModel), log))
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
@@ -102,7 +98,7 @@ func runDeep(ctx context.Context, args []string) error {
 	if len(queue) == 0 {
 		return errors.New("no background requests could be submitted")
 	}
-	log.Info("deep review queued", "jobs", len(queue), "model", env.CoralDeepModel)
+	log.Info("deep review queued", "jobs", len(queue), "model", env.AI.DeepModel)
 
 	// --- poll: wait for every response to reach a terminal state -------
 	var saved, failed int
@@ -167,7 +163,7 @@ func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env, userID i
 	cost := 0.0
 	if state.CostUSD != nil && *state.CostUSD > 0 {
 		cost = *state.CostUSD // authoritative, from the provider
-	} else if prices, ok := scoring.PriceFor(env.CoralDeepModel); ok {
+	} else if prices, ok := scoring.PriceFor(env.AI.DeepModel); ok {
 		cost = prices.CostUSD(state.Usage.PromptTokens, state.Usage.CachedTokens, state.Usage.CompletionTokens)
 	}
 
@@ -175,7 +171,7 @@ func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env, userID i
 	if len(analysis.WhyFit) > 0 {
 		summary = analysis.WhyFit[0]
 	}
-	if err := store.SaveDeepAnalysis(ctx, pool, userID, p.job.Job.ID, env.CoralDeepModel,
+	if err := store.SaveDeepAnalysis(ctx, pool, userID, p.job.Job.ID, env.AI.DeepModel,
 		profileHash, p.job.FitScore, summary, scoring.StripFences(state.Content),
 		state.Usage, cost, latency); err != nil {
 		log.Error("save deep analysis failed", "job_id", p.job.Job.ID, "err", err)
@@ -188,4 +184,10 @@ func saveDeep(ctx context.Context, pool *pgxpool.Pool, env *config.Env, userID i
 		"cached_tokens", state.Usage.CachedTokens, "prompt_tokens", state.Usage.PromptTokens,
 		"cost_usd", cost)
 	return nil
+}
+
+// withLog sets the logger on client options.
+func withLog(o scoring.ClientOptions, log *slog.Logger) scoring.ClientOptions {
+	o.Log = log
+	return o
 }

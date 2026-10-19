@@ -160,7 +160,7 @@ func (s *Server) putApplicant(w http.ResponseWriter, r *http.Request) {
 // aiReady checks the server and the user's budget before an AI call; on
 // failure it has written the response.
 func (s *Server) aiReady(w http.ResponseWriter, r *http.Request, what string) bool {
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, what+" is not configured on this server")
 		return false
 	}
@@ -178,7 +178,7 @@ func (s *Server) aiReady(w http.ResponseWriter, r *http.Request, what string) bo
 // aiAvailable checks the server and the user's budget, returning an HTTP
 // status and message when an AI call cannot be made (0 when it can).
 func (s *Server) aiAvailable(ctx context.Context, userID int64, what string) (int, string) {
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		return http.StatusServiceUnavailable, what + " is not configured on this server"
 	}
 	allowance, why, err := pipeline.Allowance(ctx, s.Pool, s.Env, userID)

@@ -59,3 +59,19 @@ func TestPriceUnknownModel(t *testing.T) {
 		t.Errorf("unknown model cost should be 0, got %f", c)
 	}
 }
+
+func TestCachedInputPrice(t *testing.T) {
+	p, ok := PriceFor("deepseek-ai/DeepSeek-V4.1-Flash")
+	if !ok {
+		t.Fatal("missing DeepInfra price")
+	}
+	// 900 prompt tokens, 500 cached, 50 completion.
+	want := (400*0.20 + 500*0.006 + 50*0.60) / 1e6
+	if got := p.CostUSD(900, 500, 50); got-want > 1e-12 || want-got > 1e-12 {
+		t.Errorf("cost %.9f, want %.9f", got, want)
+	}
+	SetPrice("custom/model", Prices{Input: 1, Output: 2})
+	if p, ok := PriceFor("custom/model"); !ok || p.CostUSD(1_000_000, 0, 1_000_000) != 3 {
+		t.Errorf("SetPrice not applied: %+v %v", p, ok)
+	}
+}

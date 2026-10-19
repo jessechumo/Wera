@@ -18,10 +18,7 @@ import (
 // by the main package via godotenv) override every default.
 type Env struct {
 	DatabaseURL        string
-	CoralAPIKey        string
-	CoralBaseURL       string
-	CoralModel         string
-	CoralDeepModel     string
+	AI                 AI     // the language-model provider (see ai.go)
 	TypstBin           string // typst binary for resume rendering ("typst" on PATH)
 	ScoringConcurrency int
 	FetchConcurrency   int
@@ -61,9 +58,6 @@ type Env struct {
 func LoadEnv() (*Env, error) {
 	e := &Env{ //nolint:gosec // DatabaseURL is a local development default; deployments set DATABASE_URL
 		DatabaseURL:          "postgres://wera:wera@localhost:5433/wera?sslmode=disable",
-		CoralBaseURL:         "https://inference.coralbricks.ai/v1",
-		CoralModel:           "deepseek-v4.1-flash-fast",
-		CoralDeepModel:       "glm-5.3-fast",
 		ScoringConcurrency:   12,
 		FetchConcurrency:     6,
 		RunInterval:          30 * time.Minute,
@@ -130,11 +124,10 @@ func LoadEnv() (*Env, error) {
 	}
 
 	str("DATABASE_URL", &e.DatabaseURL)
-	str("CORAL_API_KEY", &e.CoralAPIKey)
-	str("CORAL_BASE_URL", &e.CoralBaseURL)
+	ai, aiErrs := loadAI()
+	e.AI = ai
+	errs = append(errs, aiErrs...)
 	str("TYPST_BIN", &e.TypstBin)
-	str("CORAL_MODEL", &e.CoralModel)
-	str("CORAL_DEEP_MODEL", &e.CoralDeepModel)
 	intVal("SCORING_CONCURRENCY", &e.ScoringConcurrency)
 	intVal("FETCH_CONCURRENCY", &e.FetchConcurrency)
 	durVal("RUN_INTERVAL", &e.RunInterval)
@@ -209,9 +202,6 @@ func LoadEnv() (*Env, error) {
 	}
 	if e.LogFormat != "text" && e.LogFormat != "json" {
 		errs = append(errs, fmt.Sprintf("LOG_FORMAT must be text or json, got %q", e.LogFormat))
-	}
-	if !secureURL(e.CoralBaseURL) {
-		errs = append(errs, fmt.Sprintf("CORAL_BASE_URL must use https (or http to localhost), got %q", e.CoralBaseURL))
 	}
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("invalid environment:\n  - %s", strings.Join(errs, "\n  - "))

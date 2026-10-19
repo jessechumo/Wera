@@ -47,7 +47,7 @@ init)
 	cp .env.example .env
 	chmod 600 .env
 	sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 24)/" .env
-	echo "Created .env. Set WERA_DOMAIN, ACME_EMAIL and CORAL_API_KEY, then ./deploy.sh up"
+	echo "Created .env. Set WERA_DOMAIN, ACME_EMAIL, AI_PROVIDER and AI_API_KEY, then ./deploy.sh up"
 	;;
 up)
 	need_env

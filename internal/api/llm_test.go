@@ -92,8 +92,8 @@ func llmServer(t *testing.T) (*httptest.Server, *fakeLLM) {
 	t.Cleanup(fake.Close)
 	ts, _ := testServerWith(t, nil, func(s *Server) {
 		s.Env = &config.Env{
-			CoralAPIKey: "cb_test", CoralBaseURL: fake.URL,
-			CoralModel: "deepseek-v4.1-flash-fast", CoralDeepModel: "deepseek-v4.1-flash-fast",
+			AI: config.AI{APIKey: "cb_test", BaseURL: fake.URL,
+				Model: "deepseek-v4.1-flash-fast", DeepModel: "deepseek-v4.1-flash-fast"},
 			MaxCostPerRunUSD: 1, UserBudgetUSD: 5, MaxMonthlyCostUSD: 1e6,
 		}
 		s.Moderator = nil

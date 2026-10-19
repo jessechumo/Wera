@@ -48,7 +48,7 @@ schedules a nightly database backup at 03:30.
 ssh wera@<server-ip>
 cd ~/wera
 ./deploy.sh init      # creates .env with a random database password
-nano .env             # WERA_DOMAIN, ACME_EMAIL, CORAL_API_KEY (and email, see below)
+nano .env             # WERA_DOMAIN, ACME_EMAIL, AI_PROVIDER, AI_API_KEY (and email, see below)
 ./deploy.sh up
 ./deploy.sh status    # containers, then https://<domain>/healthz
 ```

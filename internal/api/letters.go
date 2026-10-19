@@ -56,7 +56,7 @@ func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := currentUser(r)
-	if s.Env == nil || s.Env.CoralAPIKey == "" {
+	if s.Env == nil || !s.Env.AI.Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, "cover letters are not configured on this server")
 		return
 	}
@@ -98,7 +98,7 @@ func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
 	}
 	// The fast model writes letters well; the deep (reasoning) model spent
 	// its whole token budget thinking and cost ~40x more per letter.
-	model := s.Env.CoralModel
+	model := s.Env.AI.Model
 	reply, err := s.chatWithModel(r.Context(), user.ID, "cover_letter", model, 1500, profile.CoverLetterMessages(profile.LetterInput{
 		CandidateName: user.Name, Profile: prof.Markdown, Resume: prof.ResumeText,
 		Company: job.Company, Title: job.Title, Location: loc, Description: desc,

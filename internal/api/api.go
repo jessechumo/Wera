@@ -58,7 +58,7 @@ type Server struct {
 	PublicOrigins  []string
 	TrustProxy     bool
 
-	// Profiles: the role catalog the forms offer, Coral settings for AI
+	// Profiles: the role catalog the forms offer, the AI provider for
 	// drafts, and the background matcher run after a profile is saved.
 	Roles     *config.Roles
 	Env       *config.Env
