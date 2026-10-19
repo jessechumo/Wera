@@ -1,7 +1,7 @@
 # Wera container image per PLAN.md section 13: multi-stage build producing
 # a static binary. The runtime image is Alpine rather than distroless so it
 # can ship poppler's pdftotext (reading uploaded resumes) and typst
-# (rendering resumes). Secrets (CORAL_API_KEY) come from the environment
+# (rendering resumes). Secrets (AI_API_KEY) come from the environment
 # at runtime.
 FROM golang:1.27.2-alpine AS build
 WORKDIR /src

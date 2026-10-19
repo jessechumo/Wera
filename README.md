@@ -7,7 +7,7 @@
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
 [![License](https://img.shields.io/github/license/jessechumo/Wera)](LICENSE)
 
-**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM on [Coral Bricks](https://www.coralbricks.ai), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
+**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 570+ companies across 28 industries, filters them with configurable rules, scores each one against your resume with an LLM from any OpenAI-compatible provider (presets for [Coral Bricks](https://www.coralbricks.ai) and [DeepInfra](https://deepinfra.com)), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
 The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend), and the Chrome extension (save jobs from any page, cover letters, tailored resumes, filling applications) in [wera-extension](https://github.com/jessechumo/wera-extension).
 
@@ -69,6 +69,18 @@ Admins can also preview each template, and send a test, from the admin app (wera
 
 To turn it on, set `MAIL_PROVIDER=smtp`, `MAIL_FROM`, `PUBLIC_URL` and the `SMTP_*` settings (see `.env.example`), then check with `wera mail test --to you@example.com`. For the mail to reach inboxes, add the sending domain's SPF and DKIM records from your provider, and a DMARC record such as `v=DMARC1; p=quarantine; rua=mailto:dmarc@your-domain.com`. `MAIL_PROVIDER=log` writes messages to the log (and `MAIL_LOG_DIR`) instead of sending them, for development.
 
+## Switching AI providers
+
+Every AI call goes through one OpenAI-compatible client, configured by `AI_*` settings:
+
+```bash
+AI_PROVIDER=deepinfra          # coral (default) | deepinfra | openai
+AI_API_KEY=...
+AI_MODEL=deepseek-ai/DeepSeek-V4.1-Flash   # optional: each preset has a default
+```
+
+`openai` means any compatible API (OpenAI, Together, a local vLLM server): set `AI_BASE_URL` and `AI_MODEL` too. Budgets need a price per model: known models are in `internal/scoring/prices.go`, others take `AI_PRICE_INPUT`, `AI_PRICE_CACHED_INPUT` and `AI_PRICE_OUTPUT` (USD per 1M tokens). When a provider reports its own cost per call (Coral, DeepInfra), that figure is used. `AI_EXTRA_BODY` adds model-specific request fields as JSON. Analyses are cached per profile text, so switching models keeps existing scores; new ones come from the new model.
+
 ## Make it yours
 
 Wera is driven by configuration and per-user profiles:
@@ -81,10 +93,10 @@ New users build their profile in the dashboard: they upload a resume PDF (or pas
 
 ## Quick start
 
-Requirements: Go 1.27+, Docker, and a Coral Bricks API key. Resume rendering needs [typst](https://github.com/typst/typst/releases) 0.14 on `PATH` (or `TYPST_BIN`); the Docker image includes it.
+Requirements: Go 1.27+, Docker, and an API key for an OpenAI-compatible LLM provider (`AI_PROVIDER=coral`, `deepinfra`, or `openai` with `AI_BASE_URL`; see `.env.example`). Resume rendering needs [typst](https://github.com/typst/typst/releases) 0.14 on `PATH` (or `TYPST_BIN`); the Docker image includes it.
 
 ```bash
-cp .env.example .env                               # add CORAL_API_KEY
+cp .env.example .env                               # set AI_PROVIDER and AI_API_KEY
 docker compose up -d postgres
 make migrate                                       # create tables
 go run ./cmd/wera serve                            # API on http://localhost:8080
@@ -106,7 +118,7 @@ For a VPS with a domain (HTTPS, published images, no source checkout), see [depl
 To build and run everything in Docker, with the frontend cloned next to this repo as `../wera-frontend`:
 
 ```bash
-cp .env.example .env            # set CORAL_API_KEY and a random POSTGRES_PASSWORD
+cp .env.example .env            # set AI_API_KEY and a random POSTGRES_PASSWORD
 docker compose up -d --build    # postgres, migrations, API, worker, dashboard
 ```
 
@@ -150,7 +162,7 @@ Every API route except signup and login needs a session. People sign up in the d
 docker exec wera-api /app/wera users create --email you@example.com --name You --admin
 ```
 
-Admins can trigger runs and see overall usage and each user's spend. Everyone shares one Coral Bricks key, so spending is capped three ways: per user per run (`MAX_COST_PER_RUN_USD`), per user per month (`USER_MONTHLY_BUDGET_USD`, default $10; change one user's with `wera users budget`), and for all users together per month (`MAX_MONTHLY_COST_USD`). Jobs over a limit stay pending until the next month or a higher budget.
+Admins can trigger runs and see overall usage and each user's spend. Everyone shares one AI provider key, so spending is capped three ways: per user per run (`MAX_COST_PER_RUN_USD`), per user per month (`USER_MONTHLY_BUDGET_USD`, default $10; change one user's with `wera users budget`), and for all users together per month (`MAX_MONTHLY_COST_USD`). Jobs over a limit stay pending until the next month or a higher budget.
 
 ## Being a good citizen to job boards
 
@@ -187,7 +199,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 | `wera companies validate` | Check `companies.yaml` |
 | `wera refilter --all [--user E]` | Reapply `roles.yaml` rules to existing jobs (no LLM cost) |
 | `wera rescore --all [--user E]` | Rescore after changing profiles |
-| `wera deep --top N [--user E]` | Longer review of a user's top matches using Coral background mode |
+| `wera deep --top N [--user E]` | Longer review of a user's top matches using background mode (Coral or OpenAI Responses API) |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
 | `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
 | `wera mail preview \| test \| digest \| send` | Preview email templates, send a test, render a digest, deliver queued mail |
@@ -221,7 +233,7 @@ internal/mail         Email templates (HTML and text), MIME, SMTP and log provid
 internal/notify       Account and job emails: verification, reset, digests, the outbox delivery loop
 internal/h1b          H-1B disclosure files: streaming reader, wage normalization, employer name matching
 internal/relevance    Local TF-IDF ranking (estimated scores)
-internal/scoring      Coral Bricks client, prompts, facts, fit, cost accounting
+internal/scoring      OpenAI-compatible LLM client, prompts, facts, fit, cost accounting
 internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters
 internal/store        PostgreSQL repository (pgx)
 internal/testutil     Test database and fixtures
@@ -231,6 +243,6 @@ docs/                 Architecture diagrams (generated from docs/diagrams)
 
 ## Stack
 
-Go 1.27, chi, pgx, PostgreSQL 16, goose, Coral Bricks (`deepseek-v4.1-flash-fast`, `glm-5.3-fast` for deep reviews), Prometheus, Docker Compose, GitHub Actions, release-please.
+Go 1.27, chi, pgx, PostgreSQL 16, goose, any OpenAI-compatible LLM (default Coral Bricks `deepseek-v4.1-flash-fast`; DeepInfra `deepseek-ai/DeepSeek-V4.1-Flash`), a local embedding model (bge-small), Prometheus, Docker Compose, GitHub Actions, release-please.
 
 See `PLAN.md` for the original design.
