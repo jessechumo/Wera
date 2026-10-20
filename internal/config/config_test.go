@@ -132,6 +132,40 @@ func TestLoadRoles(t *testing.T) {
 	if err := bad.Validate(r); err == nil {
 		t.Error("invalid preferences accepted")
 	}
+	fields := map[string]bool{}
+	for _, f := range r.Fields {
+		fields[f.ID] = true
+	}
+	for _, f := range r.RoleFamilies {
+		if !fields[f.Field] {
+			t.Errorf("family %q has no known field", f.ID)
+		}
+	}
+}
+
+func TestLoadRolesRejectsBadFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "roles.yaml")
+	yml := `fields:
+  - { id: tech, label: "Tech" }
+  - { id: tech, label: "Again" }
+role_families:
+  - { id: sre, label: "SRE", field: tech, patterns: ['\bSRE\b'] }
+  - { id: rn, label: "RN", field: nursing, patterns: ['\bRN\b'] }
+levels:
+  - { id: mid, label: "Mid", except: ['x'] }
+`
+	if err := os.WriteFile(path, []byte(yml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadRoles(path)
+	if err == nil {
+		t.Fatal("bad fields accepted")
+	}
+	for _, sub := range []string{`field "tech": duplicate id`, `role family "rn": unknown field "nursing"`, `level "mid": except without patterns`} {
+		if !strings.Contains(err.Error(), sub) {
+			t.Errorf("error %q does not mention %q", err, sub)
+		}
+	}
 }
 
 func TestSecureURL(t *testing.T) {

@@ -89,6 +89,11 @@ func TestProfileText(t *testing.T) {
 	if !strings.Contains(got, "ML Engineer") || !strings.Contains(got, "CUDA") || strings.Contains(got, "Princeton") {
 		t.Fatalf("ProfileText kept the wrong sections:\n%s", got)
 	}
+	nurse := "# Candidate Profile\n\n## Target roles\n- ICU RN\n\n## Skills\n- Telemetry, Epic\n\n## Licenses and certifications\n- RN, Texas; ACLS\n\n## Experience\n- Baylor\n"
+	got = ProfileText(nurse)
+	if !strings.Contains(got, "Epic") || !strings.Contains(got, "ACLS") || strings.Contains(got, "Baylor") {
+		t.Fatalf("ProfileText kept the wrong sections of the new layout:\n%s", got)
+	}
 	if ProfileText("just some text") != "just some text" {
 		t.Fatal("a profile without sections should be used whole")
 	}

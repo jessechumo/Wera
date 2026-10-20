@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"wera/internal/config"
 	"wera/internal/sources"
@@ -185,5 +186,20 @@ func TestFetchDetailsOnlyForNewPostings(t *testing.T) {
 	}
 	if board.details.Load() != 3 {
 		t.Errorf("known postings were fetched again: %d detail requests", board.details.Load())
+	}
+
+	// Past the run's detail budget the board is still listed, but new
+	// postings wait for a later run.
+	board.jobs = append(board.jobs, raw("4", "Data Engineer"))
+	f.DetailBudget = -time.Second
+	if st, err := f.Run(ctx, cos, name); err != nil || st.JobsNew != 0 || st.CompaniesOK != 1 {
+		t.Errorf("fetch past the budget: %+v %v", st, err)
+	}
+	if board.details.Load() != 3 {
+		t.Errorf("details requested past the budget: %d", board.details.Load())
+	}
+	f.DetailBudget = 0
+	if st, _ := f.Run(ctx, cos, name); st.JobsNew != 1 {
+		t.Errorf("the next run did not catch up: %+v", st)
 	}
 }

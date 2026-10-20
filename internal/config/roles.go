@@ -13,6 +13,7 @@ import (
 // that adding a role type is a YAML edit, never a code change. Each user's
 // Preferences select from this catalog.
 type Roles struct {
+	Fields         []Field                  `yaml:"fields"`
 	RoleFamilies   []RoleFamily             `yaml:"role_families"`
 	TitleOverrides map[string]TitleOverride `yaml:"title_overrides"`
 	Levels         []Level                  `yaml:"levels"`
@@ -25,10 +26,18 @@ type Roles struct {
 	} `yaml:"sponsorship"`
 }
 
+// Field is a career field ("Healthcare & nursing") that groups role
+// families on the signup form.
+type Field struct {
+	ID    string `yaml:"id" json:"id"`
+	Label string `yaml:"label" json:"label"`
+}
+
 // RoleFamily is one selectable kind of role (e.g. data_science).
 type RoleFamily struct {
 	ID          string   `yaml:"id" json:"id"`
 	Label       string   `yaml:"label" json:"label"`
+	Field       string   `yaml:"field" json:"field"`
 	Description string   `yaml:"description" json:"description,omitempty"`
 	Patterns    []string `yaml:"patterns" json:"-"`
 }
@@ -42,11 +51,13 @@ type TitleOverride struct {
 }
 
 // Level is one selectable seniority level. Patterns detect it from the
-// title; a level without patterns (mid) is never detected.
+// title; a level without patterns (mid) is never detected. Except
+// patterns are cut from the title first ("Staff Nurse" is not senior).
 type Level struct {
 	ID       string   `yaml:"id" json:"id"`
 	Label    string   `yaml:"label" json:"label"`
 	Patterns []string `yaml:"patterns" json:"-"`
+	Except   []string `yaml:"except" json:"-"`
 }
 
 // FamilyIDs returns the set of valid role family ids.
@@ -82,6 +93,16 @@ func LoadRoles(path string) (*Roles, error) {
 	}
 
 	var errs []string
+	fields := map[string]bool{}
+	for i, f := range r.Fields {
+		switch {
+		case f.ID == "" || f.Label == "":
+			errs = append(errs, fmt.Sprintf("field %d: missing id or label", i+1))
+		case fields[f.ID]:
+			errs = append(errs, fmt.Sprintf("field %q: duplicate id", f.ID))
+		}
+		fields[f.ID] = true
+	}
 	fams := map[string]bool{}
 	for i, f := range r.RoleFamilies {
 		switch {
@@ -91,15 +112,20 @@ func LoadRoles(path string) (*Roles, error) {
 			errs = append(errs, fmt.Sprintf("role family %q: duplicate id", f.ID))
 		case len(f.Patterns) == 0:
 			errs = append(errs, fmt.Sprintf("role family %q: no patterns", f.ID))
+		case len(r.Fields) > 0 && !fields[f.Field]:
+			errs = append(errs, fmt.Sprintf("role family %q: unknown field %q", f.ID, f.Field))
 		}
 		fams[f.ID] = true
 	}
 	levels := map[string]bool{}
 	for i, l := range r.Levels {
-		if l.ID == "" {
+		switch {
+		case l.ID == "":
 			errs = append(errs, fmt.Sprintf("level %d: missing id", i+1))
-		} else if levels[l.ID] {
+		case levels[l.ID]:
 			errs = append(errs, fmt.Sprintf("level %q: duplicate id", l.ID))
+		case len(l.Except) > 0 && len(l.Patterns) == 0:
+			errs = append(errs, fmt.Sprintf("level %q: except without patterns", l.ID))
 		}
 		levels[l.ID] = true
 	}

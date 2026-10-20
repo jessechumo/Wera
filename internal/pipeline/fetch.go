@@ -54,6 +54,10 @@ type Fetcher struct {
 	Log     *slog.Logger
 	Sources map[string]sources.Source
 	Metrics *metrics.Registry // optional
+
+	// DetailBudget overrides detailBudget (zero keeps it).
+	DetailBudget time.Duration
+	detailUntil  time.Time // when this run stops requesting details
 }
 
 // Run fetches every company in the list (all enabled ones when only is
@@ -84,6 +88,11 @@ func (f *Fetcher) Run(ctx context.Context, companies []config.Company, only stri
 
 	stats := &FetchStats{}
 	var mu sync.Mutex
+	budget := detailBudget
+	if f.DetailBudget != 0 {
+		budget = f.DetailBudget
+	}
+	f.detailUntil = time.Now().Add(budget)
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(f.Env.FetchConcurrency)
@@ -126,6 +135,13 @@ const fullSweepEvery = 20 * time.Hour
 // maxDetailsPerRun bounds how many new postings of one company a
 // detail-per-job source fetches in a run; the rest follow next run.
 const maxDetailsPerRun = 250
+
+// detailBudget bounds the time a run spends fetching job details. With
+// thousands of boards, the first runs after adding many detail-per-job
+// boards (Workday, SmartRecruiters) would otherwise take hours; past the
+// budget, boards are still listed (so closed postings close) and their new
+// postings are detailed on later runs.
+const detailBudget = 45 * time.Minute
 
 // detailConcurrency is the parallel detail requests per company.
 const detailConcurrency = 4
@@ -259,6 +275,9 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	limit := maxDetailsPerRun
 	if dl, ok := src.(sources.DetailLimiter); ok {
 		limit = dl.MaxDetailsPerRun()
+	}
+	if !f.detailUntil.IsZero() && time.Now().After(f.detailUntil) {
+		limit = 0
 	}
 	var fresh []sources.RawJob
 	var stillListed, allIDs []string

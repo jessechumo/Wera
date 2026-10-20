@@ -137,8 +137,9 @@ func JobText(title, seniority string, skills []string, digest string) string {
 
 var heading = regexp.MustCompile(`(?m)^## `)
 
-// ProfileText is what a profile is embedded as: its target roles and
-// technical skills sections (what the user wants and can do). Education
+// ProfileText is what a profile is embedded as: its target roles, skills
+// and licenses sections (what the user wants and can do; older profiles
+// call the skills section "Technical skills"). Education
 // and history add noise and push past the model's input limit. A profile
 // without those sections is used whole.
 func ProfileText(markdown string) string {
@@ -151,7 +152,8 @@ func ProfileText(markdown string) string {
 		}
 		sec := markdown[loc[0]:end]
 		title := strings.ToLower(strings.TrimSpace(strings.SplitN(sec, "\n", 2)[0]))
-		if strings.HasPrefix(title, "## target roles") || strings.HasPrefix(title, "## technical skills") {
+		if strings.HasPrefix(title, "## target roles") || strings.HasPrefix(title, "## technical skills") ||
+			strings.HasPrefix(title, "## skills") || strings.HasPrefix(title, "## licenses") {
 			keep = append(keep, strings.TrimSpace(sec))
 		}
 	}

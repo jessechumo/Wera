@@ -291,7 +291,7 @@ Rules:
 - Lead with the action and its result; keep the candidate's facts, tools and numbers exactly.
 - Never invent facts. Where a number would make it stronger but none is given, write a placeholder in square brackets, like "by [X]%" or "for [N] users", for the candidate to fill in.
 - Each under 200 characters, one line, no trailing period, no em or en dashes.
-- Make the three meaningfully different (impact-first, scope-first, technical).`
+- Make the three meaningfully different (impact-first, scope-first, skill-first).`
 
 // BulletMessages asks for rewrites of one bullet, given its role and,
 // optionally, the job it is being tailored to.

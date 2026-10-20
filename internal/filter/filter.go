@@ -27,6 +27,13 @@ type patternGroup struct {
 	res  []*regexp.Regexp
 }
 
+// level is a seniority level's patterns plus the spans cut from a title
+// before they are checked.
+type level struct {
+	patternGroup
+	except []*regexp.Regexp
+}
+
 type override struct {
 	patternGroup
 	families []string
@@ -36,7 +43,7 @@ type override struct {
 type Engine struct {
 	families    []patternGroup // catalog order
 	overrides   []override     // sorted by name
-	levels      []patternGroup // catalog order; only levels with patterns
+	levels      []level        // catalog order; only levels with patterns
 	sponsorNo   []*regexp.Regexp
 	sponsorFlag []*regexp.Regexp
 	usPositive  []*regexp.Regexp
@@ -79,7 +86,11 @@ func New(r *config.Roles) (*Engine, error) {
 		if err != nil {
 			return nil, fmt.Errorf("levels.%s: %w", l.ID, err)
 		}
-		e.levels = append(e.levels, patternGroup{name: l.ID, res: res})
+		except, err := compileAll(l.Except)
+		if err != nil {
+			return nil, fmt.Errorf("levels.%s.except: %w", l.ID, err)
+		}
+		e.levels = append(e.levels, level{patternGroup{name: l.ID, res: res}, except})
 	}
 
 	var err error
@@ -158,8 +169,12 @@ func (e *Engine) ApplyTitle(p *config.Preferences, title, location string) Resul
 			if p.AcceptsLevel(l.name) {
 				continue
 			}
+			t := title
+			for _, re := range l.except {
+				t = re.ReplaceAllString(t, " ")
+			}
 			for _, re := range l.res {
-				if m := re.FindString(title); m != "" {
+				if m := re.FindString(t); m != "" {
 					return excluded(result, "title:"+Tag(m), title)
 				}
 			}

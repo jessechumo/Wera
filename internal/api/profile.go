@@ -27,6 +27,7 @@ func (s *Server) profileOptions(w http.ResponseWriter, _ *http.Request) {
 		return strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label))
 	})
 	s.writeJSON(w, http.StatusOK, map[string]any{
+		"fields":        s.Roles.Fields,
 		"role_families": families,
 		"levels":        s.Roles.Levels,
 		"industries":    s.industriesAZ(),

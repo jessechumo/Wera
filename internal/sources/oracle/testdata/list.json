@@ -1,0 +1,4 @@
+{"items":[{"SearchId":1,"TotalJobsCount":2,"SiteNumber":"CX_1","requisitionList":[
+ {"Id":"400067771","Title":" Registered Nurse - Med/Surg ","PostedDate":"2026-10-20","PrimaryLocation":"Columbus, OH, United States","WorkplaceTypeCode":null,"WorkplaceType":"","secondaryLocations":[{"Name":"Dublin, OH, United States"},{"Name":"Columbus, OH, United States"}]},
+ {"Id":"400067772","Title":"Remote Coding Specialist","PostedDate":"2026-10-19","PrimaryLocation":"United States","WorkplaceTypeCode":"ORA_REMOTE","WorkplaceType":"Remote","secondaryLocations":[]}
+]}],"count":1,"hasMore":false,"limit":25,"offset":0}

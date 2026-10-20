@@ -59,7 +59,12 @@ func runFetch(ctx context.Context, args []string) error {
 		Log:     log,
 		Sources: pipeline.NewSourceRegistry(env),
 	}
-	stats, err := fetcher.Run(ctx, comps.Companies, *company)
+	all, err := pipeline.WithAdded(ctx, pool, comps.Companies)
+	if err != nil {
+		log.Error("loading added boards failed; fetching companies.yaml only", "err", err)
+		all = comps.Companies
+	}
+	stats, err := fetcher.Run(ctx, all, *company)
 
 	var excluded, pending int
 	if err == nil {
