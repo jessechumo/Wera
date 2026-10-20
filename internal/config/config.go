@@ -28,7 +28,6 @@ const (
 	DefaultCompaniesPath  = "config/companies.yaml"
 	DefaultIndustriesPath = "config/industries.yaml"
 	DefaultRolesPath      = "config/roles.yaml"
-	DefaultProfilePath    = "profile/profile.md"
 )
 
 // Company is one entry from config/companies.yaml.

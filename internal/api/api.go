@@ -178,6 +178,15 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/ext/jobs/lookup", s.lookupJob)
 			r.Post("/ext/jobs", s.addJob)
 			r.Post("/ext/answer", s.answerQuestion)
+			r.Get("/applicant/answers", s.listAnswers)
+			r.Put("/applicant/answers", s.saveAnswers)
+			r.Delete("/applicant/answers", s.deleteAllAnswers)
+			r.Patch("/applicant/answers/{id}", s.updateAnswer)
+			r.Delete("/applicant/answers/{id}", s.deleteAnswer)
+			r.Post("/ext/autofill", s.suggestFill)
+			r.Post("/ext/autofill-runs", s.startAutofillRun)
+			r.Post("/ext/autofill-runs/{id}/pages", s.addAutofillPage)
+			r.Get("/autofill-runs", s.listAutofillRuns)
 
 			r.Get("/resumes", s.listResumes)
 			r.Post("/resumes/import", s.importResume)
@@ -256,7 +265,7 @@ func (s *Server) cors(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		}
 		if r.Method == http.MethodOptions {
