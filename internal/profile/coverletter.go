@@ -30,6 +30,26 @@ type LetterInput struct {
 	Title         string
 	Location      string
 	Description   string
+	// The candidate's steer, all optional.
+	Tone    string // one of LetterTones
+	Length  string // short, standard or long
+	Request string // free text: what to stress or leave out
+}
+
+// LetterTones are the tones a letter can take ("" is the default voice).
+var LetterTones = map[string]string{
+	"":             "",
+	"warm":         "Warm and personable, while staying professional.",
+	"formal":       "Formal and polished, suited to finance, law or government.",
+	"confident":    "Direct and confident, leading with impact.",
+	"enthusiastic": "Energetic and genuinely excited about the mission, without gushing.",
+	"concise":      "Plain and to the point; every sentence earns its place.",
+}
+
+// letterLengths override the word range in the instructions.
+var letterLengths = map[string]string{
+	"short": "150 to 200 words, 2 or 3 short paragraphs",
+	"long":  "350 to 450 words, 4 or 5 paragraphs",
 }
 
 // CoverLetterMessages builds the messages for one cover letter.
@@ -53,6 +73,22 @@ func CoverLetterMessages(in LetterInput) []scoring.Message {
 	}
 	fmt.Fprintf(&b, "<posting>\n%s\n</posting>", scoring.Fence(fmt.Sprintf("Company: %s\nTitle: %s\nLocation: %s\n\n%s",
 		in.Company, in.Title, in.Location, desc)))
+	var steer []string
+	if t := LetterTones[in.Tone]; t != "" {
+		steer = append(steer, "Tone: "+t)
+	}
+	if l := letterLengths[in.Length]; l != "" {
+		steer = append(steer, "Length: "+l+" (this replaces the usual length).")
+	}
+	if len(steer) > 0 {
+		fmt.Fprintf(&b, "\n\n%s", strings.Join(steer, "\n"))
+	}
+	if req := strings.TrimSpace(in.Request); req != "" {
+		if r := []rune(req); len(r) > 500 {
+			req = string(r[:500])
+		}
+		fmt.Fprintf(&b, "\n\nThe candidate asks (follow it unless it breaks a rule above):\n<content>\n%s\n</content>", scoring.Fence(req))
+	}
 	return []scoring.Message{
 		{Role: "system", Content: letterInstructions},
 		{Role: "user", Content: b.String()},

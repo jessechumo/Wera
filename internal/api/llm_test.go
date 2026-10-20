@@ -135,6 +135,22 @@ func TestCoverLetterGeneration(t *testing.T) {
 	}
 }
 
+func TestCoverLetterSteer(t *testing.T) {
+	ts, llm := llmServer(t)
+	testutil.Profile(t, testPool(t), testUserID, "# Candidate Profile\n## Target roles\nSRE.", config.Preferences{
+		RoleFamilies: []string{"sre"}, Levels: []string{"entry"}, MaxYearsRequired: 3})
+	url := fmt.Sprintf("%s/api/jobs/%d/cover-letter", ts.URL, testJobIDs[0])
+	if code, _ := do(t, client, http.MethodPost, url, `{"tone":"pirate"}`); code != 400 {
+		t.Errorf("unknown tone: want 400, got %d", code)
+	}
+	if code, body := do(t, client, http.MethodPost, url, `{"tone":"formal","length":"short","request":"Mention the on-call work"}`); code != 200 {
+		t.Fatalf("steered letter: %d %s", code, body)
+	}
+	if u, _ := llm.lastUser.Load().(string); !strings.Contains(u, "Formal and polished") || !strings.Contains(u, "Mention the on-call work") {
+		t.Errorf("steer not sent: %s", u)
+	}
+}
+
 func TestDraftAndSuggestProfile(t *testing.T) {
 	ts, _ := llmServer(t)
 	code, body := do(t, client, http.MethodPost, ts.URL+"/api/profile/draft",
