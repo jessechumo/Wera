@@ -4092,6 +4092,366 @@ companies:
   - { name: Middle East Institute, ats: rippling, token: mei-employment, industry: nonprofit }
   - { name: Stockholm Environment Institute - U.S., ats: workable, token: sei, industry: nonprofit }
 
+  # ==================== Public companies (SEC list) and hospitals (Medicare list) found on supported boards (checked live 2026-10-20) ====================
+
+  # ---------- AI & Machine Learning (1) ----------
+  - { name: Veritone, ats: workday, token: veritone.wd1/Veritone_Career_Site, industry: ai_ml }
+
+  # ---------- Big Tech (1) ----------
+  - { name: Richardson Electronics, ats: workday, token: richardson.wd3/Richardson_Our_Careers, industry: big_tech }
+
+  # ---------- Cloud & Developer Tools (2) ----------
+  - { name: Backblaze, ats: greenhouse, token: backblaze, industry: cloud }
+  - { name: JFrog, ats: greenhouse, token: jfrog, industry: cloud }
+
+  # ---------- Fintech & Payments (9) ----------
+  - { name: dLocal, ats: lever, token: dlocal, industry: fintech }
+  - { name: EZCORP, ats: workday, token: ezcorp.wd12/ezcorp, industry: fintech }
+  - { name: LendingTree, ats: greenhouse, token: lendingtree, industry: fintech }
+  - { name: NerdWallet, ats: ashby, token: nerdwallet, industry: fintech }
+  - { name: PayPay, ats: greenhouse, token: paypay, industry: fintech }
+  - { name: Riskified, ats: greenhouse, token: riskified, industry: fintech }
+  - { name: Shift4 Payments, ats: workday, token: shift4payments.wd108/Shift4_External_CareerSite, industry: fintech }
+  - { name: Teamshares, ats: lever, token: teamshares, industry: fintech }
+  - { name: World Finance, ats: workday, token: worldacceptance.wd12/World_Finance, industry: fintech }
+
+  # ---------- Banking & Financial Services (12) ----------
+  - { name: Barings, ats: workday, token: barings.wd1/Barings, industry: banking }
+  - { name: Camden National, ats: workday, token: camdennational.wd12/CNB-Careers, industry: banking }
+  - { name: Carlyle, ats: workday, token: carlyle.wd1/Carlyle, industry: banking }
+  - { name: Eagle Point Credit, ats: lever, token: eaglepointcredit, industry: banking }
+  - { name: Flagstar Bank, ats: workday, token: flagstar.wd5/flagstar, industry: banking }
+  - { name: Lincoln International, ats: greenhouse, token: lincolninternational, industry: banking }
+  - { name: "Moelis & Company", ats: workday, token: moelis.wd1/Experienced-Hires, industry: banking }
+  - { name: Oaktree Capital, ats: workday, token: oaktree.wd1/Oaktree, industry: banking }
+  - { name: Orix, ats: workday, token: orix.wd5/External_ORIX, industry: banking }
+  - { name: Pinnacle Financial Partners, ats: workday, token: pinnacle.wd1/Pinnacle, industry: banking }
+  - { name: StepStone Group, ats: greenhouse, token: stepstone, industry: banking }
+  - { name: Virtus Investment Partners, ats: workday, token: virtus.wd5/VirtusCareers, industry: banking }
+
+  # ---------- Crypto & Web3 (6) ----------
+  - { name: BitGo, ats: greenhouse, token: bitgo, industry: crypto }
+  - { name: Bullish, ats: workday, token: bullish.wd3/CoinDesk, industry: crypto }
+  - { name: CleanSpark, ats: lever, token: cleanspark, industry: crypto }
+  - { name: Crypto.com, ats: lever, token: crypto, industry: crypto }
+  - { name: Hut 8, ats: greenhouse, token: hut8, industry: crypto }
+  - { name: Securitize, ats: greenhouse, token: securitize, industry: crypto }
+
+  # ---------- Insurance (4) ----------
+  - { name: Alignment Healthcare, ats: workday, token: alignmenthealthcare.wd12/ahc_external, industry: insurance }
+  - { name: EverQuote, ats: greenhouse, token: everquote, industry: insurance }
+  - { name: Globe Life, ats: workday, token: globelife.wd5/Globe-Life-Careers, industry: insurance }
+  - { name: SiriusPoint, ats: greenhouse, token: siriuspoint, industry: insurance }
+
+  # ---------- Hospitals & Health Systems (20) ----------
+  - { name: Altru Health System, ats: workday, token: altru.wd503/careers, industry: hospitals }
+  - { name: "Cook Children's", ats: workday, token: cookchildrens.wd1/Cook_Childrens_Careers, industry: hospitals }
+  - { name: DocGo, ats: workday, token: docgo.wd1/DocGo, industry: hospitals }
+  - { name: Freeman Health System, ats: workday, token: freemanhealth.wd1/jointeamfreeman, industry: hospitals }
+  - { name: Hendricks Regional Health, ats: workday, token: hendricks.wd1/Hendricks_External_Career_Site, industry: hospitals }
+  - { name: Holland Hospital, ats: workday, token: hollandhospital.wd1/External, industry: hospitals }
+  - { name: Huntington Hospital, ats: workday, token: huntingtonhospital.wd5/HuntingtonHospitalCareers, industry: hospitals }
+  - { name: Logan Health, ats: workday, token: loganhealth.wd1/Logan_Careers, industry: hospitals }
+  - { name: MaineGeneral Health, ats: workday, token: mainegeneral.wd5/MaineGeneralCareers, industry: hospitals }
+  - { name: Marshall Medical Centers, ats: workday, token: marshallmedical.wd1/MMC, industry: hospitals }
+  - { name: Mary Lanning Healthcare, ats: workday, token: marylanning.wd1/marylanningcareers, industry: hospitals }
+  - { name: Mercyhealth, ats: workday, token: mercyhealth.wd1/mercyhealthcareers, industry: hospitals }
+  - { name: Monument Health, ats: workday, token: monumenthealth.wd1/Goldcareers, industry: hospitals }
+  - { name: Nutex Health, ats: workday, token: nutexhealth.wd503/nutexhealthcareers, industry: hospitals }
+  - { name: Owensboro Health, ats: workday, token: owensborohealth.wd1/owensborohealth, industry: hospitals }
+  - { name: Palomar Health, ats: workday, token: palomarhealth.wd5/PH, industry: hospitals }
+  - { name: Silver Cross Hospital, ats: workday, token: silvercross.wd5/SilverCrossCareers, industry: hospitals }
+  - { name: Stormont Vail Health, ats: workday, token: stormontvail.wd1/SVH, industry: hospitals }
+  - { name: Sturdy Health, ats: workday, token: sturdymemorial.wd5/Sturdy, industry: hospitals }
+  - { name: Surgery Partners, ats: greenhouse, token: surgerypartners, industry: hospitals }
+
+  # ---------- Healthcare & Health Tech (21) ----------
+  - { name: AtriCure, ats: greenhouse, token: atricure, industry: healthcare }
+  - { name: Axogen, ats: greenhouse, token: axogen, industry: healthcare }
+  - { name: Butterfly Network, ats: greenhouse, token: butterflynetwork, industry: healthcare }
+  - { name: Ceribell, ats: greenhouse, token: ceribell, industry: healthcare }
+  - { name: Cresco Labs, ats: greenhouse, token: crescolabs, industry: healthcare }
+  - { name: Curaleaf, ats: greenhouse, token: curaleaf, industry: healthcare }
+  - { name: Embecta, ats: workday, token: embecta.wd1/embectacareers, industry: healthcare }
+  - { name: Green Thumb, ats: greenhouse, token: greenthumbindustries, industry: healthcare }
+  - { name: Haemonetics, ats: workday, token: haemonetics.wd5/HAE, industry: healthcare }
+  - { name: Health Catalyst, ats: workday, token: healthcatalyst.wd5/healthcatalystcareers, industry: healthcare }
+  - { name: Jackson Healthcare, ats: workday, token: jacksonhealthcare.wd1/careers-jacksonhealthcare, industry: healthcare }
+  - { name: Merit Medical Systems, ats: workday, token: merit.wd503/Merit, industry: healthcare }
+  - { name: NeuroPace, ats: greenhouse, token: neuropace, industry: healthcare }
+  - { name: Outset Medical, ats: greenhouse, token: outsetmedical, industry: healthcare }
+  - { name: Phreesia, ats: workday, token: phreesia.wd1/Phreesia, industry: healthcare }
+  - { name: Procept Biorobotics, ats: workday, token: proceptbiorobotics.wd108/PROCEPT, industry: healthcare }
+  - { name: Pulse Biosciences, ats: greenhouse, token: pulsebiosciences, industry: healthcare }
+  - { name: Sotera Health, ats: workday, token: soterahealth.wd501/External, industry: healthcare }
+  - { name: TerrAscend, ats: lever, token: terrascend, industry: healthcare }
+  - { name: Tilray Brands, ats: workday, token: tilray.wd3/Tilray, industry: healthcare }
+  - { name: TransMedics, ats: workday, token: transmedics.wd1/TransMedics_Careers, industry: healthcare }
+
+  # ---------- Biotech & Life Sciences (82) ----------
+  - { name: 4D Molecular Therapeutics, ats: greenhouse, token: 4dmoleculartherapeutics, industry: biotech }
+  - { name: Absci, ats: ashby, token: absci, industry: biotech }
+  - { name: Acadia Pharmaceuticals, ats: greenhouse, token: acadiapharmaceuticals, industry: biotech }
+  - { name: Adaptive Biotechnologies, ats: greenhouse, token: adaptivebiotechnologies, industry: biotech }
+  - { name: Akebia Therapeutics, ats: greenhouse, token: akebiatherapeutics, industry: biotech }
+  - { name: Alector, ats: ashby, token: alector, industry: biotech }
+  - { name: Alnylam Pharmaceuticals, ats: greenhouse, token: alnylampharmaceuticals, industry: biotech }
+  - { name: Alumis, ats: greenhouse, token: alumis, industry: biotech }
+  - { name: Alvotech, ats: workday, token: alvotech.wd103/Alvotech_Careers, industry: biotech }
+  - { name: argenx, ats: workday, token: argenx.wd3/External_Careers, industry: biotech }
+  - { name: Atrium Therapeutics, ats: lever, token: atrium-therapeutics, industry: biotech }
+  - { name: Attovia Therapeutics, ats: lever, token: attovia-therapeutics, industry: biotech }
+  - { name: Avalo Therapeutics, ats: greenhouse, token: avalotherapeutics, industry: biotech }
+  - { name: Avalyn Pharma, ats: greenhouse, token: avalynpharma, industry: biotech }
+  - { name: Bicara Therapeutics, ats: ashby, token: bicara-therapeutics, industry: biotech }
+  - { name: Braveheart Bio, ats: greenhouse, token: braveheartbio, industry: biotech }
+  - { name: Cerus, ats: greenhouse, token: cerus, industry: biotech }
+  - { name: City Therapeutics, ats: greenhouse, token: citytherapeutics, industry: biotech }
+  - { name: Cogent Biosciences, ats: greenhouse, token: cogentbiosciences, industry: biotech }
+  - { name: Compass Pathways, ats: greenhouse, token: compasspathways, industry: biotech }
+  - { name: Compass Therapeutics, ats: greenhouse, token: compasstherapeutics, industry: biotech }
+  - { name: Corcept Therapeutics, ats: greenhouse, token: corcepttherapeutics, industry: biotech }
+  - { name: Crescent Biopharma, ats: lever, token: crescent-biopharma, industry: biotech }
+  - { name: Cytokinetics, ats: workday, token: cytokinetics.wd1/Cytokinetics, industry: biotech }
+  - { name: Definium Therapeutics, ats: greenhouse, token: definiumtherapeutics, industry: biotech }
+  - { name: Dianthus Therapeutics, ats: greenhouse, token: dianthustherapeutics, industry: biotech }
+  - { name: Disc Medicine, ats: greenhouse, token: discmedicine, industry: biotech }
+  - { name: Dyne Therapeutics, ats: greenhouse, token: dynetherapeutics, industry: biotech }
+  - { name: Edgewise Therapeutics, ats: greenhouse, token: edgewisetherapeutics, industry: biotech }
+  - { name: Entrada Therapeutics, ats: greenhouse, token: entradatherapeutics, industry: biotech }
+  - { name: Erasca, ats: greenhouse, token: erasca, industry: biotech }
+  - { name: Faeth Therapeutics, ats: greenhouse, token: faeththerapeutics, industry: biotech }
+  - { name: Fate Therapeutics, ats: lever, token: fatetherapeutics, industry: biotech }
+  - { name: GeneDx, ats: greenhouse, token: genedx, industry: biotech }
+  - { name: Gossamer Bio, ats: greenhouse, token: gossamerbio, industry: biotech }
+  - { name: Indivior Pharmaceuticals, ats: workday, token: indivior.wd3/Indivior, industry: biotech }
+  - { name: Invivyd, ats: greenhouse, token: invivyd, industry: biotech }
+  - { name: Ironwood Pharmaceuticals, ats: greenhouse, token: ironwoodpharmaceuticals, industry: biotech }
+  - { name: Jade Biosciences, ats: greenhouse, token: jadebiosciences, industry: biotech }
+  - { name: Kardigan, ats: greenhouse, token: kardigan, industry: biotech }
+  - { name: Korro Bio, ats: lever, token: korrobio, industry: biotech }
+  - { name: Kura Oncology, ats: greenhouse, token: kuraoncology, industry: biotech }
+  - { name: Kymera Therapeutics, ats: greenhouse, token: kymeratherapeutics, industry: biotech }
+  - { name: Lyell Immunopharma, ats: greenhouse, token: lyellimmunopharma, industry: biotech }
+  - { name: MapLight Therapeutics, ats: greenhouse, token: maplighttherapeutics, industry: biotech }
+  - { name: Maravai LifeSciences, ats: greenhouse, token: maravailifesciences, industry: biotech }
+  - { name: Maze Therapeutics, ats: greenhouse, token: mazetherapeutics, industry: biotech }
+  - { name: MBX Biosciences, ats: greenhouse, token: mbxbiosciences, industry: biotech }
+  - { name: Mineralys Therapeutics, ats: greenhouse, token: mineralystherapeutics, industry: biotech }
+  - { name: Mirum Pharmaceuticals, ats: greenhouse, token: mirumpharmaceuticals, industry: biotech }
+  - { name: Neurocrine Biosciences, ats: workday, token: neurocrine.wd5/Neurocrinecareers, industry: biotech }
+  - { name: NewAmsterdam Pharma, ats: workday, token: newamsterdampharma.wd108/New_Amsterdam_External_Career_Site, industry: biotech }
+  - { name: Niagen Bioscience, ats: lever, token: niagenbioscience, industry: biotech }
+  - { name: Obsidian Therapeutics, ats: greenhouse, token: obsidiantherapeutics, industry: biotech }
+  - { name: Ocular Therapeutix, ats: greenhouse, token: oculartherapeutix, industry: biotech }
+  - { name: Organon, ats: workday, token: organon.wd5/SearchJobs, industry: biotech }
+  - { name: Praxis Precision Medicines, ats: greenhouse, token: praxisprecisionmedicines, industry: biotech }
+  - { name: Prime Medicine, ats: greenhouse, token: primemedicine, industry: biotech }
+  - { name: ProKidney, ats: greenhouse, token: prokidney, industry: biotech }
+  - { name: Protara Therapeutics, ats: greenhouse, token: protaratherapeutics, industry: biotech }
+  - { name: PureTech Health, ats: greenhouse, token: puretechhealth, industry: biotech }
+  - { name: Rapport Therapeutics, ats: greenhouse, token: rapporttherapeutics, industry: biotech }
+  - { name: REGENXBIO, ats: lever, token: regenxbio, industry: biotech }
+  - { name: Relay Therapeutics, ats: greenhouse, token: relaytherapeutics, industry: biotech }
+  - { name: Replimune, ats: ashby, token: replimune, industry: biotech }
+  - { name: Revolution Medicines, ats: greenhouse, token: revolutionmedicines, industry: biotech }
+  - { name: Roivant Sciences, ats: greenhouse, token: roivantsciences, industry: biotech }
+  - { name: Scholar Rock, ats: lever, token: scholarrock, industry: biotech }
+  - { name: Seaport Therapeutics, ats: greenhouse, token: seaporttherapeutics, industry: biotech }
+  - { name: Septerna, ats: greenhouse, token: septerna, industry: biotech }
+  - { name: Spyre Therapeutics, ats: greenhouse, token: spyretherapeutics, industry: biotech }
+  - { name: Stoke Therapeutics, ats: greenhouse, token: stoketherapeutics, industry: biotech }
+  - { name: Summit Therapeutics, ats: greenhouse, token: summittherapeutics, industry: biotech }
+  - { name: Syndax Pharmaceuticals, ats: greenhouse, token: syndaxpharmaceuticals, industry: biotech }
+  - { name: Tango Therapeutics, ats: greenhouse, token: tangotherapeutics, industry: biotech }
+  - { name: Tonix Pharmaceuticals, ats: greenhouse, token: tonixpharmaceuticals, industry: biotech }
+  - { name: Travere Therapeutics, ats: workday, token: travere.wd1/TravereCareers, industry: biotech }
+  - { name: Tyra Biosciences, ats: ashby, token: tyrabiosciences, industry: biotech }
+  - { name: Ultragenyx Pharmaceutical, ats: greenhouse, token: ultragenyxpharmaceutical, industry: biotech }
+  - { name: Veracyte, ats: greenhouse, token: veracyte, industry: biotech }
+  - { name: Vor Bio, ats: greenhouse, token: vorbiopharma, industry: biotech }
+  - { name: Xilio Therapeutics, ats: greenhouse, token: xiliotherapeutics, industry: biotech }
+
+  # ---------- Aviation & Aerospace (3) ----------
+  - { name: Bristow, ats: workday, token: bristow.wd1/Careers, industry: aerospace }
+  - { name: Hexcel, ats: workday, token: hexcel.wd5/HexcelCareers, industry: aerospace }
+  - { name: Unusual Machines, ats: greenhouse, token: unusualmachines, industry: aerospace }
+
+  # ---------- Defense & Public Sector (3) ----------
+  - { name: DroneShield, ats: greenhouse, token: droneshield, industry: defense }
+  - { name: Swarmer, ats: ashby, token: swarmer, industry: defense }
+  - { name: Waukesha County, ats: workday, token: waukeshacounty.wd12/Careers, industry: defense }
+
+  # ---------- Automotive & Autonomy (10) ----------
+  - { name: Avis Budget Group, ats: workday, token: avisbudget.wd1/Zipcar_Careers, industry: automotive }
+  - { name: CarGurus, ats: greenhouse, token: cargurus, industry: automotive }
+  - { name: Carvana, ats: greenhouse, token: carvana, industry: automotive }
+  - { name: Fox Factory, ats: workday, token: foxfactory.wd1/FOX, industry: automotive }
+  - { name: "Goodyear Tire & Rubber", ats: workday, token: goodyear.wd1/GoodyearCareers, industry: automotive }
+  - { name: Hyliion, ats: greenhouse, token: hyliion, industry: automotive }
+  - { name: indie Semiconductor, ats: greenhouse, token: indiesemiconductor, industry: automotive }
+  - { name: Methode Electronics, ats: workday, token: methode.wd5/methode, industry: automotive }
+  - { name: MicroVision, ats: lever, token: microvision, industry: automotive }
+  - { name: XPEL, ats: workday, token: xpel.wd5/XPEL_Careers, industry: automotive }
+
+  # ---------- Manufacturing & Industrials (20) ----------
+  - { name: AAON, ats: workday, token: aaon.wd108/AAON, industry: manufacturing }
+  - { name: Ashland, ats: workday, token: ashland.wd12/AshlandCareers1, industry: manufacturing }
+  - { name: "B&G Foods", ats: workday, token: bgfoods.wd1/BG_Foods_Careers, industry: manufacturing }
+  - { name: Beyond Meat, ats: workday, token: beyondmeat.wd1/External_Careers, industry: manufacturing }
+  - { name: Braskem, ats: greenhouse, token: braskem, industry: manufacturing }
+  - { name: CF Industries, ats: workday, token: cfindustries.wd1/careers, industry: manufacturing }
+  - { name: Dover, ats: workday, token: dover.wd103/Dover, industry: manufacturing }
+  - { name: Element Solutions, ats: lever, token: elementsolutions, industry: manufacturing }
+  - { name: Flowserve, ats: workday, token: flowserve.wd1/applied, industry: manufacturing }
+  - { name: Fortune Brands Innovations, ats: workday, token: fortune.wd108/Fortune, industry: manufacturing }
+  - { name: Greif, ats: workday, token: greif.wd5/Greif, industry: manufacturing }
+  - { name: Hayward, ats: workday, token: hayward.wd1/External, industry: manufacturing }
+  - { name: Ingevity, ats: workday, token: ingevity.wd1/Ingevity, industry: manufacturing }
+  - { name: Interface, ats: workday, token: interface.wd1/interface, industry: manufacturing }
+  - { name: MasterBrand, ats: workday, token: masterbrand.wd12/Careers, industry: manufacturing }
+  - { name: Mueller Water Products, ats: workday, token: muellerwaterproducts.wd5/Mueller, industry: manufacturing }
+  - { name: Rigaku, ats: workday, token: rigaku.wd103/RigakuCareers, industry: manufacturing }
+  - { name: Suzano, ats: workday, token: suzano.wd108/suzanopackaging, industry: manufacturing }
+  - { name: Velo3D, ats: lever, token: velo3d, industry: manufacturing }
+  - { name: Vital Farms, ats: greenhouse, token: vitalfarms, industry: manufacturing }
+
+  # ---------- Energy & Climate (22) ----------
+  - { name: Aggreko, ats: workday, token: aggreko.wd3/Aggreko_Careers_1, industry: energy }
+  - { name: Atmos Energy, ats: workday, token: atmosenergy.wd108/External_Career_Site, industry: energy }
+  - { name: Blue Moon Metals, ats: greenhouse, token: bluemoonmetals, industry: energy }
+  - { name: Borr Drilling, ats: workday, token: borrdrilling.wd103/Borr_Career_Site, industry: energy }
+  - { name: ChargePoint, ats: greenhouse, token: chargepoint, industry: energy }
+  - { name: Energy Recovery, ats: lever, token: energyrecovery, industry: energy }
+  - { name: Enovix, ats: workday, token: enovix.wd12/External, industry: energy }
+  - { name: Factorial Energy, ats: greenhouse, token: factorialenergy, industry: energy }
+  - { name: Fluence Energy, ats: workday, token: fluenceenergy.wd12/fluenceenergy-jobs, industry: energy }
+  - { name: Gulfport Energy, ats: workday, token: gulfportenergy.wd5/GPOR_Career_Site, industry: energy }
+  - { name: Keel Infrastructure, ats: greenhouse, token: keelinfrastructure, industry: energy }
+  - { name: Lithium Americas, ats: workday, token: lithiumamericas.wd108/External_Careers_SG, industry: energy }
+  - { name: PBF Energy, ats: workday, token: pbfenergy.wd1/PBF, industry: energy }
+  - { name: SB Energy, ats: greenhouse, token: sbenergy, industry: energy }
+  - { name: SES AI, ats: greenhouse, token: sesai, industry: energy }
+  - { name: SOLV Energy, ats: workday, token: solvenergy.wd1/SOLV_External_Career, industry: energy }
+  - { name: SSR Mining, ats: workday, token: ssrmining.wd108/SSR_Mining_Careers, industry: energy }
+  - { name: Sunrun, ats: workday, token: sunrun.wd5/Sunrun_Careers, industry: energy }
+  - { name: T1 Energy, ats: ashby, token: t1energy, industry: energy }
+  - { name: Talen Energy, ats: workday, token: talenenergy.wd1/TalenCareers, industry: energy }
+  - { name: Waste Connections, ats: workday, token: wasteconnections.wd1/Careers, industry: energy }
+  - { name: Waterbridge Infrastructure, ats: workday, token: waterbridge.wd5/WaterBridgeCareers, industry: energy }
+
+  # ---------- Logistics & Supply Chain (4) ----------
+  - { name: Cryoport, ats: workday, token: cryoport.wd12/external, industry: logistics }
+  - { name: Nordic American Tankers, ats: workday, token: nordic.wd1/Nordic, industry: logistics }
+  - { name: Saia, ats: workday, token: saia.wd1/SaiaCareers, industry: logistics }
+  - { name: Verra Mobility, ats: greenhouse, token: verramobility, industry: logistics }
+
+  # ---------- Retail & E-commerce (14) ----------
+  - { name: 1stDibs, ats: greenhouse, token: 1stdibscom, industry: ecommerce }
+  - { name: Brilliant Earth, ats: greenhouse, token: brilliantearth, industry: ecommerce }
+  - { name: Coupang, ats: greenhouse, token: coupang, industry: ecommerce }
+  - { name: "Dillard's", ats: greenhouse, token: dillards, industry: ecommerce }
+  - { name: e.l.f. Beauty, ats: lever, token: elfbeauty, industry: ecommerce }
+  - { name: Groupon, ats: greenhouse, token: groupon, industry: ecommerce }
+  - { name: Grove Collaborative, ats: greenhouse, token: grovecollaborative, industry: ecommerce }
+  - { name: Purple Innovation, ats: workday, token: purple.wd1/purplecareers, industry: ecommerce }
+  - { name: Reformation, ats: greenhouse, token: reformation, industry: ecommerce }
+  - { name: Sleep Number, ats: workday, token: sleepnumber.wd5/sleepnumber, industry: ecommerce }
+  - { name: Stitch Fix, ats: greenhouse, token: stitchfix, industry: ecommerce }
+  - { name: Tapestry, ats: workday, token: tapestry.wd108/Tapestry_Careers, industry: ecommerce }
+  - { name: "The Children's Place", ats: workday, token: childrensplace.wd1/TCP02, industry: ecommerce }
+  - { name: VTEX, ats: greenhouse, token: vtex, industry: ecommerce }
+
+  # ---------- Hospitality & Food (3) ----------
+  - { name: Lindblad Expeditions, ats: lever, token: lindblad-expeditions, industry: hospitality }
+  - { name: "Monarch Casino & Resort", ats: workday, token: monarch.wd5/Monarch, industry: hospitality }
+  - { name: "Portillo's", ats: workday, token: portillos.wd108/Portillos_External_Career_Site, industry: hospitality }
+
+  # ---------- Consumer Tech & Social (1) ----------
+  - { name: Angi, ats: ashby, token: angi, industry: consumer }
+
+  # ---------- Media & Entertainment (19) ----------
+  - { name: Cardlytics, ats: workday, token: cardlytics.wd5/CardlyticsExternalCareerSite, industry: media }
+  - { name: Cinemark, ats: workday, token: cinemark.wd1/cinemark, industry: media }
+  - { name: Clear Channel Outdoor, ats: workday, token: clearchanneloutdoor.wd5/CCO, industry: media }
+  - { name: Digital Turbine, ats: workday, token: digitalturbine.wd501/Digital_Turbine_External_Careers, industry: media }
+  - { name: DoubleVerify, ats: workday, token: doubleverify.wd5/DV_Careers, industry: media }
+  - { name: Genius Sports, ats: greenhouse, token: geniussports, industry: media }
+  - { name: Getty Images, ats: lever, token: gettyimages, industry: media }
+  - { name: MediaAlpha, ats: greenhouse, token: mediaalpha, industry: media }
+  - { name: MNTN, ats: greenhouse, token: mntn, industry: media }
+  - { name: Outfront Media, ats: workday, token: outfrontmedia.wd1/outfrontmedia, industry: media }
+  - { name: PubMatic, ats: greenhouse, token: pubmatic, industry: media }
+  - { name: QuinStreet, ats: greenhouse, token: quinstreet, industry: media }
+  - { name: Scholastic, ats: workday, token: scholastic.wd5/External, industry: media }
+  - { name: Shutterstock, ats: workday, token: shutterstock.wd1/ShutterstockCareers, industry: media }
+  - { name: Skydance, ats: lever, token: skydance, industry: media }
+  - { name: Sphere Entertainment, ats: greenhouse, token: sphereentertainment, industry: media }
+  - { name: System1, ats: lever, token: system1, industry: media }
+  - { name: Townsquare Media, ats: greenhouse, token: townsquaremedia, industry: media }
+  - { name: Viant Technology, ats: greenhouse, token: vianttechnology, industry: media }
+
+  # ---------- Gaming (3) ----------
+  - { name: Accel Entertainment, ats: workday, token: accelentertainment.wd12/AccelEntertainment_Careers, industry: gaming }
+  - { name: DraftKings, ats: workday, token: draftkings.wd1/DraftKings, industry: gaming }
+  - { name: Rush Street Interactive, ats: greenhouse, token: rushstreetinteractive, industry: gaming }
+
+  # ---------- Education (3) ----------
+  - { name: Docebo, ats: ashby, token: docebo, industry: education }
+  - { name: Regis University, ats: workday, token: regis.wd501/RegisUniversity, industry: education }
+  - { name: Skillsoft, ats: greenhouse, token: skillsoft, industry: education }
+
+  # ---------- Enterprise Software (14) ----------
+  - { name: Agilysys, ats: greenhouse, token: agilysys, industry: enterprise }
+  - { name: AudioEye, ats: greenhouse, token: audioeye, industry: enterprise }
+  - { name: Bentley Systems, ats: workday, token: bentleysystems.wd5/bentley, industry: enterprise }
+  - { name: Blackbaud, ats: workday, token: blackbaud.wd1/ExternalCareers, industry: enterprise }
+  - { name: BlackLine, ats: workday, token: blackline.wd108/BlackLineCareers, industry: enterprise }
+  - { name: Digimarc, ats: greenhouse, token: digimarc, industry: enterprise }
+  - { name: Five9, ats: greenhouse, token: five9, industry: enterprise }
+  - { name: NICE, ats: greenhouse, token: nice, industry: enterprise }
+  - { name: Rimini Street, ats: workday, token: riministreet.wd1/RiminiStreet, industry: enterprise }
+  - { name: ServiceTitan, ats: workday, token: servicetitan.wd1/ServiceTitan, industry: enterprise }
+  - { name: Similarweb, ats: greenhouse, token: similarweb, industry: enterprise }
+  - { name: Sprout Social, ats: greenhouse, token: sproutsocial, industry: enterprise }
+  - { name: Upwork, ats: greenhouse, token: upwork, industry: enterprise }
+  - { name: Workiva, ats: workday, token: workiva.wd503/careers, industry: enterprise }
+
+  # ---------- Consulting & Professional Services (1) ----------
+  - { name: Genpact, ats: workday, token: genpact.wd108/External_Careers, industry: consulting }
+
+  # ---------- Telecom & Networking (8) ----------
+  - { name: AST SpaceMobile, ats: greenhouse, token: astspacemobile, industry: telecom }
+  - { name: Gogo, ats: workday, token: gogo.wd503/careers, industry: telecom }
+  - { name: Harmonic, ats: ashby, token: harmonic, industry: telecom }
+  - { name: IDT, ats: lever, token: idt, industry: telecom }
+  - { name: Liberty Global, ats: workday, token: libertyglobal.wd3/Liberty_Global_Careers, industry: telecom }
+  - { name: NETGEAR, ats: ashby, token: netgear, industry: telecom }
+  - { name: Tucows, ats: greenhouse, token: tucows, industry: telecom }
+  - { name: Ubiquiti, ats: greenhouse, token: ubiquiti, industry: telecom }
+
+  # ---------- Cybersecurity (3) ----------
+  - { name: OneSpan, ats: greenhouse, token: onespan, industry: security }
+  - { name: Qualys, ats: workday, token: qualys.wd5/Careers, industry: security }
+  - { name: Rubrik, ats: greenhouse, token: rubrik, industry: security }
+
+  # ---------- Real Estate & PropTech (15) ----------
+  - { name: AppFolio, ats: ashby, token: appfolio, industry: real_estate }
+  - { name: Colliers International, ats: workday, token: colliers.wd3/Colliers-External-Career-Site, industry: real_estate }
+  - { name: Comfort Systems USA, ats: workday, token: comfortsystemsusa.wd1/Corpcareers, industry: real_estate }
+  - { name: DigitalBridge, ats: greenhouse, token: digitalbridge, industry: real_estate }
+  - { name: EquipmentShare, ats: greenhouse, token: equipmentsharecom, industry: real_estate }
+  - { name: Equity Lifestyle Properties, ats: workday, token: equitylifestyleproperties.wd5/ELS, industry: real_estate }
+  - { name: Invitation Homes, ats: workday, token: invitationhomes.wd503/INVH, industry: real_estate }
+  - { name: Kimco Realty, ats: workday, token: kimcorealty.wd503/KimcoCareers, industry: real_estate }
+  - { name: "Marcus & Millichap", ats: workday, token: marcusmillichap.wd108/MarcusMillichap, industry: real_estate }
+  - { name: "Phillips Edison & Company", ats: workday, token: phillipsedison.wd503/PECO, industry: real_estate }
+  - { name: Rayonier, ats: workday, token: rayonier.wd501/Rayonier_Careers, industry: real_estate }
+  - { name: Smith Douglas Homes, ats: greenhouse, token: smithdouglashomes, industry: real_estate }
+  - { name: Tanger, ats: workday, token: tanger.wd108/Tanger_External_CareerSite, industry: real_estate }
+  - { name: Ventas, ats: workday, token: ventas.wd503/ventas_careers, industry: real_estate }
+  - { name: "Walker & Dunlop", ats: workday, token: walkerdunlop.wd1/WD, industry: real_estate }
+
 # Companies whose career sites have no public JSON feed (Google, Apple, Meta,
 # Microsoft, Citadel, ...) are out of scope until one is found.
 # Do not scrape HTML.
