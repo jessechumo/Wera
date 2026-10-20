@@ -25,4 +25,12 @@ func TestApplicantValidate(t *testing.T) {
 	if err := (&Applicant{NeedsSponsorship: "yes", City: "Austin"}).Validate(); err != nil {
 		t.Error(err)
 	}
+	for _, bad := range []Applicant{{Over18: "sure"}, {WillingToTravel: "often"}, {WorkPreference: "beach"}, {Transgender: "maybe"}} {
+		if err := bad.Validate(); err == nil {
+			t.Errorf("%+v: want an error", bad)
+		}
+	}
+	if err := (&Applicant{Over18: "yes", WorkPreference: "hybrid", Transgender: "decline", SexualOrientation: "Heterosexual"}).Validate(); err != nil {
+		t.Error(err)
+	}
 }
