@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.5.0](https://github.com/jessechumo/Wera/compare/wera-v0.4.0...wera-v0.5.0) (2026-10-20)
+
+
+### Features
+
+* **companies:** accept Oracle, Workable and Rippling boards ([1678653](https://github.com/jessechumo/Wera/commit/1678653b106e758a87c86ab9f630aed3712ab8c4))
+* **companies:** add 190 employers beyond tech ([2e9ceab](https://github.com/jessechumo/Wera/commit/2e9ceab539f34a56d7508e2a6581f5596a1c49f8))
+* **companies:** add 2,688 employers found in public job lists ([faf94ed](https://github.com/jessechumo/Wera/commit/faf94edcf0f00cfcf5948aef697135519a60a353))
+* **companies:** add 304 public companies and hospitals ([0b97056](https://github.com/jessechumo/Wera/commit/0b9705677db63e9b3b496e8205294d17c73e194e))
+* **companies:** add 384 employers on Oracle, Workable and Rippling ([498743d](https://github.com/jessechumo/Wera/commit/498743d5da09cbdb89cc65f6db35bb409fa3b2b7))
+* **companies:** add 987 employers found through Common Crawl ([e695ff2](https://github.com/jessechumo/Wera/commit/e695ff2b76b332b489a7a50ea4418de6657d7a34))
+* **companies:** watch the job boards of jobs users add ([96af442](https://github.com/jessechumo/Wera/commit/96af4422a36cbd45503561c67740c24e0d99b7fa))
+* **pipeline:** bound the time a run spends on job details ([897a30d](https://github.com/jessechumo/Wera/commit/897a30dcddf4049350d7878e26b13d8c5f6b5865))
+* **profile:** write profiles and score jobs for any career ([b8821ef](https://github.com/jessechumo/Wera/commit/b8821ef972d3a537dd48e9d13ad48228e1b972fa))
+* **roles:** add healthcare, business, education and trades careers ([c800ea7](https://github.com/jessechumo/Wera/commit/c800ea715eb4e6d88f875496f416e3de76113973))
+* **roles:** group role families into career fields ([72103fd](https://github.com/jessechumo/Wera/commit/72103fdcca5065ac6478906b083264fc2115ce69))
+* **sources:** read Oracle Recruiting Cloud career sites ([3ce2445](https://github.com/jessechumo/Wera/commit/3ce244525741fd1925156974ce337577b20b08de))
+* **sources:** read Rippling job boards ([fb56075](https://github.com/jessechumo/Wera/commit/fb5607555cb9456dcc792a3ceedc72c7d0721fcd))
+* **sources:** read the job board from a posting's address ([cdeeecc](https://github.com/jessechumo/Wera/commit/cdeeecc12efd7a8c5d627d0c85442738bcfcef9e))
+* **sources:** read Workable job boards ([989d6ae](https://github.com/jessechumo/Wera/commit/989d6aebfb2a527d83bfca44eac80a2f45410bd7))
+* support careers beyond tech and 190 more employers ([d891fc4](https://github.com/jessechumo/Wera/commit/d891fc4854b22af452d1444bd4dc72878f280fea))
+* thousands of employers, three new job boards, and boards found from added jobs ([660aa6c](https://github.com/jessechumo/Wera/commit/660aa6c78df73a0e2a8a089aafeefab0e774b81c))
+
+
+### Bug Fixes
+
+* **store:** hand a board to the companies.yaml entry that lists it ([26b858f](https://github.com/jessechumo/Wera/commit/26b858f1cae0ce2c72c688b3c04928638013031b))
+
+
+### Documentation
+
+* describe career fields and the wider company list ([c19d7df](https://github.com/jessechumo/Wera/commit/c19d7df04ba1917d825302151e36eb422ad0717a))
+
 ## [0.4.0](https://github.com/jessechumo/Wera/compare/wera-v0.3.1...wera-v0.4.0) (2026-10-20)
 
 
