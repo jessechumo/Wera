@@ -3648,6 +3648,450 @@ companies:
   - { name: Vera Institute of Justice, ats: greenhouse, token: verainstituteofjustice, industry: nonprofit }
   - { name: Wounded Warrior Project, ats: workday, token: woundedwarriorproject.wd5/wwp, industry: nonprofit }
 
+  # ==================== Oracle Recruiting Cloud, Workable and Rippling boards (checked live 2026-10-20) ====================
+
+  # ---------- AI & Machine Learning (11) ----------
+  - { name: CloudFactory, ats: workable, token: cloudfactory, industry: ai_ml }
+  - { name: CVector, ats: workable, token: cvector, industry: ai_ml }
+  - { name: Eridu AI, ats: rippling, token: eridu-ai, industry: ai_ml }
+  - { name: FlexAI, ats: rippling, token: flexai, industry: ai_ml }
+  - { name: Luminance, ats: workable, token: luminance-1, industry: ai_ml }
+  - { name: NeoSigma, ats: rippling, token: neosigma, industry: ai_ml }
+  - { name: Pathos, ats: rippling, token: pathos, industry: ai_ml }
+  - { name: Positron, ats: rippling, token: positron, industry: ai_ml }
+  - { name: SpreeAI, ats: rippling, token: spreeai, industry: ai_ml }
+  - { name: Tavern Research, ats: rippling, token: tavernresearch, industry: ai_ml }
+  - { name: TWG Global AI, ats: workable, token: twgai, industry: ai_ml }
+
+  # ---------- Big Tech (17) ----------
+  - { name: AMAX, ats: workable, token: amax-1, industry: big_tech }
+  - { name: Analog Bits, ats: rippling, token: analog-bits-inc, industry: big_tech }
+  - { name: Cohu, ats: oracle, token: hcbo.fa.us2/CX_1, industry: big_tech }
+  - { name: D-Wave Quantum, ats: rippling, token: d-wave-quantum, industry: big_tech }
+  - { name: Dell Technologies, ats: oracle, token: iawmqy.fa.ocs/careers, industry: big_tech }
+  - { name: Elevate Semiconductor, ats: workable, token: elevate-semiconductor, industry: big_tech }
+  - { name: HyperLight, ats: workable, token: hyperlight, industry: big_tech }
+  - { name: Infleqtion, ats: workable, token: coldquanta, industry: big_tech }
+  - { name: "Kulicke & Soffa", ats: oracle, token: etyy.fa.ap2/CX_1, industry: big_tech }
+  - { name: MemryX, ats: rippling, token: memryx, industry: big_tech }
+  - { name: OnLogic, ats: workable, token: onlogic-inc, industry: big_tech }
+  - { name: onsemi, ats: oracle, token: hctz.fa.us2/CX_1001, industry: big_tech }
+  - { name: Oracle, ats: oracle, token: eeho.fa.us2/CX_45001, industry: big_tech }
+  - { name: Oxford Quantum Circuits, ats: workable, token: oxford-quantum-circuits-8, industry: big_tech }
+  - { name: Supernova Technology, ats: rippling, token: supernova-technology, industry: big_tech }
+  - { name: Syntiant, ats: workable, token: syntiant, industry: big_tech }
+  - { name: Texas Instruments, ats: oracle, token: edbz.fa.us2/CX, industry: big_tech }
+
+  # ---------- Cloud & Developer Tools (8) ----------
+  - { name: Akamai Technologies, ats: oracle, token: fa-extu-saasfaprod1.fa.ocs/CX_1, industry: cloud }
+  - { name: Atlas Data Storage, ats: rippling, token: atlas-data-storage, industry: cloud }
+  - { name: Digital Realty, ats: oracle, token: hdep.fa.us2/CX, industry: cloud }
+  - { name: Flexcompute, ats: workable, token: flexcompute, industry: cloud }
+  - { name: Jitsu, ats: rippling, token: jitsu, industry: cloud }
+  - { name: Nerdio, ats: rippling, token: nerdio-careers, industry: cloud }
+  - { name: North Cloud, ats: rippling, token: north-cloud, industry: cloud }
+  - { name: Zededa, ats: rippling, token: zededa, industry: cloud }
+
+  # ---------- Trading & HFT (6) ----------
+  - { name: BestEx Research, ats: workable, token: bestex-research, industry: trading }
+  - { name: Capula, ats: workable, token: capula-investment-management-ltd, industry: trading }
+  - { name: Eagle Seven, ats: workable, token: eagle-seven, industry: trading }
+  - { name: Edgehog Trading, ats: rippling, token: edgehog-trading, industry: trading }
+  - { name: Javelin Global Commodities, ats: workable, token: javelin-global-commodities, industry: trading }
+  - { name: Trexquant, ats: workable, token: trexquant, industry: trading }
+
+  # ---------- Fintech & Payments (16) ----------
+  - { name: ACI Worldwide, ats: oracle, token: ebwg.fa.us2/CX, industry: fintech }
+  - { name: APEX Analytix, ats: rippling, token: apexanalytix-careers, industry: fintech }
+  - { name: Best Friend Finance, ats: workable, token: bff, industry: fintech }
+  - { name: Cetera Financial Group, ats: oracle, token: ebhu.fa.us2/CX, industry: fintech }
+  - { name: Citco, ats: oracle, token: fa-euxc-saasfaprod1.fa.ocs/CX_1, industry: fintech }
+  - { name: Computershare, ats: oracle, token: fa-evdq-saasfaprod1.fa.ocs/CX_2001, industry: fintech }
+  - { name: Dext Capital, ats: rippling, token: dext-capital-llc, industry: fintech }
+  - { name: Diebold Nixdorf, ats: oracle, token: eeug.fa.us6/CX, industry: fintech }
+  - { name: DTCC, ats: oracle, token: ebxr.fa.us2/CX_1, industry: fintech }
+  - { name: Funnel Leasing, ats: workable, token: funnel-leasing, industry: fintech }
+  - { name: GM Financial, ats: oracle, token: fa-exvu-saasfaprod1.fa.ocs/CX_1, industry: fintech }
+  - { name: nesto, ats: rippling, token: nesto, industry: fintech }
+  - { name: Premium Merchant Funding, ats: workable, token: premium-merchant-funding-3, industry: fintech }
+  - { name: Tidal Financial Group, ats: rippling, token: open-roles, industry: fintech }
+  - { name: Tradeweb, ats: oracle, token: ecnf.fa.us2/CX, industry: fintech }
+  - { name: Validus Risk Management, ats: workable, token: validus-risk-management, industry: fintech }
+
+  # ---------- Banking & Financial Services (14) ----------
+  - { name: American Express, ats: oracle, token: egug.fa.us2/CX_1, industry: banking }
+  - { name: BIP Capital, ats: workable, token: bipventures, industry: banking }
+  - { name: BNY, ats: oracle, token: eofe.fa.us2/CX_1001, industry: banking }
+  - { name: Cantor Fitzgerald, ats: oracle, token: hdow.fa.us6/CX_1003, industry: banking }
+  - { name: Citizens Financial Group, ats: oracle, token: hcgn.fa.us2/CX_1, industry: banking }
+  - { name: Eastern Bank, ats: oracle, token: gka.fa.us1/CX, industry: banking }
+  - { name: Goldman Sachs, ats: oracle, token: hdpc.fa.us2/LateralHiring, industry: banking }
+  - { name: Jefferies, ats: oracle, token: hdid.fa.us2/CX_1, industry: banking }
+  - { name: JPMorgan Chase, ats: oracle, token: jpmc.fa/CX_1001, industry: banking }
+  - { name: Kanbrick, ats: workable, token: kanbrick, industry: banking }
+  - { name: Lazard, ats: oracle, token: icbpjb.fa.ocs/LazardProfessionalCareers, industry: banking }
+  - { name: Navy Federal, ats: oracle, token: fa-etbx-saasfaprod1.fa.ocs/nfcu, industry: banking }
+  - { name: Schroders, ats: oracle, token: ekbq.fa.em2/CX_2, industry: banking }
+  - { name: Truepoint Wealth Counsel, ats: rippling, token: truepointcareers, industry: banking }
+
+  # ---------- Crypto & Web3 (1) ----------
+  - { name: Riot Platforms, ats: rippling, token: riot-platforms-careers, industry: crypto }
+
+  # ---------- Insurance (13) ----------
+  - { name: Ascot, ats: oracle, token: fa-emkq-saasfaprod1.fa.ocs/CX, industry: insurance }
+  - { name: Blue Cross Blue Shield of Michigan, ats: oracle, token: ejko.fa.us2/CX_3, industry: insurance }
+  - { name: Blue Shield of California, ats: oracle, token: ecge.fa.us2/CX_1003, industry: insurance }
+  - { name: Chubb, ats: oracle, token: fa-ewgu-saasfaprod1.fa.ocs/CX_2001, industry: insurance }
+  - { name: Emergent Holdings, ats: oracle, token: ejko.fa.us2/CX_5, industry: insurance }
+  - { name: GuideWell Mutual, ats: oracle, token: fa-etum-saasfaprod1.fa.ocs/CX_1, industry: insurance }
+  - { name: Molina Healthcare, ats: oracle, token: hckd.fa.us2/CX_1, industry: insurance }
+  - { name: Palomar Holdings, ats: rippling, token: plmrcareers, industry: insurance }
+  - { name: PCMI, ats: rippling, token: pcmi, industry: insurance }
+  - { name: Root Insurance, ats: rippling, token: joinroot, industry: insurance }
+  - { name: SCOR, ats: oracle, token: fa-errt-saasfaprod1.fa.ocs/CX_2001, industry: insurance }
+  - { name: TheGuarantors, ats: rippling, token: theguarantors-open-positions, industry: insurance }
+  - { name: Wildfire Defense Systems, ats: rippling, token: wdscareers, industry: insurance }
+
+  # ---------- Hospitals & Health Systems (12) ----------
+  - { name: Adventist Health, ats: oracle, token: ecvz.fa.us2/CX_1, industry: hospitals }
+  - { name: Community Health Systems, ats: oracle, token: fa-evxo-saasfaprod1.fa.ocs/CX_1, industry: hospitals }
+  - { name: Greenwood Village South, ats: oracle, token: eexs.fa.us2/GreenwoodVillageSouth, industry: hospitals }
+  - { name: Inova, ats: oracle, token: elar.fa.us2/CX_1, industry: hospitals }
+  - { name: INTEGRIS Health, ats: oracle, token: ertr.fa.us2/CX_3001, industry: hospitals }
+  - { name: Lifepoint Health, ats: oracle, token: ibnjjb.fa.ocs/CX_1, industry: hospitals }
+  - { name: Mayo Clinic, ats: oracle, token: fa-euwp-saasfaprod1.fa.ocs/CX_1, industry: hospitals }
+  - { name: Navion Senior Solutions, ats: workable, token: navionsl, industry: hospitals }
+  - { name: Northwell Health, ats: oracle, token: eppr.fa.us2/CX_2, industry: hospitals }
+  - { name: UCSF, ats: oracle, token: iazuqy.fa.ocs/CX_1, industry: hospitals }
+  - { name: UW Health, ats: oracle, token: eimy.fa.us6/CX_1, industry: hospitals }
+  - { name: VITAS Healthcare, ats: oracle, token: ejrz.fa.us2/CX_5001, industry: hospitals }
+
+  # ---------- Healthcare & Health Tech (17) ----------
+  - { name: Cardamom Health, ats: rippling, token: cardamom, industry: healthcare }
+  - { name: Cooper Companies, ats: oracle, token: hcjy.fa.us2/CX_1, industry: healthcare }
+  - { name: Dialogue Health Technologies, ats: rippling, token: dialogue-en, industry: healthcare }
+  - { name: Free Market Health, ats: rippling, token: free-market-health, industry: healthcare }
+  - { name: GetHearth.com, ats: rippling, token: hearth-careers, industry: healthcare }
+  - { name: Hologic, ats: oracle, token: ebwb.fa.us2/CX, industry: healthcare }
+  - { name: Innovaccer, ats: workable, token: innovaccer-analytics, industry: healthcare }
+  - { name: Intelliguard, ats: rippling, token: intelliguard, industry: healthcare }
+  - { name: Midmark, ats: oracle, token: hcor.fa.us2/CX_1, industry: healthcare }
+  - { name: Omnicell, ats: oracle, token: elrj.fa.us2/CX_9001, industry: healthcare }
+  - { name: PatientNow, ats: rippling, token: patientnow, industry: healthcare }
+  - { name: Peakhealth AI, ats: rippling, token: peakhealth-ai, industry: healthcare }
+  - { name: Perle, ats: rippling, token: perle, industry: healthcare }
+  - { name: Softheon, ats: workable, token: softheon, industry: healthcare }
+  - { name: Studycast, ats: rippling, token: core-sound-imaging, industry: healthcare }
+  - { name: Tuesday Health, ats: rippling, token: jobs-at-tuesday-health, industry: healthcare }
+  - { name: UHIN, ats: rippling, token: uhin-careers, industry: healthcare }
+
+  # ---------- Biotech & Life Sciences (1) ----------
+  - { name: Ascendis Pharma, ats: workable, token: ascendis-pharma, industry: biotech }
+
+  # ---------- Aviation & Aerospace (10) ----------
+  - { name: AGEO Autonomy, ats: workable, token: ageo, industry: aerospace }
+  - { name: Arch Aerial LLC, ats: workable, token: arch-aerial-llc, industry: aerospace }
+  - { name: Collier Aerospace, ats: rippling, token: collieraerospace, industry: aerospace }
+  - { name: Columbia Helicopters, ats: rippling, token: colheli, industry: aerospace }
+  - { name: Howmet Aerospace, ats: oracle, token: fa-exty-saasfaprod1.fa.ocs/CX_1, industry: aerospace }
+  - { name: KIHOMAC, ats: workable, token: kihomac, industry: aerospace }
+  - { name: Matternet, ats: workable, token: matternet, industry: aerospace }
+  - { name: Momentum Engineering, ats: rippling, token: momentumcareers, industry: aerospace }
+  - { name: RAVE Aerospace LLC, ats: workable, token: raveaerospace, industry: aerospace }
+  - { name: Standard Aero, ats: oracle, token: cva.fa.us1/CX_3, industry: aerospace }
+
+  # ---------- Defense & Public Sector (30) ----------
+  - { name: Aetos Systems, ats: workable, token: aetos-systems-inc, industry: defense }
+  - { name: Arlington County VA, ats: oracle, token: fa-exkk-saasfaprod1.fa.ocs/CX_1, industry: defense }
+  - { name: Avalore, ats: workable, token: avalore, industry: defense }
+  - { name: Blue Water Autonomy, ats: rippling, token: blue-water-autonomy, industry: defense }
+  - { name: City Of Chattanooga, ats: oracle, token: fa-eqto-saasfaprod1.fa.ocs/CX_1, industry: defense }
+  - { name: City of Greeley, ats: oracle, token: elvp.fa.us2/CX_1001, industry: defense }
+  - { name: City of Oklahoma City, ats: oracle, token: fa-etyr-saasfaprod1.fa.ocs/CX_2, industry: defense }
+  - { name: Concept Plus, ats: rippling, token: conceptplus, industry: defense }
+  - { name: Credence, ats: workable, token: credence, industry: defense }
+  - { name: CRG Defense, ats: workable, token: cornerstone-research-group-inc, industry: defense }
+  - { name: Critical Response Group, ats: rippling, token: critical-response-group, industry: defense }
+  - { name: Dallas County, ats: oracle, token: fa-etvc-saasfaprod1.fa.ocs/CX_1001, industry: defense }
+  - { name: DeKalb County, ats: oracle, token: ertd.fa.us2/CX_1001, industry: defense }
+  - { name: Fuse Integration, ats: workable, token: fuse-integration, industry: defense }
+  - { name: "Global Engineering & Technology (GET)", ats: workable, token: get-career-site, industry: defense }
+  - { name: Lynx Software Technologies, ats: rippling, token: lynx-software-technologies, industry: defense }
+  - { name: "Manhattan District Attorney's Office", ats: oracle, token: fa-elzs-saasfaprod1.fa.ocs/CX, industry: defense }
+  - { name: Nevada National Security, ats: oracle, token: ewij.fa.us8/CX_2, industry: defense }
+  - { name: Node.Digital, ats: workable, token: node, industry: defense }
+  - { name: OceanComm, ats: workable, token: oceancomm, industry: defense }
+  - { name: Rovex Technologies Corporation, ats: workable, token: rovex-technologies-corporation, industry: defense }
+  - { name: Saalex, ats: workable, token: saalex, industry: defense }
+  - { name: SAIC, ats: oracle, token: eihu.fa.us8/CX, industry: defense }
+  - { name: Scientific Systems Company, ats: workable, token: ssci, industry: defense }
+  - { name: SciTec, ats: workable, token: scitec, industry: defense }
+  - { name: Sigma Defense, ats: workable, token: sigmadefense, industry: defense }
+  - { name: SZNS Solutions, ats: workable, token: szns, industry: defense }
+  - { name: Vector Atomic, ats: workable, token: vectoratomic, industry: defense }
+  - { name: Virginia Department of Transportation, ats: oracle, token: etgi.fa.us8/CX_4005, industry: defense }
+  - { name: Wayne County, ats: oracle, token: emqz.fa.us2/CX_1, industry: defense }
+
+  # ---------- Automotive & Autonomy (10) ----------
+  - { name: Alexander Dennis, ats: workable, token: alexander-dennis, industry: automotive }
+  - { name: AutoZone, ats: oracle, token: egud.fa.us2/CX_1, industry: automotive }
+  - { name: Denso, ats: oracle, token: hcwt.fa.us2/CX, industry: automotive }
+  - { name: Ford Motor Company, ats: oracle, token: efds.fa.em5/CX_1, industry: automotive }
+  - { name: Garrett Motion, ats: oracle, token: ehth.fa.em2/CX_2001, industry: automotive }
+  - { name: Linamar, ats: oracle, token: fa-epmd-saasfaprod1.fa.ocs/CX_3001, industry: automotive }
+  - { name: MILE MARKER, ats: rippling, token: mile-marker, industry: automotive }
+  - { name: New Flyer, ats: workable, token: new-flyer, industry: automotive }
+  - { name: pony.ai, ats: workable, token: pony-dot-ai, industry: automotive }
+  - { name: Subaru, ats: oracle, token: hcal.fa.us2/CX_1001, industry: automotive }
+
+  # ---------- Robotics & Hardware (10) ----------
+  - { name: 4AG Robotics, ats: rippling, token: 4ag, industry: robotics }
+  - { name: Bonsai Robotics, ats: rippling, token: bonsairoboticsmain, industry: robotics }
+  - { name: Flexion Robotics, ats: workable, token: flexion-robotics, industry: robotics }
+  - { name: Kraken Robotics, ats: rippling, token: kraken-robotics-inc, industry: robotics }
+  - { name: Lyte AI, ats: rippling, token: lyte, industry: robotics }
+  - { name: Mytra, ats: rippling, token: mytra, industry: robotics }
+  - { name: Red Rabbit Robotics, ats: workable, token: red-rabbit-robotics, industry: robotics }
+  - { name: REV Robotics, ats: rippling, token: rev-robotics, industry: robotics }
+  - { name: Slip Robotics, ats: workable, token: slip-robotics, industry: robotics }
+  - { name: Sorting Robotics, ats: workable, token: sorting-robotics, industry: robotics }
+
+  # ---------- Manufacturing & Industrials (34) ----------
+  - { name: Albert Bartlett, ats: workable, token: albert-bartlett, industry: manufacturing }
+  - { name: Arconic, ats: oracle, token: hdnn.fa.us6/CX, industry: manufacturing }
+  - { name: Brio Water Technology, ats: rippling, token: briowt, industry: manufacturing }
+  - { name: Camlin, ats: rippling, token: camlin-careers, industry: manufacturing }
+  - { name: Carmeuse, ats: oracle, token: ekiz.fa.em2/CX, industry: manufacturing }
+  - { name: Christie, ats: workable, token: christie-lites-3, industry: manufacturing }
+  - { name: Coherent, ats: oracle, token: hcwp.fa.us2/CX_1, industry: manufacturing }
+  - { name: Cummins, ats: oracle, token: fa-espx-saasfaprod1.fa.ocs/CX_1, industry: manufacturing }
+  - { name: Door Controls, ats: rippling, token: door-controls-usa, industry: manufacturing }
+  - { name: Duracell, ats: oracle, token: fa-ewub-saasfaprod1.fa.ocs/CX_26, industry: manufacturing }
+  - { name: Eastern Glass and Aluminum, ats: rippling, token: ega-job-board, industry: manufacturing }
+  - { name: Emerson Electric, ats: oracle, token: hdjq.fa.us2/CX_1, industry: manufacturing }
+  - { name: Fortive, ats: oracle, token: ejta.fa.us6/CX_2001, industry: manufacturing }
+  - { name: Honeywell, ats: oracle, token: ibqbjb.fa.ocs/Honeywell, industry: manufacturing }
+  - { name: Hormel Foods, ats: oracle, token: ekkh.fa.us2/CX_2002, industry: manufacturing }
+  - { name: Legrand, ats: oracle, token: iadugs.fa.ocs/CX_1001, industry: manufacturing }
+  - { name: LightGuide, ats: rippling, token: lightguide, industry: manufacturing }
+  - { name: Luxium Solutions, ats: workable, token: luxium-solutions-llc, industry: manufacturing }
+  - { name: Mauser Packaging Solutions, ats: oracle, token: hdpn.fa.us6/CX_1, industry: manufacturing }
+  - { name: Mycronic, ats: oracle, token: ehtv.fa.em2/CX_1, industry: manufacturing }
+  - { name: OptiTrack, ats: workable, token: optitrack, industry: manufacturing }
+  - { name: Pella, ats: oracle, token: ebgj.fa.us2/CX_1, industry: manufacturing }
+  - { name: Powell, ats: oracle, token: ekcf.fa.us6/CX_1, industry: manufacturing }
+  - { name: Ralliant, ats: oracle, token: ibwujb.fa.ocs/CX_1001, industry: manufacturing }
+  - { name: Resideo, ats: oracle, token: ehtl.fa.us6/CX, industry: manufacturing }
+  - { name: Rheem, ats: oracle, token: hdde.fa.us2/CX, industry: manufacturing }
+  - { name: Sherwin-Williams, ats: oracle, token: ejhp.fa.us6/CX_2, industry: manufacturing }
+  - { name: Teguar Corporation, ats: workable, token: teguar-corporation, industry: manufacturing }
+  - { name: The Semios Group, ats: workable, token: semios, industry: manufacturing }
+  - { name: Thorlabs, ats: workable, token: thorlabs, industry: manufacturing }
+  - { name: TMEIC Corporation Americas, ats: workable, token: tmeic-corporation-americas, industry: manufacturing }
+  - { name: Vanguard EMS, ats: workable, token: vanguard-ems-inc, industry: manufacturing }
+  - { name: Vertiv, ats: oracle, token: egup.fa.us2/CX, industry: manufacturing }
+  - { name: Worthington Enterprises, ats: oracle, token: fa-eygo-saasfaprod1.fa.ocs/CX_2001, industry: manufacturing }
+
+  # ---------- Energy & Climate (30) ----------
+  - { name: Aerones, ats: workable, token: aerones, industry: energy }
+  - { name: Al Warren Oil Company, ats: workable, token: al-warren-oil-company-inc, industry: energy }
+  - { name: American Rare Earths, ats: rippling, token: usare, industry: energy }
+  - { name: Berkshire Hathaway Energy, ats: oracle, token: fa-essf-saasfaprod1.fa.ocs/CX_1, industry: energy }
+  - { name: Clean Harbors, ats: oracle, token: epyc.fa.us2/CX_1001, industry: energy }
+  - { name: Consolidated Edison, ats: oracle, token: ejcu.fa.us6/CX_1033, industry: energy }
+  - { name: DISA Uranium, ats: workable, token: disa-technologies, industry: energy }
+  - { name: EnergyCap, ats: rippling, token: energycap-external-career-page, industry: energy }
+  - { name: FirstEnergy, ats: oracle, token: fa-etjd-saasfaprod1.fa.ocs/FirstEnergyCareers, industry: energy }
+  - { name: FlexGen, ats: rippling, token: external-job-board, industry: energy }
+  - { name: Hunt Oil Company, ats: oracle, token: fa-eqcd-saasfaprod1.fa.ocs/CX_1, industry: energy }
+  - { name: Kent, ats: oracle, token: fa-emqh-saasfaprod1.fa.ocs/CX_1001, industry: energy }
+  - { name: Linea Energy, ats: rippling, token: linea-energy, industry: energy }
+  - { name: Mobius Renewables, ats: rippling, token: greengas, industry: energy }
+  - { name: National Water Services, ats: rippling, token: nws, industry: energy }
+  - { name: NOV, ats: oracle, token: egay.fa.us6/CX_4001, industry: energy }
+  - { name: Power TakeOff, ats: rippling, token: power-takeoff-careers, industry: energy }
+  - { name: Proper Voltage, ats: rippling, token: proper-voltage, industry: energy }
+  - { name: Resource Innovations, ats: workable, token: resource-innovations, industry: energy }
+  - { name: Rystad Energy, ats: workable, token: rystad-energy, industry: energy }
+  - { name: "S&C Electric Company", ats: oracle, token: ejia.fa.us6/CX_1001, industry: energy }
+  - { name: Savannah River National Laboratory, ats: oracle, token: ewvl.fa.us8/CX_1, industry: energy }
+  - { name: Scout Clean Energy, ats: workable, token: scout-clean-energy, industry: energy }
+  - { name: Southern Company, ats: oracle, token: emje.fa.us6/CX_1001, industry: energy }
+  - { name: Terabase Energy, ats: workable, token: terabase-energy, industry: energy }
+  - { name: Torus, ats: rippling, token: torus, industry: energy }
+  - { name: Vortexa, ats: workable, token: vortexa, industry: energy }
+  - { name: Waste Management, ats: oracle, token: emcm.fa.us2/WMCareers, industry: energy }
+  - { name: Weatherford, ats: oracle, token: fa-exmi-saasfaprod1.fa.ocs/CX_1, industry: energy }
+  - { name: Xodus Group, ats: workable, token: xodus-group, industry: energy }
+
+  # ---------- Logistics & Supply Chain (7) ----------
+  - { name: Altom Transport, ats: workable, token: altom-transport, industry: logistics }
+  - { name: American Bureau of Shipping, ats: oracle, token: hbbq.fa.us2/CX_1, industry: logistics }
+  - { name: CSX, ats: oracle, token: fa-eowa-saasfaprod1.fa.ocs/CSXCareers, industry: logistics }
+  - { name: DP World, ats: oracle, token: ehpv.fa.em2/CX_1, industry: logistics }
+  - { name: GenLogs, ats: rippling, token: genlogs-corporation, industry: logistics }
+  - { name: Ritchie Bros., ats: oracle, token: fa-exew-saasfaprod1.fa.ocs/CX_1, industry: logistics }
+  - { name: Tive, ats: rippling, token: tive-careers, industry: logistics }
+
+  # ---------- Retail & E-commerce (17) ----------
+  - { name: Acosta Group, ats: oracle, token: eczy.fa.us2/CX_1, industry: ecommerce }
+  - { name: Albertsons, ats: oracle, token: eofd.fa.us6/CX_1001, industry: ecommerce }
+  - { name: amika, ats: rippling, token: amika-careers, industry: ecommerce }
+  - { name: BCI Brands, ats: workable, token: bci-brands, industry: ecommerce }
+  - { name: Charlotte Tilbury, ats: workable, token: charlotte-tilbury, industry: ecommerce }
+  - { name: Face Reality, ats: rippling, token: facereality, industry: ecommerce }
+  - { name: Lovingly, ats: workable, token: lovingly, industry: ecommerce }
+  - { name: "Macy's", ats: oracle, token: ebwh.fa.us2/CX_1001, industry: ecommerce }
+  - { name: PlanetArt, ats: workable, token: planetart, industry: ecommerce }
+  - { name: Reverb, ats: rippling, token: reverb-careers, industry: ecommerce }
+  - { name: RH, ats: oracle, token: hcqq.fa.us2/CX_5004, industry: ecommerce }
+  - { name: Rokt, ats: workable, token: rokt, industry: ecommerce }
+  - { name: RugsUSA, ats: rippling, token: rugsusa, industry: ecommerce }
+  - { name: Samsonite, ats: oracle, token: ekkf.fa.em2/CX, industry: ecommerce }
+  - { name: Staples, ats: oracle, token: fa-exhh-saasfaprod1.fa.ocs/StaplesInc, industry: ecommerce }
+  - { name: Tarte Cosmetics, ats: workable, token: tarte-inc, industry: ecommerce }
+  - { name: Williams-Sonoma, ats: oracle, token: ehac.fa.us6/CX_1, industry: ecommerce }
+
+  # ---------- Hospitality & Food (8) ----------
+  - { name: Belmond, ats: workable, token: belmond-uk-ltd, industry: hospitality }
+  - { name: Caesars Entertainment, ats: oracle, token: edmn.fa.us2/CX_1, industry: hospitality }
+  - { name: Cruise Planners, ats: rippling, token: cruiseplanners, industry: hospitality }
+  - { name: Hilton Worldwide, ats: oracle, token: efet.fa.us2/CX_1009, industry: hospitality }
+  - { name: Marriott International, ats: oracle, token: ejwl.fa.us2/CX, industry: hospitality }
+  - { name: PopStroke, ats: rippling, token: popstroke-job-board-1924, industry: hospitality }
+  - { name: Tauck, ats: oracle, token: fa-emxf-saasfaprod1.fa.ocs/CX, industry: hospitality }
+  - { name: Wingstop Restaurants, ats: oracle, token: iaxmqy.fa.ocs/Wingstop, industry: hospitality }
+
+  # ---------- Consumer Tech & Social (2) ----------
+  - { name: TickPick, ats: workable, token: tickpick, industry: consumer }
+  - { name: Uber, ats: oracle, token: iaziqy.fa.ocs/CX_1, industry: consumer }
+
+  # ---------- Media & Entertainment (14) ----------
+  - { name: Cadillac Formula 1 Team, ats: workable, token: cadillacf1team, industry: media }
+  - { name: Create Music Group, ats: rippling, token: createmusicgroup, industry: media }
+  - { name: Electrosonic, ats: rippling, token: electrosonic-careers, industry: media }
+  - { name: Eluvio, ats: workable, token: eluvio, industry: media }
+  - { name: Go Fish Digital, ats: rippling, token: gofishdigital, industry: media }
+  - { name: GO Media, ats: workable, token: go-media, industry: media }
+  - { name: Hearst, ats: oracle, token: eevd.fa.us6/CX_1, industry: media }
+  - { name: InterImage, ats: workable, token: interimage, industry: media }
+  - { name: Intersection, ats: rippling, token: intersection, industry: media }
+  - { name: Nuovo Photography, ats: workable, token: nuovophotography, industry: media }
+  - { name: Sinclair, ats: oracle, token: edyy.fa.us2/CX_2002, industry: media }
+  - { name: The Shipyard, ats: workable, token: theshipyard, industry: media }
+  - { name: Two Circles, ats: workable, token: twocircles, industry: media }
+  - { name: We Are Social, ats: workable, token: we-are-social-1, industry: media }
+
+  # ---------- Education (11) ----------
+  - { name: ConnectPrep, ats: workable, token: connectprep, industry: education }
+  - { name: Pearson, ats: oracle, token: hccz.fa.em3/CX_2, industry: education }
+  - { name: Rice University, ats: oracle, token: emdz.fa.us2/CX_2001, industry: education }
+  - { name: Skidmore College, ats: oracle, token: eodq.fa.us6/CX, industry: education }
+  - { name: StudyFetch, ats: rippling, token: studyfetch, industry: education }
+  - { name: Texas Sports Academy Main, ats: workable, token: texas-sports-academy-main, industry: education }
+  - { name: Tulane University, ats: oracle, token: tulane-ibqejb.fa.ocs/CX_1, industry: education }
+  - { name: University of Maine System, ats: oracle, token: fa-ewca-saasfaprod1.fa.ocs/CX_1, industry: education }
+  - { name: University of Wyoming, ats: oracle, token: eeik.fa.us2/CX_1, industry: education }
+  - { name: UTHealth Houston, ats: oracle, token: fa-eomf-saasfaprod1.fa.ocs/CX_1002, industry: education }
+  - { name: Vanderbilt University, ats: oracle, token: ecsr.fa.us2/CX_1, industry: education }
+
+  # ---------- Enterprise Software (16) ----------
+  - { name: Dayshape, ats: workable, token: dayshape, industry: enterprise }
+  - { name: ENFOS, ats: workable, token: enfos-inc, industry: enterprise }
+  - { name: FieldPulse, ats: rippling, token: fieldpulse, industry: enterprise }
+  - { name: Keycafe, ats: workable, token: keycafe, industry: enterprise }
+  - { name: LEAP Legal Software, ats: workable, token: leap-legal-software, industry: enterprise }
+  - { name: Logicbroker, ats: rippling, token: logicbroker-inc, industry: enterprise }
+  - { name: Opiniion, ats: rippling, token: opiniion, industry: enterprise }
+  - { name: OptiSigns, ats: workable, token: optisigns-inc, industry: enterprise }
+  - { name: Order.co, ats: rippling, token: orderco, industry: enterprise }
+  - { name: Rippling, ats: rippling, token: rippling, industry: enterprise }
+  - { name: Routeware, ats: rippling, token: routeware-careers, industry: enterprise }
+  - { name: Seeq, ats: workable, token: seeq, industry: enterprise }
+  - { name: TriNet, ats: oracle, token: fa-etgw-saasfaprod1.fa.ocs/CX_1, industry: enterprise }
+  - { name: Valsoft Corporation, ats: workable, token: valsoft-corp, industry: enterprise }
+  - { name: Verisk, ats: oracle, token: fa-ewmy-saasfaprod1.fa.ocs/CX_1, industry: enterprise }
+  - { name: Veryable, ats: rippling, token: veryable-careers, industry: enterprise }
+
+  # ---------- Consulting & Professional Services (32) ----------
+  - { name: Arcadis, ats: oracle, token: ebcs.fa.em2/CX_1, industry: consulting }
+  - { name: Ascentt, ats: rippling, token: ascentt, industry: consulting }
+  - { name: Brady Martz, ats: workable, token: brady-martz, industry: consulting }
+  - { name: Buxton, ats: rippling, token: buxtoncocareers, industry: consulting }
+  - { name: Conduent, ats: oracle, token: egua.fa.us2/CX_1, industry: consulting }
+  - { name: Coretek Services, ats: workable, token: coretek-services, industry: consulting }
+  - { name: CSC, ats: oracle, token: hczw.fa.us2/CX_1001, industry: consulting }
+  - { name: DGR Systems, ats: rippling, token: dgrsystems, industry: consulting }
+  - { name: DLB Associates, ats: rippling, token: dlb-associates, industry: consulting }
+  - { name: DLS Engineering Associates, ats: rippling, token: dlsengineering, industry: consulting }
+  - { name: DNV, ats: oracle, token: ecyq.fa.em2/CX_1, industry: consulting }
+  - { name: eClerx, ats: oracle, token: fa-ewji-saasfaprod1.fa.ocs/CX_1, industry: consulting }
+  - { name: EXL, ats: oracle, token: fa-ewjt-saasfaprod1.fa.ocs/CX_2, industry: consulting }
+  - { name: EXP, ats: oracle, token: elcn.fa.us2/CX, industry: consulting }
+  - { name: GHD, ats: oracle, token: ejov.fa.ca2/CX, industry: consulting }
+  - { name: Grant Thornton, ats: oracle, token: ehzq.fa.us2/CX_1, industry: consulting }
+  - { name: HEXAWARE, ats: oracle, token: fa-etqo-saasfaprod1.fa.ocs/CX_1, industry: consulting }
+  - { name: Intertek, ats: oracle, token: hcog.fa.em2/CX_1, industry: consulting }
+  - { name: IP House, ats: rippling, token: ip-house, industry: consulting }
+  - { name: Kroll, ats: oracle, token: hcxs.fa.us2/CX_1, industry: consulting }
+  - { name: Les Olson IT, ats: rippling, token: les-olson-it, industry: consulting }
+  - { name: Michael Baker International, ats: oracle, token: ebxs.fa.us2/CX_2, industry: consulting }
+  - { name: Mindex, ats: workable, token: mindex, industry: consulting }
+  - { name: Murphy Research, ats: workable, token: murphy-research, industry: consulting }
+  - { name: RMF Engineering, ats: workable, token: rmf-engineering-inc, industry: consulting }
+  - { name: Stantec, ats: oracle, token: hdhl.fa.us6/CX_1, industry: consulting }
+  - { name: The Redesign Group, ats: rippling, token: redesigncareers, industry: consulting }
+  - { name: TopDog Law, ats: rippling, token: topdoglaw, industry: consulting }
+  - { name: UL Solutions, ats: oracle, token: fa-eups-saasfaprod1.fa.ocs/ULSolutionsCareers, industry: consulting }
+  - { name: Wood, ats: oracle, token: ehif.fa.em2/CX_1, industry: consulting }
+  - { name: WSP, ats: oracle, token: emit.fa.ca3/CX_2001, industry: consulting }
+  - { name: WTW, ats: oracle, token: eedu.fa.em3/CX_1003, industry: consulting }
+
+  # ---------- Telecom & Networking (7) ----------
+  - { name: Aalyria, ats: rippling, token: aalyria-careers, industry: telecom }
+  - { name: American Tower, ats: oracle, token: hdsn.fa.us6/CX_1, industry: telecom }
+  - { name: Black Box, ats: oracle, token: eoje.fa.us2/CX_1001, industry: telecom }
+  - { name: Gaiia, ats: rippling, token: gaiias-open-positions, industry: telecom }
+  - { name: GCI, ats: oracle, token: edqv.fa.us2/CX, industry: telecom }
+  - { name: Nokia, ats: oracle, token: fa-evmr-saasfaprod1.fa.ocs/CX_1, industry: telecom }
+  - { name: TP-Link Systems, ats: workable, token: tp-link-usa-corp, industry: telecom }
+
+  # ---------- Cybersecurity (12) ----------
+  - { name: ADI Global Distribution, ats: oracle, token: ehtl.fa.us6/CX_2, industry: security }
+  - { name: ADT, ats: oracle, token: fa-erqb-saasfaprod1.fa.ocs/CX_1, industry: security }
+  - { name: Blackline Safety, ats: workable, token: blacklinesafety, industry: security }
+  - { name: DataVisor, ats: workable, token: datavisor-jobs, industry: security }
+  - { name: Fortinet, ats: oracle, token: edel.fa.us2/CX_2001, industry: security }
+  - { name: Genetec, ats: workable, token: genetec-inc, industry: security }
+  - { name: Hunter Strategy, ats: rippling, token: hunterstrategy, industry: security }
+  - { name: Infoblox, ats: oracle, token: efpv.fa.us6/CX_1, industry: security }
+  - { name: Legit Script, ats: rippling, token: legitscript-careers, industry: security }
+  - { name: Netwrix, ats: rippling, token: netwrix-corporation, industry: security }
+  - { name: Paxton Access, ats: workable, token: paxton-access, industry: security }
+  - { name: Securitas, ats: oracle, token: ekaw.fa.us2/CX, industry: security }
+
+  # ---------- Real Estate & PropTech (11) ----------
+  - { name: "Anthony & Sylvan Pools", ats: rippling, token: anthony-sylvan-pools, industry: real_estate }
+  - { name: BGIS, ats: oracle, token: fa-evcg-saasfaprod1.fa.ocs/CX_1, industry: real_estate }
+  - { name: Boston Properties, ats: oracle, token: edxn.fa.us2/CX_5001, industry: real_estate }
+  - { name: Glass Roots Construction, ats: rippling, token: glass-roots-construction-llc, industry: real_estate }
+  - { name: Hoffman Construction, ats: oracle, token: efsp.fa.us6/CX, industry: real_estate }
+  - { name: Newmark Group, ats: oracle, token: hdow.fa.us6/CX_1001, industry: real_estate }
+  - { name: Perry Homes, ats: workable, token: perryhomes, industry: real_estate }
+  - { name: STAG, ats: rippling, token: stag-careers, industry: real_estate }
+  - { name: Sundt, ats: oracle, token: eewl.fa.us6/CX, industry: real_estate }
+  - { name: Vortex Companies, ats: rippling, token: vortex-companies-llc, industry: real_estate }
+  - { name: Zachry Group, ats: oracle, token: fa-evfm-saasfaprod1.fa.ocs/CX_1029, industry: real_estate }
+
+  # ---------- Nonprofit & Civic Tech (7) ----------
+  - { name: Democratic National Committee, ats: rippling, token: democratic-national-committee, industry: nonprofit }
+  - { name: Generation West Virginia, ats: workable, token: generation-west-virginia-1, industry: nonprofit }
+  - { name: "Harlem Children's Zone", ats: workable, token: harlem-childrens-zone, industry: nonprofit }
+  - { name: HealthCorps, ats: workable, token: healthcorpsorg, industry: nonprofit }
+  - { name: JCC Greater Boston, ats: workable, token: jcc-greater-boston, industry: nonprofit }
+  - { name: Middle East Institute, ats: rippling, token: mei-employment, industry: nonprofit }
+  - { name: Stockholm Environment Institute - U.S., ats: workable, token: sei, industry: nonprofit }
+
 # Companies whose career sites have no public JSON feed (Google, Apple, Meta,
 # Microsoft, Citadel, ...) are out of scope until one is found.
 # Do not scrape HTML.
