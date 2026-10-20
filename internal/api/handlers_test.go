@@ -239,7 +239,8 @@ func TestProfileFlow(t *testing.T) {
 	ts, _ := testServer(t, nil)
 
 	code, body := getBody(t, ts.URL+"/api/profile/options")
-	if code != 200 || !strings.Contains(body, `"data_science"`) || !strings.Contains(body, `"aerospace"`) {
+	if code != 200 || !strings.Contains(body, `"data_science"`) || !strings.Contains(body, `"aerospace"`) ||
+		!strings.Contains(body, `"field":"tech"`) || !strings.Contains(body, `"fields":[{"id":"tech"`) {
 		t.Fatalf("/api/profile/options: %d %.200s", code, body)
 	}
 	var opts struct {

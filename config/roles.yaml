@@ -7,11 +7,17 @@
 # Matching is case-insensitive. Patterns are Go regular expressions (RE2):
 # no lookahead/lookbehind.
 
-# Role families, in the order the signup form lists them. A family's id is
-# stored with each match, so rename one only with a data migration.
+# Career fields group the role families on the signup form, in this order.
+# Every family names one field.
+fields:
+  - { id: tech,        label: "Technology & data" }
+
+# Role families. A family's id is stored with each match, so rename one
+# only with a data migration.
 role_families:
   - id: software_engineering
     label: "Software engineering"
+    field: tech
     description: "Backend, frontend, full-stack, mobile, and general SWE."
     patterns: ['\bsoftware (engineer|developer|development engineer)', '\bSDE\b', '\bback[- ]?end\b', '\bfront[- ]?end\b',
                '\bfull[- ]?stack\b', '\bmobile (engineer|developer)', '\b(ios|android) (engineer|developer)',
@@ -19,79 +25,102 @@ role_families:
                '\bapplication (engineer|developer)', '\bproduct engineer']
   - id: sre
     label: "Site reliability (SRE)"
+    field: tech
     patterns: ['\bsite reliability\b', '\bSRE\b', '\breliability engineer']
   - id: platform
     label: "Platform engineering"
+    field: tech
     patterns: ['\bplatform engineer', '\bcloud platform\b', '\binfrastructure platform']
   - id: devops
     label: "DevOps / build & release"
+    field: tech
     patterns: ['\bdevops\b', '\bbuild (and|&) release\b', '\brelease engineer']
   - id: infrastructure
     label: "Infrastructure / cloud / systems"
+    field: tech
     patterns: ['\binfrastructure engineer', '\binfrastructure software engineer', '\bcloud engineer', '\bsystems? engineer', '\blinux\b']
   - id: swe_infra
     label: "Software engineering on infrastructure teams"
+    field: tech
     patterns: ['\bsoftware engineer\b.*\b(infra|infrastructure|platform|reliability|systems|cloud|devops|observability)\b',
                '\b(infra|infrastructure|platform|observability)\b.*\bsoftware engineer\b']
   - id: production
     label: "Production engineering / support"
+    field: tech
     patterns: ['\bproduction engineer', '\bproduction support\b']
   - id: trading_ops
     label: "Trading operations / trade support"
+    field: tech
     patterns: ['\btrad(e|ing) (operations|ops|support|systems)', '\btrade systems engineer', '\bapplication support engineer']
   - id: ml_infra
     label: "ML / AI infrastructure"
+    field: tech
     patterns: ['\bml infrastructure\b', '\bmlops\b', '\bai infrastructure\b', '\binference\b', '\bml platform\b', '\bgpu (infrastructure|platform|cloud)\b']
   - id: ml_engineering
     label: "Machine learning / AI engineering"
+    field: tech
     patterns: ['\bmachine learning\b', '\bML (engineer|scientist|developer)', '\bAI (engineer|developer)', '\bapplied (scientist|ml|ai)\b',
                '\bdeep learning\b', '\bcomputer vision\b', '\bNLP\b', '\bLLM\b', '\bperception (engineer|software)']
   - id: data_science
     label: "Data science"
+    field: tech
     patterns: ['\bdata scien', '\bdecision scien', '\bstatistician\b', '\bquantitative (analyst|scientist)', '\bproduct analytics\b']
   - id: data_engineering
     label: "Data engineering"
+    field: tech
     patterns: ['\bdata engineer', '\bdata platform\b', '\bdata infrastructure\b', '\banalytics engineer', '\bETL\b']
   - id: data_analytics
     label: "Data / business analytics"
+    field: tech
     patterns: ['\bdata analyst', '\bbusiness intelligence\b', '\bBI (engineer|developer|analyst)', '\banalytics (analyst|specialist)',
                '\bbusiness analyst', '\bproduct analyst', '\boperations analyst']
   - id: research
     label: "Research (scientist / engineer)"
+    field: tech
     patterns: ['\bresearch (scientist|engineer)', '\bresearcher\b', '\bresearch software engineer']
   - id: quant
     label: "Quant research / development / trading"
+    field: tech
     patterns: ['\bquant(itative)? (researcher|developer|trader|engineer|strategist)', '\bquant\b', '\balgorithmic trad', '\btrader\b']
   - id: security
     label: "Security engineering"
+    field: tech
     patterns: ['\bsecurity (engineer|analyst|researcher|architect)', '\b(application|product|cloud|network|offensive) security\b',
                '\bdetection (and|&) response\b', '\bpenetration test', '\bred team', '\bthreat (intelligence|detection)']
   - id: embedded
     label: "Embedded / hardware / avionics"
+    field: tech
     patterns: ['\bembedded\b', '\bfirmware\b', '\bhardware engineer', '\belectrical engineer', '\bFPGA\b', '\bASIC\b',
                '\bavionics\b', '\bflight software\b', '\bGNC\b', '\bguidance,? navigation', '\bcontrols engineer', '\brobotics (engineer|software)']
   - id: qa_test
     label: "QA / test automation"
+    field: tech
     patterns: ['\bQA\b', '\bquality (assurance|engineer)', '\btest (engineer|automation)', '\bSDET\b', '\bautomation engineer']
   - id: solutions
     label: "Solutions / customer / sales engineering"
+    field: tech
     patterns: ['\bsolutions? (engineer|architect|consultant)', '\bsales engineer', '\bcustomer engineer', '\bimplementation engineer',
                '\b(technical )?support engineer', '\btechnical account manager']
   - id: program_management
     label: "Technical program / project management"
+    field: tech
     patterns: ['\b(technical )?program manager', '\bproject manager', '\bTPM\b', '\bscrum master']
   - id: product_management
     label: "Product management"
+    field: tech
     patterns: ['\bproduct manager', '\bproduct owner', '\bassociate product manager', '\bAPM\b']
   - id: design
     label: "Product / UX design"
+    field: tech
     patterns: ['\b(product|ux|ui|visual|interaction) designer', '\bdesign engineer', '\bux research']
   - id: it_networking
     label: "IT / networking / systems administration"
+    field: tech
     patterns: ['\bIT (support|specialist|administrator|engineer|analyst)', '\bhelp ?desk', '\bsystems? administrator',
                '\bnetwork (engineer|administrator)', '\bdesktop support']
   - id: early_career
     label: "New grad / early career programs"
+    field: tech
     patterns: ['\bnew grad', '\bearly career\b', '\buniversity grad', '\bgraduate (software|systems|infrastructure|engineer|program)', '\brotational program']
 
 # Checked FIRST, and only for users who selected one of the override's
