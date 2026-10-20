@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/jessechumo/Wera/compare/wera-v0.3.1...wera-v0.4.0) (2026-10-20)
+
+
+### Features
+
+* **applicant:** ask more application and self-identification questions ([717ddaa](https://github.com/jessechumo/Wera/commit/717ddaa2c13fe5fc085ad35d368b9682f878100a))
+* **applicant:** remember answers given on application forms ([cab1713](https://github.com/jessechumo/Wera/commit/cab17131a9f7bf9168de15a5f68054f4859a7fc9))
+* **ext:** record each application the extension fills ([a64a89f](https://github.com/jessechumo/Wera/commit/a64a89fb13bb7e00fa9389ed29564c0b530ce254))
+* **ext:** suggest answers for a whole form page in one AI call ([4677494](https://github.com/jessechumo/Wera/commit/4677494be488ecf58ae99f9a4ba5b956da58bce9))
+* **letters:** steer cover letters and tailored resumes ([40334bb](https://github.com/jessechumo/Wera/commit/40334bbe2483f7c5e921d3132f289eba7b6ac842))
+* smarter autofill backend (answers bank, page suggestions, runs, new questions) ([e2ed2d5](https://github.com/jessechumo/Wera/commit/e2ed2d5f7122b286fee8b6c04cb75bad5f871782))
+* smarter autofill backend (answers bank, page suggestions, runs, new questions) ([b1c38c8](https://github.com/jessechumo/Wera/commit/b1c38c8cc611dc8fd9778096d918b0949c9b4559))
+
+
+### Bug Fixes
+
+* **deps:** bump github.com/go-chi/chi/v5 ([41bf088](https://github.com/jessechumo/Wera/commit/41bf0888eaed9ee175f8acb5debdcdff564e12b9))
+* **deps:** bump github.com/go-chi/chi/v5 from 5.4.0 to 5.5.0 in the go-modules group ([3db7e45](https://github.com/jessechumo/Wera/commit/3db7e45f050b8228c9779643c060c2b9a472f199))
+
 ## [0.3.1](https://github.com/jessechumo/Wera/compare/wera-v0.3.0...wera-v0.3.1) (2026-10-19)
 
 
