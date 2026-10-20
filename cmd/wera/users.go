@@ -7,7 +7,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -23,7 +25,8 @@ const usersUsage = `usage:
   wera users passwd --email E                       prints a new generated password
   wera users admin --email E [--revoke]
   wera users update --email E [--new-email X] [--name N]
-  wera users import-profile --email E --file profile.md
+  wera users import-profile --email E --file profile/E.md
+  wera users export-profile --email E [--file profile/E.md]   stdout without --file
   wera users budget --email E --usd 20               monthly inference budget`
 
 // runUsers implements `wera users ...`.
@@ -38,7 +41,7 @@ func runUsers(ctx context.Context, args []string) error {
 	admin := fs.Bool("admin", false, "grant admin")
 	revoke := fs.Bool("revoke", false, "revoke admin instead of granting it")
 	newEmail := fs.String("new-email", "", "update: the new email")
-	file := fs.String("file", "", "import-profile: markdown file to use as the profile text")
+	file := fs.String("file", "", "import-profile: markdown file to use as the profile text; export-profile: where to write it")
 	usd := fs.Float64("usd", -1, "budget: monthly inference budget in USD")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -179,9 +182,51 @@ func runUsers(ctx context.Context, args []string) error {
 			return err
 		}
 		fmt.Printf("profile for %s set from %s (hash %s)\n", u.Email, *file, hash[:12])
+	case "export-profile":
+		u, err := store.UserByEmail(ctx, pool, norm)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("no user with email %s", norm)
+		} else if err != nil {
+			return err
+		}
+		prof, err := store.GetProfile(ctx, pool, u.ID)
+		if err != nil {
+			return err
+		}
+		if prof == nil || prof.Markdown == "" {
+			return fmt.Errorf("%s has no profile yet", u.Email)
+		}
+		return writeProfile(os.Stdout, *file, prof.Markdown)
 	default:
 		return errors.New(usersUsage)
 	}
+	return nil
+}
+
+// writeProfile writes profile markdown to path (owner-only: it holds a
+// resume), refusing to overwrite a file, or to out when path is "".
+func writeProfile(out io.Writer, path, md string) error {
+	if !strings.HasSuffix(md, "\n") {
+		md += "\n"
+	}
+	if path == "" {
+		_, err := io.WriteString(out, md)
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //nolint:gosec // an admin CLI flag naming a local file
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("%s exists; move it away or pick another --file", path)
+	} else if err != nil {
+		return fmt.Errorf("--file: %w", err)
+	}
+	if _, err := io.WriteString(f, md); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s (%d bytes)\n", path, len(md))
 	return nil
 }
 

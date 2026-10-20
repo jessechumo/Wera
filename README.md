@@ -110,11 +110,11 @@ go run ./cmd/wera serve                            # API on http://localhost:808
 
 Then run the dashboard (`../wera-frontend`, `npm run dev`), sign up, and set up your profile. `go run ./cmd/wera pipeline` runs one full fetch, filter, and score for every user.
 
-To use an existing `profile/profile.md` instead of the setup flow, create an account and import it:
+To use a markdown profile instead of the setup flow, start from [`profile/profile.example.md`](profile/README.md), create an account and import it (`export-profile` writes one back out):
 
 ```bash
 go run ./cmd/wera users create --email you@example.com --admin
-go run ./cmd/wera users import-profile --email you@example.com --file profile/profile.md
+go run ./cmd/wera users import-profile --email you@example.com --file profile/you.md
 ```
 
 ## Run as a server
