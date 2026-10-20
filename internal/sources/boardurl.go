@@ -11,11 +11,14 @@ var (
 	workdaySite = regexp.MustCompile(`^(wd\d+)\.myworkdaysite\.com$`)
 	locale      = regexp.MustCompile(`^[a-z]{2}-[A-Za-z]{2}$`)
 	slugOK      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
+	oracleHost  = regexp.MustCompile(`^([a-z0-9-]+\.fa(?:\.[a-z0-9-]+)?)\.oraclecloud\.com$`)
 )
 
 // BoardFromURL returns the job board a posting's address belongs to, as
 // the ATS name and the token companies.yaml would use for it
-// ("greenhouse", "acme"), when the address is on a board Wera can read.
+// ("greenhouse", "acme"), when the address is on a board Wera can read:
+// Greenhouse, Lever, Ashby, SmartRecruiters, Workday, Workable, Rippling
+// or Oracle Recruiting Cloud.
 // Career sites on a company's own domain report ok=false.
 func BoardFromURL(raw string) (ats, token string, ok bool) {
 	u, err := url.Parse(strings.TrimSpace(raw))
@@ -56,6 +59,24 @@ func BoardFromURL(raw string) (ats, token string, ok bool) {
 	case "jobs.smartrecruiters.com", "careers.smartrecruiters.com":
 		// Company identifiers are case-sensitive.
 		return slug("smartrecruiters", first())
+	case "apply.workable.com":
+		// apply.workable.com/j/<code> links carry no account.
+		if first() == "j" || first() == "api" {
+			return "", "", false
+		}
+		return slug("workable", strings.ToLower(first()))
+	case "ats.rippling.com":
+		return slug("rippling", strings.ToLower(first()))
+	}
+
+	// <host>.oraclecloud.com/hcmUI/CandidateExperience/<lang>/sites/<site>/...
+	if m := oracleHost.FindStringSubmatch(host); m != nil {
+		for i := 0; i+1 < len(parts); i++ {
+			if parts[i] == "sites" && slugOK.MatchString(parts[i+1]) {
+				return "oracle", m[1] + "/" + parts[i+1], true
+			}
+		}
+		return "", "", false
 	}
 
 	if m := workdayHost.FindStringSubmatch(host); m != nil {

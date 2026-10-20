@@ -7,7 +7,7 @@
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
 [![License](https://img.shields.io/github/license/jessechumo/Wera)](LICENSE)
 
-**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, and amazon.jobs) for 3,400+ companies across 30 industries (tech firms, but also hospitals, schools, retailers, restaurants and nonprofits), filters them with configurable rules, scores each one against your resume with an LLM from any OpenAI-compatible provider (presets for [Coral Bricks](https://www.coralbricks.ai) and [DeepInfra](https://deepinfra.com)), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
+**Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Oracle Recruiting Cloud, Workable, Rippling, Eightfold, and amazon.jobs) for 3,400+ companies across 30 industries (tech firms, but also hospitals, schools, retailers, restaurants and nonprofits), filters them with configurable rules, scores each one against your resume with an LLM from any OpenAI-compatible provider (presets for [Coral Bricks](https://www.coralbricks.ai) and [DeepInfra](https://deepinfra.com)), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
 The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend), and the Chrome extension (save jobs from any page, cover letters, tailored resumes, filling applications) in [wera-extension](https://github.com/jessechumo/wera-extension).
 
@@ -215,10 +215,10 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 ## Extending
 
 - **Add a company:** run `wera discover "Name"`, add it to `config/companies.yaml`, then run `wera companies validate` and `wera pipeline`.
-- **Companies found by users:** when someone adds a job (dashboard or extension) from a Greenhouse, Lever, Ashby, SmartRecruiters or Workday board that no company has, Wera checks the board once and, if it has open jobs, fetches it every run from then on. These rows have `added_at` set in the `companies` table; set `enabled = false` there to stop one. If `companies.yaml` later lists the same board, the YAML entry takes it over.
+- **Companies found by users:** when someone adds a job (dashboard or extension) from a Greenhouse, Lever, Ashby, SmartRecruiters, Workday, Oracle, Workable or Rippling board that no company has, Wera checks the board once and, if it has open jobs, fetches it every run from then on. These rows have `added_at` set in the `companies` table; set `enabled = false` there to stop one. If `companies.yaml` later lists the same board, the YAML entry takes it over.
 - **Add a role type:** add a family with its `field` and title patterns to `config/roles.yaml`; users can then pick it. If a word means seniority in one career but not another ("Staff Nurse", "IV Therapy"), add it to that level's `except` list.
 - **Add an industry:** add it to `config/industries.yaml` and tag companies with it.
-- **Add a company on Workday:** its token is `tenant.wdN/site` from the career site URL, e.g. `https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite` is `nvidia.wd5/NVIDIAExternalCareerSite`. SmartRecruiters takes the company identifier, Eightfold `host/domain`.
+- **Add a company on Workday:** its token is `tenant.wdN/site` from the career site URL, e.g. `https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite` is `nvidia.wd5/NVIDIAExternalCareerSite`. SmartRecruiters takes the company identifier, Eightfold `host/domain`. Oracle Recruiting Cloud takes `host/site` from `https://<host>.oraclecloud.com/hcmUI/CandidateExperience/en/sites/<site>`, e.g. `jpmc.fa/CX_1001`; Workable and Rippling take the account or board slug from `apply.workable.com/<slug>` and `ats.rippling.com/<slug>`.
 - **Add a job board provider:** implement the `Source` interface in `internal/sources` (`ConditionalSource` when it supports ETags, `DetailSource` when the list has no descriptions) and register it.
 - **Add interview questions:** insert rows into `interview_questions` (four choices, the index of the answer, and an explanation).
 
@@ -241,7 +241,7 @@ internal/notify       Account and job emails: verification, reset, digests, the 
 internal/h1b          H-1B disclosure files: streaming reader, wage normalization, employer name matching
 internal/relevance    Local TF-IDF ranking (estimated scores)
 internal/scoring      OpenAI-compatible LLM client, prompts, facts, fit, cost accounting
-internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Eightfold, Amazon adapters
+internal/sources      Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Oracle, Workable, Rippling, Eightfold, Amazon adapters
 internal/store        PostgreSQL repository (pgx)
 internal/testutil     Test database and fixtures
 migrations/           Embedded SQL migrations (goose)
