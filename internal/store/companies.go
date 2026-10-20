@@ -17,6 +17,9 @@ func SyncCompanies(ctx context.Context, pool *pgxpool.Pool, comps []config.Compa
 	if len(comps) == 0 {
 		return map[string]int64{}, nil
 	}
+	if err := reconcileBoards(ctx, pool, comps); err != nil {
+		return nil, fmt.Errorf("reconcile boards: %w", err)
+	}
 	b := &pgx.Batch{}
 	for _, c := range comps {
 		b.Queue(`INSERT INTO companies (name, ats, token, industry, enabled)
@@ -58,6 +61,64 @@ func SyncCompanies(ctx context.Context, pool *pgxpool.Pool, comps []config.Compa
 		ids[name] = id
 	}
 	return ids, rows.Err()
+}
+
+// reconcileBoards hands each board to the company that now lists it when
+// the database holds that board under another name (an entry renamed in
+// companies.yaml, or a board first found through an added job), so the
+// upsert below never trips over the unique board. The old row is renamed;
+// when a row by the new name exists too, its jobs move there and the old
+// row lets go of the board.
+func reconcileBoards(ctx context.Context, pool *pgxpool.Pool, comps []config.Company) error {
+	type row struct {
+		id   int64
+		name string
+	}
+	rows, err := pool.Query(ctx, `SELECT id, name, ats, token FROM companies`)
+	if err != nil {
+		return err
+	}
+	byBoard := map[string]row{}
+	byName := map[string]int64{}
+	for rows.Next() {
+		var r row
+		var ats, token string
+		if err := rows.Scan(&r.id, &r.name, &ats, &token); err != nil {
+			rows.Close()
+			return err
+		}
+		byBoard[ats+"/"+token] = r
+		byName[r.name] = r.id
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, c := range comps {
+		old, ok := byBoard[c.ATS+"/"+c.Token]
+		if !ok || old.name == c.Name {
+			continue
+		}
+		if _, taken := byName[c.Name]; !taken {
+			if _, err := pool.Exec(ctx, `UPDATE companies SET name = $2 WHERE id = $1`, old.id, c.Name); err != nil {
+				return err
+			}
+			delete(byName, old.name)
+			byName[c.Name] = old.id
+			continue
+		}
+		err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `UPDATE jobs SET company_id = $2 WHERE company_id = $1`, old.id, byName[c.Name]); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, `UPDATE companies SET ats = 'manual', token = 'manual:' || id, enabled = false WHERE id = $1`, old.id)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // UpdateFetchStatus records the outcome of one company's fetch in the
