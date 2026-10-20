@@ -227,3 +227,48 @@ func TestPasswordChangeDisconnectsExtensions(t *testing.T) {
 		t.Errorf("extension still connected after a password change: %d", code)
 	}
 }
+
+func TestApplicantAnswersBank(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	url := ts.URL + "/api/applicant/answers"
+	if code, body := do(t, client, http.MethodGet, url, ""); code != 200 || !strings.Contains(body, `"answers":[]`) {
+		t.Fatalf("empty bank: %d %s", code, body)
+	}
+	for _, bad := range []string{`{"answers":[]}`, `{"answers":[{"question":"","answer":"x"}]}`, `{"answers":[{"question":"Q?","answer":"x","kind":"essay"}]}`} {
+		if code, _ := do(t, client, http.MethodPut, url, bad); code != 400 {
+			t.Errorf("%s: want 400, got %d", bad, code)
+		}
+	}
+	code, body := do(t, client, http.MethodPut, url, `{"answers":[{"question":"What is your notice period? *","answer":"Two weeks","company":"Acme"},{"question":"Why Acme?","answer":"Robots.","kind":"long"}]}`)
+	if code != 200 || strings.Count(body, `"id":`) != 2 {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	// The same question, phrased with other punctuation, replaces the answer.
+	_, body = do(t, client, http.MethodPut, url, `{"answers":[{"question":"what is your notice period","answer":"One month"}]}`)
+	if strings.Count(body, `"id":`) != 2 || !strings.Contains(body, "One month") || strings.Contains(body, "Two weeks") || !strings.Contains(body, `"uses":2`) {
+		t.Errorf("same question should replace: %s", body)
+	}
+	var got struct {
+		Answers []store.SavedAnswer `json:"answers"`
+	}
+	json.Unmarshal([]byte(body), &got)
+	id := got.Answers[0].ID
+	if code, body := do(t, client, http.MethodPatch, fmt.Sprintf("%s/%d", url, id), `{"answer":"Three weeks"}`); code != 200 || !strings.Contains(body, "Three weeks") {
+		t.Errorf("edit: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPatch, url+"/999999999", `{"answer":"x"}`); code != 404 {
+		t.Errorf("edit unknown: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, fmt.Sprintf("%s/%d", url, id), ""); code != 204 {
+		t.Errorf("delete one: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, fmt.Sprintf("%s/%d", url, id), ""); code != 404 {
+		t.Errorf("delete twice: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, url, ""); code != 204 {
+		t.Errorf("delete all: %d", code)
+	}
+	if _, body := do(t, client, http.MethodGet, url, ""); !strings.Contains(body, `"answers":[]`) {
+		t.Errorf("bank not emptied: %s", body)
+	}
+}
