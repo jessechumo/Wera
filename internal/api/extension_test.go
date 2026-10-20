@@ -180,7 +180,7 @@ func TestApplicantDetails(t *testing.T) {
 }
 
 func TestExtensionAIFeatures(t *testing.T) {
-	ts, _ := llmServer(t)
+	ts, llm := llmServer(t)
 	pool := testPool(t)
 	ctx := context.Background()
 	testutil.Profile(t, pool, testUserID, "# Candidate Profile\n## Target roles\nSRE.", config.Preferences{RoleFamilies: []string{"sre"}, Levels: []string{"entry"}})
@@ -202,6 +202,25 @@ func TestExtensionAIFeatures(t *testing.T) {
 	}
 	if _, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/answer", `{"question":"What are your salary expectations?"}`); !strings.Contains(body, `"needs_input"`) {
 		t.Errorf("salary should ask the user: %s", body)
+	}
+
+	do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"city":"Austin","gender":"Female"}`)
+	do(t, client, http.MethodPut, ts.URL+"/api/applicant/answers", `{"answers":[{"question":"Notice period?","answer":"Two weeks"}]}`)
+	before := llm.calls.Load()
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill", `{"company":"Acme","title":"SRE","fields":[{"id":"w1","label":"Notice period","kind":"text"},{"id":"w2","label":"Clearance","kind":"select","options":["Yes","No"]}]}`)
+	if code != 200 || !strings.Contains(body, `"value":"Two weeks"`) || strings.Contains(body, "Maybe") || strings.Contains(body, `"zz"`) {
+		t.Errorf("autofill: %d %s", code, body)
+	}
+	if !strings.Contains(llm.lastUser.Load().(string), "Two weeks") || !strings.Contains(llm.lastUser.Load().(string), "Austin") || strings.Contains(llm.lastUser.Load().(string), "Female") {
+		t.Errorf("autofill prompt must carry details and earlier answers but no self-identification: %s", llm.lastUser.Load())
+	}
+	if llm.calls.Load() != before+1 {
+		t.Errorf("one call per page, got %d", llm.calls.Load()-before)
+	}
+	for _, bad := range []string{`{"fields":[]}`, `{"fields":[{"id":"","label":"x"}]}`} {
+		if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill", bad); code != 400 {
+			t.Errorf("%s: want 400, got %d", bad, code)
+		}
 	}
 
 	_, body = do(t, client, http.MethodPost, ts.URL+"/api/applicant/suggest", "")

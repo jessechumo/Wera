@@ -183,6 +183,7 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/applicant/answers", s.deleteAllAnswers)
 			r.Patch("/applicant/answers/{id}", s.updateAnswer)
 			r.Delete("/applicant/answers/{id}", s.deleteAnswer)
+			r.Post("/ext/autofill", s.suggestFill)
 
 			r.Get("/resumes", s.listResumes)
 			r.Post("/resumes/import", s.importResume)
