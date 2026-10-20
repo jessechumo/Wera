@@ -21,8 +21,9 @@ import (
 // fakeLLM stands in for the inference API: it recognizes each feature's
 // system prompt and answers like a well-behaved model would.
 type fakeLLM struct {
-	calls atomic.Int64
-	short atomic.Bool // answer cover letters with a uselessly short reply
+	calls    atomic.Int64
+	short    atomic.Bool  // answer cover letters with a uselessly short reply
+	lastUser atomic.Value // the last request's user message
 }
 
 func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +34,9 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
 	json.Unmarshal(body, &req)
 	system := req.Messages[0].Content
+	if len(req.Messages) > 1 {
+		f.lastUser.Store(req.Messages[1].Content)
+	}
 	var content string
 	switch {
 	case strings.HasPrefix(system, "You write a cover letter") && f.short.Load():
@@ -61,6 +65,9 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			content = "I want to keep robots online — because reliability work is what I do best."
 		}
+	case strings.HasPrefix(system, "You fill in one page of a job application form"):
+		// A good answer, an option that is not offered, and an unknown field.
+		content = `{"answers":[{"id":"w1","value":"Two weeks","confidence":"high","why":"earlier answer"},{"id":"w2","value":"Maybe"},{"id":"zz","value":"x"}]}`
 	case strings.HasPrefix(system, "You rewrite one resume bullet"):
 		// One valid, one with a placeholder, one with an invented number.
 		content = `{"suggestions": ["Cut deploy time by 50% across 12 services — with GitHub Actions.", "Automated deploys for [N] services, halving release time", "Cut deploy time by 73% for 40 teams"]}`
@@ -125,6 +132,22 @@ func TestCoverLetterGeneration(t *testing.T) {
 	}
 	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/jobs/99999999/cover-letter", ""); code != 404 {
 		t.Errorf("missing job: want 404, got %d", code)
+	}
+}
+
+func TestCoverLetterSteer(t *testing.T) {
+	ts, llm := llmServer(t)
+	testutil.Profile(t, testPool(t), testUserID, "# Candidate Profile\n## Target roles\nSRE.", config.Preferences{
+		RoleFamilies: []string{"sre"}, Levels: []string{"entry"}, MaxYearsRequired: 3})
+	url := fmt.Sprintf("%s/api/jobs/%d/cover-letter", ts.URL, testJobIDs[0])
+	if code, _ := do(t, client, http.MethodPost, url, `{"tone":"pirate"}`); code != 400 {
+		t.Errorf("unknown tone: want 400, got %d", code)
+	}
+	if code, body := do(t, client, http.MethodPost, url, `{"tone":"formal","length":"short","request":"Mention the on-call work"}`); code != 200 {
+		t.Fatalf("steered letter: %d %s", code, body)
+	}
+	if u, _ := llm.lastUser.Load().(string); !strings.Contains(u, "Formal and polished") || !strings.Contains(u, "Mention the on-call work") {
+		t.Errorf("steer not sent: %s", u)
 	}
 }
 

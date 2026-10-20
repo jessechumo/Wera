@@ -93,7 +93,9 @@ Rules:
 - No em dashes or en dashes.`
 
 // TailorMessages lists the resume with ids next to the posting.
-func TailorMessages(r *Resume, company, title, description string, missing []string) []scoring.Message {
+//
+// request is the candidate's own steer ("lead with Kubernetes"), or "".
+func TailorMessages(r *Resume, company, title, description string, missing []string, request string) []scoring.Message {
 	var b strings.Builder
 	for _, s := range r.Sections {
 		if s.Hidden {
@@ -120,6 +122,9 @@ func TailorMessages(r *Resume, company, title, description string, missing []str
 	body := fmt.Sprintf("<resume>\n%s</resume>\n\nPosting keywords the resume does not show yet: %s\n\n<posting>\n%s\n</posting>",
 		scoring.Fence(b.String()), scoring.Fence(strings.Join(missing, ", ")),
 		scoring.Fence(fmt.Sprintf("Company: %s\nTitle: %s\n\n%s", company, title, desc)))
+	if request = strings.TrimSpace(request); request != "" {
+		body += fmt.Sprintf("\n\nThe candidate asks (follow it unless it breaks a rule):\n<content>\n%s\n</content>", scoring.Fence(cutTo(request, 500)))
+	}
 	return []scoring.Message{
 		{Role: "system", Content: tailorInstructions},
 		{Role: "user", Content: body},
@@ -326,3 +331,11 @@ func ParseBulletSuggestions(original, reply string) ([]string, error) {
 }
 
 var placeholderRE = regexp.MustCompile(`\[[^\]]{1,20}\]`)
+
+// cutTo shortens s to n runes.
+func cutTo(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
+}

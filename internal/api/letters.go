@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,6 +56,20 @@ func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// An optional steer (tone, length, what to stress); an empty body is fine.
+	var in struct {
+		Tone    string `json:"tone"`
+		Length  string `json:"length"`
+		Request string `json:"request"`
+	}
+	if err := decodeJSON(r, &in); err != nil && !errors.Is(err, io.EOF) {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if _, ok := profile.LetterTones[in.Tone]; !ok || (in.Length != "" && in.Length != "short" && in.Length != "standard" && in.Length != "long") || len(in.Request) > 1000 {
+		s.writeError(w, http.StatusBadRequest, "tone, length or request is not valid")
+		return
+	}
 	user := currentUser(r)
 	if s.Env == nil || !s.Env.AI.Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, "cover letters are not configured on this server")
@@ -102,6 +117,7 @@ func (s *Server) generateCoverLetter(w http.ResponseWriter, r *http.Request) {
 	reply, err := s.chatWithModel(r.Context(), user.ID, "cover_letter", model, 1500, profile.CoverLetterMessages(profile.LetterInput{
 		CandidateName: user.Name, Profile: prof.Markdown, Resume: prof.ResumeText,
 		Company: job.Company, Title: job.Title, Location: loc, Description: desc,
+		Tone: in.Tone, Length: in.Length, Request: in.Request,
 	}))
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")

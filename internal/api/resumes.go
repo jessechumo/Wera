@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -547,6 +548,18 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// An optional steer from the user; an empty body is fine.
+	var in struct {
+		Request string `json:"request"`
+	}
+	if err := decodeJSON(r, &in); err != nil && !errors.Is(err, io.EOF) {
+		s.writeError(w, http.StatusBadRequest, "bad JSON body")
+		return
+	}
+	if len(in.Request) > 1000 {
+		s.writeError(w, http.StatusBadRequest, "that request is too long")
+		return
+	}
 	user := currentUser(r)
 	base, err := store.BaseResume(r.Context(), s.Pool, user.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -569,7 +582,7 @@ func (s *Server) tailorJobResume(w http.ResponseWriter, r *http.Request) {
 	}
 	kws, _ := store.JobKeywords(r.Context(), s.Pool, user.ID, id)
 	before := resume.KeywordCoverage(base.Data.PlainText(), kws)
-	reply, err := s.chatForUser(r.Context(), user.ID, "tailor", 2500, resume.TailorMessages(&base.Data, company, title, desc, before.Missing))
+	reply, err := s.chatForUser(r.Context(), user.ID, "tailor", 2500, resume.TailorMessages(&base.Data, company, title, desc, before.Missing, in.Request))
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
 		return

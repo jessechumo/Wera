@@ -1,9 +1,10 @@
 # secrets
 .env
 
-# my profile (never commit)
+# profiles (never commit; see profile/README.md)
 profile/*.md
 !profile/profile.example.md
+!profile/README.md
 
 # builds
 bin/

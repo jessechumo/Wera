@@ -180,7 +180,7 @@ func TestApplicantDetails(t *testing.T) {
 }
 
 func TestExtensionAIFeatures(t *testing.T) {
-	ts, _ := llmServer(t)
+	ts, llm := llmServer(t)
 	pool := testPool(t)
 	ctx := context.Background()
 	testutil.Profile(t, pool, testUserID, "# Candidate Profile\n## Target roles\nSRE.", config.Preferences{RoleFamilies: []string{"sre"}, Levels: []string{"entry"}})
@@ -204,6 +204,25 @@ func TestExtensionAIFeatures(t *testing.T) {
 		t.Errorf("salary should ask the user: %s", body)
 	}
 
+	do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"city":"Austin","gender":"Female"}`)
+	do(t, client, http.MethodPut, ts.URL+"/api/applicant/answers", `{"answers":[{"question":"Notice period?","answer":"Two weeks"}]}`)
+	before := llm.calls.Load()
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill", `{"company":"Acme","title":"SRE","fields":[{"id":"w1","label":"Notice period","kind":"text"},{"id":"w2","label":"Clearance","kind":"select","options":["Yes","No"]}]}`)
+	if code != 200 || !strings.Contains(body, `"value":"Two weeks"`) || strings.Contains(body, "Maybe") || strings.Contains(body, `"zz"`) {
+		t.Errorf("autofill: %d %s", code, body)
+	}
+	if !strings.Contains(llm.lastUser.Load().(string), "Two weeks") || !strings.Contains(llm.lastUser.Load().(string), "Austin") || strings.Contains(llm.lastUser.Load().(string), "Female") {
+		t.Errorf("autofill prompt must carry details and earlier answers but no self-identification: %s", llm.lastUser.Load())
+	}
+	if llm.calls.Load() != before+1 {
+		t.Errorf("one call per page, got %d", llm.calls.Load()-before)
+	}
+	for _, bad := range []string{`{"fields":[]}`, `{"fields":[{"id":"","label":"x"}]}`} {
+		if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill", bad); code != 400 {
+			t.Errorf("%s: want 400, got %d", bad, code)
+		}
+	}
+
 	_, body = do(t, client, http.MethodPost, ts.URL+"/api/applicant/suggest", "")
 	if !strings.Contains(body, `"school":"UT Austin"`) || !strings.Contains(body, `"phone":"(512) 555-0142"`) {
 		t.Errorf("suggest (phone must come from the resume): %s", body)
@@ -225,5 +244,85 @@ func TestPasswordChangeDisconnectsExtensions(t *testing.T) {
 	}
 	if code, _ := do(t, ext, http.MethodGet, ts.URL+"/api/auth/me", ""); code != 401 {
 		t.Errorf("extension still connected after a password change: %d", code)
+	}
+}
+
+func TestApplicantAnswersBank(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	url := ts.URL + "/api/applicant/answers"
+	if code, body := do(t, client, http.MethodGet, url, ""); code != 200 || !strings.Contains(body, `"answers":[]`) {
+		t.Fatalf("empty bank: %d %s", code, body)
+	}
+	for _, bad := range []string{`{"answers":[]}`, `{"answers":[{"question":"","answer":"x"}]}`, `{"answers":[{"question":"Q?","answer":"x","kind":"essay"}]}`} {
+		if code, _ := do(t, client, http.MethodPut, url, bad); code != 400 {
+			t.Errorf("%s: want 400, got %d", bad, code)
+		}
+	}
+	code, body := do(t, client, http.MethodPut, url, `{"answers":[{"question":"What is your notice period? *","answer":"Two weeks","company":"Acme"},{"question":"Why Acme?","answer":"Robots.","kind":"long"}]}`)
+	if code != 200 || strings.Count(body, `"id":`) != 2 {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	// The same question, phrased with other punctuation, replaces the answer.
+	_, body = do(t, client, http.MethodPut, url, `{"answers":[{"question":"what is your notice period","answer":"One month"}]}`)
+	if strings.Count(body, `"id":`) != 2 || !strings.Contains(body, "One month") || strings.Contains(body, "Two weeks") || !strings.Contains(body, `"uses":2`) {
+		t.Errorf("same question should replace: %s", body)
+	}
+	var got struct {
+		Answers []store.SavedAnswer `json:"answers"`
+	}
+	json.Unmarshal([]byte(body), &got)
+	id := got.Answers[0].ID
+	if code, body := do(t, client, http.MethodPatch, fmt.Sprintf("%s/%d", url, id), `{"answer":"Three weeks"}`); code != 200 || !strings.Contains(body, "Three weeks") {
+		t.Errorf("edit: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPatch, url+"/999999999", `{"answer":"x"}`); code != 404 {
+		t.Errorf("edit unknown: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, fmt.Sprintf("%s/%d", url, id), ""); code != 204 {
+		t.Errorf("delete one: %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, fmt.Sprintf("%s/%d", url, id), ""); code != 404 {
+		t.Errorf("delete twice: want 404, got %d", code)
+	}
+	if code, _ := do(t, client, http.MethodDelete, url, ""); code != 204 {
+		t.Errorf("delete all: %d", code)
+	}
+	if _, body := do(t, client, http.MethodGet, url, ""); !strings.Contains(body, `"answers":[]`) {
+		t.Errorf("bank not emptied: %s", body)
+	}
+}
+
+func TestAutofillRuns(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", `{"host":"a b/c"}`); code != 400 {
+		t.Errorf("bad host: want 400, got %d", code)
+	}
+	code, body := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", fmt.Sprintf(`{"job_id":%d,"host":"Boards.Greenhouse.io","filled":12,"suggested":3}`, testJobIDs[0]))
+	if code != 201 || !strings.Contains(body, `"host":"boards.greenhouse.io"`) || !strings.Contains(body, fmt.Sprintf(`"job_id":%d`, testJobIDs[0])) {
+		t.Fatalf("start: %d %s", code, body)
+	}
+	var run store.AutofillRun
+	json.Unmarshal([]byte(body), &run)
+	code, body = do(t, client, http.MethodPost, fmt.Sprintf("%s/api/ext/autofill-runs/%d/pages", ts.URL, run.ID), `{"filled":5}`)
+	if code != 200 || !strings.Contains(body, `"pages":2`) || !strings.Contains(body, `"filled":17`) {
+		t.Errorf("next page: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs/999999999/pages", `{}`); code != 404 {
+		t.Errorf("unknown run: want 404, got %d", code)
+	}
+	// A job that is not the user's is dropped from the run.
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", `{"job_id":999999999,"host":"x.example"}`)
+	if code != 201 || !strings.Contains(body, `"job_id":null`) {
+		t.Errorf("foreign job: %d %s", code, body)
+	}
+	_, body = do(t, client, http.MethodGet, fmt.Sprintf("%s/api/autofill-runs?job_id=%d", ts.URL, testJobIDs[0]), "")
+	if strings.Count(body, `"id":`) != 1 {
+		t.Errorf("runs for the job: %s", body)
+	}
+	if _, body = do(t, client, http.MethodGet, ts.URL+"/api/autofill-runs", ""); strings.Count(body, `"id":`) != 2 {
+		t.Errorf("all runs: %s", body)
+	}
+	if code, _ := do(t, client, http.MethodGet, ts.URL+"/api/autofill-runs?job_id=x", ""); code != 400 {
+		t.Errorf("bad job id: want 400, got %d", code)
 	}
 }

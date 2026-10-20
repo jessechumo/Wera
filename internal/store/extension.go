@@ -93,11 +93,13 @@ func DeleteAPITokenByHash(ctx context.Context, pool *pgxpool.Pool, tokenHash str
 // field is optional; the extension fills only what is known.
 type Applicant struct {
 	FirstName       string `json:"first_name"`
+	MiddleName      string `json:"middle_name"`
 	LastName        string `json:"last_name"`
 	PreferredName   string `json:"preferred_name"`
 	Email           string `json:"email"`
 	Phone           string `json:"phone"`
 	Address         string `json:"address"`
+	Address2        string `json:"address_line2"`
 	City            string `json:"city"`
 	State           string `json:"state"`
 	PostalCode      string `json:"postal_code"`
@@ -105,6 +107,8 @@ type Applicant struct {
 	LinkedIn        string `json:"linkedin"`
 	GitHub          string `json:"github"`
 	Portfolio       string `json:"portfolio"`
+	Twitter         string `json:"twitter"`
+	OtherLink       string `json:"other_link"`
 	CurrentCompany  string `json:"current_company"`
 	CurrentTitle    string `json:"current_title"`
 	YearsExperience string `json:"years_experience"`
@@ -117,17 +121,38 @@ type Applicant struct {
 	AuthorizedToWork  string `json:"authorized_to_work"`
 	NeedsSponsorship  string `json:"needs_sponsorship"`
 	WillingToRelocate string `json:"willing_to_relocate"`
+	WillingToTravel   string `json:"willing_to_travel"`
+	Over18            string `json:"over_18"`
+	Citizenship       string `json:"citizenship"`
+	VisaStatus        string `json:"visa_status"`
+	Clearance         string `json:"security_clearance"`
+	WorkPreference    string `json:"work_preference"`
 	SalaryExpectation string `json:"salary_expectation"`
 	StartDate         string `json:"start_date"`
+	NoticePeriod      string `json:"notice_period"`
+	Languages         string `json:"languages"`
 	HowHeard          string `json:"how_heard"`
 	// Voluntary self-identification; "decline" unless the user chooses.
-	Gender     string `json:"gender"`
-	Pronouns   string `json:"pronouns"`
-	Race       string `json:"race"`
-	Hispanic   string `json:"hispanic"`
-	Veteran    string `json:"veteran"`
-	Disability string `json:"disability"`
+	Gender            string `json:"gender"`
+	Pronouns          string `json:"pronouns"`
+	Transgender       string `json:"transgender"`
+	SexualOrientation string `json:"sexual_orientation"`
+	Race              string `json:"race"`
+	Hispanic          string `json:"hispanic"`
+	Veteran           string `json:"veteran"`
+	Disability        string `json:"disability"`
 }
+
+// yesNo are the answers stored as "yes" or "no".
+func (a *Applicant) yesNo() map[string]string {
+	return map[string]string{
+		"authorized_to_work": a.AuthorizedToWork, "needs_sponsorship": a.NeedsSponsorship,
+		"willing_to_relocate": a.WillingToRelocate, "willing_to_travel": a.WillingToTravel, "over_18": a.Over18,
+	}
+}
+
+// workPreferences are the allowed work_preference values.
+var workPreferences = map[string]bool{"": true, "remote": true, "hybrid": true, "onsite": true, "any": true}
 
 // Validate bounds the lengths and the yes/no answers.
 func (a *Applicant) Validate() error {
@@ -139,11 +164,16 @@ func (a *Applicant) Validate() error {
 			return fmt.Errorf("%s is too long", k)
 		}
 	}
-	for k, v := range map[string]string{"authorized_to_work": a.AuthorizedToWork, "needs_sponsorship": a.NeedsSponsorship,
-		"willing_to_relocate": a.WillingToRelocate} {
+	for k, v := range a.yesNo() {
 		if v != "" && v != "yes" && v != "no" {
 			return fmt.Errorf("%s must be yes or no", k)
 		}
+	}
+	if !workPreferences[a.WorkPreference] {
+		return errors.New("work_preference must be remote, hybrid, onsite or any")
+	}
+	if v := a.Transgender; v != "" && v != "yes" && v != "no" && v != "decline" {
+		return errors.New("transgender must be yes, no or decline")
 	}
 	return nil
 }
@@ -163,8 +193,9 @@ func GetApplicant(ctx context.Context, pool *pgxpool.Pool, user *User) (*Applica
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
-	a := &Applicant{Email: user.Email, HowHeard: "Company website",
-		Gender: "decline", Race: "decline", Hispanic: "decline", Veteran: "decline", Disability: "decline"}
+	a := &Applicant{Email: user.Email, HowHeard: "Company website", Over18: "yes",
+		Gender: "decline", Race: "decline", Hispanic: "decline", Veteran: "decline", Disability: "decline",
+		Transgender: "decline", SexualOrientation: "decline"}
 	if f := strings.Fields(user.Name); len(f) > 0 {
 		a.FirstName, a.LastName = f[0], strings.Join(f[1:], " ")
 	}
