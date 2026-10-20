@@ -184,6 +184,9 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/applicant/answers/{id}", s.updateAnswer)
 			r.Delete("/applicant/answers/{id}", s.deleteAnswer)
 			r.Post("/ext/autofill", s.suggestFill)
+			r.Post("/ext/autofill-runs", s.startAutofillRun)
+			r.Post("/ext/autofill-runs/{id}/pages", s.addAutofillPage)
+			r.Get("/autofill-runs", s.listAutofillRuns)
 
 			r.Get("/resumes", s.listResumes)
 			r.Post("/resumes/import", s.importResume)

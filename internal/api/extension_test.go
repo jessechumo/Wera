@@ -291,3 +291,38 @@ func TestApplicantAnswersBank(t *testing.T) {
 		t.Errorf("bank not emptied: %s", body)
 	}
 }
+
+func TestAutofillRuns(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", `{"host":"a b/c"}`); code != 400 {
+		t.Errorf("bad host: want 400, got %d", code)
+	}
+	code, body := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", fmt.Sprintf(`{"job_id":%d,"host":"Boards.Greenhouse.io","filled":12,"suggested":3}`, testJobIDs[0]))
+	if code != 201 || !strings.Contains(body, `"host":"boards.greenhouse.io"`) || !strings.Contains(body, fmt.Sprintf(`"job_id":%d`, testJobIDs[0])) {
+		t.Fatalf("start: %d %s", code, body)
+	}
+	var run store.AutofillRun
+	json.Unmarshal([]byte(body), &run)
+	code, body = do(t, client, http.MethodPost, fmt.Sprintf("%s/api/ext/autofill-runs/%d/pages", ts.URL, run.ID), `{"filled":5}`)
+	if code != 200 || !strings.Contains(body, `"pages":2`) || !strings.Contains(body, `"filled":17`) {
+		t.Errorf("next page: %d %s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs/999999999/pages", `{}`); code != 404 {
+		t.Errorf("unknown run: want 404, got %d", code)
+	}
+	// A job that is not the user's is dropped from the run.
+	code, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/autofill-runs", `{"job_id":999999999,"host":"x.example"}`)
+	if code != 201 || !strings.Contains(body, `"job_id":null`) {
+		t.Errorf("foreign job: %d %s", code, body)
+	}
+	_, body = do(t, client, http.MethodGet, fmt.Sprintf("%s/api/autofill-runs?job_id=%d", ts.URL, testJobIDs[0]), "")
+	if strings.Count(body, `"id":`) != 1 {
+		t.Errorf("runs for the job: %s", body)
+	}
+	if _, body = do(t, client, http.MethodGet, ts.URL+"/api/autofill-runs", ""); strings.Count(body, `"id":`) != 2 {
+		t.Errorf("all runs: %s", body)
+	}
+	if code, _ := do(t, client, http.MethodGet, ts.URL+"/api/autofill-runs?job_id=x", ""); code != 400 {
+		t.Errorf("bad job id: want 400, got %d", code)
+	}
+}
