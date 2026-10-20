@@ -11,6 +11,12 @@
 # Every family names one field.
 fields:
   - { id: tech,        label: "Technology & data" }
+  - { id: healthcare,  label: "Healthcare & nursing" }
+  - { id: business,    label: "Business, finance & sales" }
+  - { id: education,   label: "Education & social impact" }
+  - { id: creative,    label: "Creative, writing & media" }
+  - { id: engineering, label: "Engineering, science & construction" }
+  - { id: trades,      label: "Trades, hospitality & services" }
 
 # Role families. A family's id is stored with each match, so rename one
 # only with a data migration.
@@ -119,9 +125,246 @@ role_families:
     patterns: ['\bIT (support|specialist|administrator|engineer|analyst)', '\bhelp ?desk', '\bsystems? administrator',
                '\bnetwork (engineer|administrator)', '\bdesktop support']
   - id: early_career
-    label: "New grad / early career programs"
+    label: "New grad / early career programs (tech)"
     field: tech
     patterns: ['\bnew grad', '\bearly career\b', '\buniversity grad', '\bgraduate (software|systems|infrastructure|engineer|program)', '\brotational program']
+
+  # ---------- Healthcare ----------
+  - id: registered_nursing
+    label: "Registered nursing (RN)"
+    field: healthcare
+    description: "Staff, charge, travel and specialty RNs, nurse case managers and educators."
+    patterns: ['\bregistered nurse', '\bRN\b', '\bRNs\b', '\bBSN\b', '\bnurse\s*[-–,:|(/]', '\bnurse\s*$',
+               '\b(consultant|lactation|medicine|team|unit|access|stepdown|care|services?|surgery|floor|pool|room|department|hospital|center|program|practice|health|day|night|home|unit-based) nurse\b',
+               '\b(staff|charge|clinical|travel|float|per diem|PRN|school|home health|hospice|triage|telehealth|telephone|infusion|dialysis|oncology|surgical|perioperative|operating room|ICU|NICU|PICU|CVICU|SICU|MICU|ER|ED|emergency|trauma|labor (and|&) delivery|L&D|mother baby|postpartum|med[- ]surg|medical[- ]surgical|telemetry|step[- ]down|progressive care|pediatric|psychiatric|behavioral health|PACU|pre[- ]?op|cath lab|endoscopy|wound|ostomy|occupational health|public health|community health|research|transplant|cardiac|neuro|rehab|ambulatory|clinic|office|correctional|camp|flight|transport|IV|vascular access|utilization review|quality|infection prevention|resource|orthopedic) nurse',
+               '\bnurse (case manager|navigator|educator|coordinator|clinician|specialist|consultant|auditor|reviewer|informaticist|liaison|recruiter|leader|supervisor|residency|resident|manager|planner|advocate)',
+               '\bnursing (supervisor|instructor|faculty|house supervisor)', '\bdirector of nursing']
+  - id: advanced_practice
+    label: "Nurse practitioner / PA / CRNA / midwife"
+    field: healthcare
+    description: "Advanced practice providers: NPs, physician assistants, nurse anesthetists, midwives."
+    patterns: ['\bnurse practitioner', '\bNP\b', '\b(APRN|APP|FNP|PMHNP|AGNP|AGPCNP|AGACNP|ACNP|NNP|PNP|WHNP|CNM|CRNA)\b', '\bphysician assistant',
+               '\bphysician associate', '\bPA-C\b', '\bnurse anesthetist', '\bnurse midwife', '\bmidwife', '\badvanced practice', '\bclinical nurse specialist']
+  - id: practical_nursing
+    label: "Licensed practical / vocational nursing (LPN, LVN)"
+    field: healthcare
+    patterns: ['\bLPN\b', '\bLVN\b', '\blicensed (practical|vocational) nurse']
+  - id: patient_care
+    label: "Nursing assistant / patient care / medical assistant"
+    field: healthcare
+    description: "CNAs, patient care techs, medical assistants, home health aides, phlebotomists."
+    patterns: ['\bCNA\b', '\b(certified )?nurs(e|ing) (assistant|aide|tech|technician)', '\bpatient care (tech|technician|assistant|associate|coordinator)', '\bPCT\b',
+               '\b(certified )?medical assistant', '\bCMA\b', '\bhome health aide', '\bHHA\b', '\bcaregiver', '\bpersonal care (aide|assistant|attendant)',
+               '\bdirect (care|support) (professional|worker|staff)', '\bpatient (sitter|companion|transporter|safety attendant)', '\b(mental|behavioral) health (tech|technician|worker|associate|assistant)',
+               '\bpsychiatric (tech|technician|aide)', '\bphlebotom', '\b(EKG|ECG|monitor|dialysis|patient) tech', '\bhealth unit (coordinator|clerk)', '\bunit (secretary|clerk)',
+               '\bmedication (aide|technician)', '\bsterile processing']
+  - id: physicians
+    label: "Physicians"
+    field: healthcare
+    description: "Doctors in every specialty, hospitalists and medical directors."
+    patterns: ['\bphysician\s*($|[-–,:|(/])', '\b(care|staff|attending|emergency|primary care|family|pediatric|consulting|locums?|associate|lead|medicine|urgent care|telehealth|employed|board certified|BC/BE) physician', '\bphysician (opportunity|position|faculty|leader)', '\bdoctor\b', '\bhospitalist', '\bintensivist', '\banesthesiologist', '\bradiologist', '\bpathologist', '\bpsychiatrist', '\bcardiologist',
+               '\boncologist', '\bneurologist', '\bpediatrician', '\bsurgeon\b', '\bdermatologist', '\bgastroenterologist', '\bnephrologist', '\bpulmonologist', '\burologist',
+               '\bobstetrician', '\bgynecologist', '\bOB/?GYN (physician|doctor|hospitalist|generalist|laborist)', '\blaborist', '\binternist', '\bneonatologist', '\bendocrinologist', '\brheumatologist', '\bophthalmologist',
+               '\botolaryngologist', '\bhematologist', '\b(family|internal|emergency|sports|addiction|urgent care|palliative|geriatric|occupational) medicine (physician|doctor|provider|MD|DO)\b',
+               '\bmedical director', '\bMD/DO\b', '\bresident physician']
+  - id: therapy_rehab
+    label: "Therapy & rehab (PT, OT, speech, respiratory, dietitian)"
+    field: healthcare
+    patterns: ['\bphysical therap', '\boccupational therap', '\bspeech(-language)? (therap|patholog)', '\b(PTA|COTA|SLP|SLPA|CCC-SLP|RRT|CRT|DPT|OTR)\b',
+               '\brespiratory (therap|care)', '\brehab(ilitation)? (tech|aide|therap|assistant)', '\bathletic trainer', '\bexercise physiologist', '\brecreation(al)? therap',
+               '\baudiologist', '\bmassage therap', '\bchiropract', '\bdietitian', '\bnutritionist', '\bdiet(etic)? tech', '\borthotist', '\bprosthetist', '\bmusic therap',
+               '\bchild life specialist', '\boptometrist', '\boptician']
+  - id: pharmacy
+    label: "Pharmacy"
+    field: healthcare
+    patterns: ['\bpharmacist', '\bpharmacy (tech|technician|intern|manager|resident|assistant|buyer|specialist)', '\bPharmD\b', '\bCPhT\b']
+  - id: imaging_lab
+    label: "Imaging & lab (radiology, sonography, lab science)"
+    field: healthcare
+    patterns: ['\b(radiolog(ic|y)|x-?ray|CT|MRI|mammograph(y|er)|nuclear medicine|cardiovascular|interventional|IR|cath(eterization)? lab|vascular|echo|ultrasound|surgical|ophthalmic|EEG|neurodiagnostic|polysomnograph(ic|y)|sleep|histolog(y|ic)|cytolog(y|ic)|anesthesia|pathology|cardiac|invasive|PET) (tech|technologist|technician)',
+               '\bsonograph', '\bmedical (laboratory|lab) (scientist|technician|technologist)', '\bclinical (laboratory|lab) (scientist|technician|technologist)', '\b(MLS|MLT)\b',
+               '\blab(oratory)? (tech|technician|technologist|assistant|scientist)', '\bmedical technologist', '\bradiation therap', '\bdosimetrist', '\bperfusionist',
+               '\bsurgical (tech|technologist|first assist)', '\bhistotechn', '\bcytotechn', '\bradiographer']
+  - id: behavioral_health
+    label: "Behavioral health, counseling & social work"
+    field: healthcare
+    patterns: ['\bsocial worker', '\b(LCSW|LMSW|LICSW|LPC|LMFT|LMHC|LCPC|LPCC|LADC|CADC|BCBA|RBT|PsyD)\b',
+               '\b(mental health|behavioral health|substance (use|abuse)|addiction|licensed professional|licensed clinical|family|marriage|clinical|grief|rehabilitation|crisis|outpatient|inpatient) (therapist|counselor|clinician|specialist)',
+               '\bpsychologist', '\bpsychotherapist', '\b(play|art|drama|dance|DBT|trauma|child|adolescent|youth|couples|group|individual|staff|bilingual) therapist', '\btherapist\s*\(', '\bcounselor\b', '\bbehavior(al)? (analyst|technician|interventionist|specialist)',
+               '\bcase manager', '\bcare (manager|coordinator|navigator)', '\bpeer (support|recovery) specialist', '\bcommunity health worker']
+  - id: dental
+    label: "Dental"
+    field: healthcare
+    patterns: ['\bdental (hygienist|assistant|therapist|office|receptionist)', '\bdentist\b', '\bhygienist', '\b(DDS|DMD|RDH)\b', '\borthodont', '\bendodont', '\bperiodont', '\boral surgeon']
+  - id: health_admin
+    label: "Medical admin, coding & billing"
+    field: healthcare
+    description: "Patient access, scheduling, medical coding and billing, health information, clinical research coordination."
+    patterns: ['\bmedical (coder|coding|biller|billing|records|receptionist|secretary|scribe|office (assistant|coordinator|manager)|staff (coordinator|services))',
+               '\b(coding|billing|reimbursement|revenue cycle|claims|collections|denials) (specialist|analyst|coordinator|representative|rep)', '\bcertified (professional )?coder',
+               '\bpatient (access|registration|services|financial|intake|experience) (rep|representative|specialist|coordinator|associate|navigator)',
+               '\bhealth information', '\b(CPC|CCS|RHIT|RHIA)\b', '\bprior auth(orization)?', '\b(central |clinic |surgical |patient )?scheduler\b', '\bscheduling (specialist|coordinator)',
+               '\bunit (secretary|clerk)', '\bclinical research (coordinator|associate|assistant|specialist)', '\bCRA\b', '\butilization (review|management)', '\bcredentialing', '\binsurance verification']
+  - id: emergency_medical
+    label: "EMT, paramedic & emergency services"
+    field: healthcare
+    patterns: ['\bEMT\b', '\bparamedic', '\bemergency medical (tech|technician|services|responder)', '\b(911|emergency|EMS) dispatch', '\bambulance', '\bfirst responder']
+  - id: veterinary
+    label: "Veterinary"
+    field: healthcare
+    patterns: ['\bveterinar', '\bvet (tech|technician|assistant|receptionist)', '\bDVM\b', '\bkennel', '\banimal (care|caretaker|technician)']
+
+  # ---------- Business ----------
+  - id: accounting_finance
+    label: "Accounting & finance"
+    field: business
+    patterns: ['\baccountant', '\baccounting\b', '\bCPA\b', '\bauditor', '\baudit (associate|senior|manager|staff)', '\btax (associate|accountant|analyst|manager|preparer|specialist|senior)',
+               '\bbookkeep', '\bcontroller\b', '\bpayroll', '\baccounts (payable|receivable)', '\bfinancial (analyst|planning|reporting|accountant)', '\bFP&A\b', '\btreasury',
+               '\bfinance (associate|analyst|manager|specialist|business partner)', '\bcost analyst', '\brevenue accountant', '\bbilling (specialist|analyst|coordinator)']
+  - id: banking_investing
+    label: "Banking, investing & insurance"
+    field: business
+    patterns: ['\binvestment bank', '\b(financial|wealth|investment) advis', '\bfinancial planner', '\bportfolio manager', '\b(equity|credit|investment) research',
+               '\bprivate equity', '\bventure capital', '\bunderwrit', '\bloan (officer|processor|closer)', '\bmortgage', '\bteller\b', '\brelationship (banker|manager)',
+               '\b(personal|private|universal) banker', '\bactuar', '\bcredit (analyst|officer|risk)', '\brisk (analyst|manager|associate)', '\bcompliance (analyst|officer|specialist|associate)',
+               '\banti-money laundering', '\bAML\b', '\bKYC\b', '\bclaims (adjuster|examiner|specialist|representative)', '\binsurance (agent|producer|specialist)', '\binvestment (analyst|associate)']
+  - id: sales
+    label: "Sales & business development"
+    field: business
+    patterns: ['\baccount executive', '\bsales\b', '\b(SDR|BDR)\b', '\bbusiness development', '\baccount manager', '\bterritory (manager|representative)',
+               '\b(realtor|real estate agent|leasing (agent|consultant|specialist))', '\binsurance agent', '\bpartnerships? (manager|lead|associate)', '\bchannel (manager|partner)',
+               '\bclient (partner|executive)', '\brevenue (manager|lead)']
+  - id: marketing
+    label: "Marketing & communications"
+    field: business
+    patterns: ['\bmarketing\b', '\bbrand (manager|strategist|director|designer)', '\bgrowth (manager|lead|associate)', '\b(SEO|SEM|PPC)\b', '\bsocial media', '\bcontent (strategist|manager|creator|marketing|designer)',
+               '\bcommunications (manager|specialist|coordinator|associate|director|lead)', '\bpublic relations', '\bPR (manager|specialist|coordinator|associate)', '\bcopywriter',
+               '\bdemand gen', '\bcommunity (manager|lead)', '\bevents? (manager|coordinator|planner|producer)', '\bmedia (planner|buyer)', '\binfluencer', '\bcampaign (manager|specialist)']
+  - id: customer_support
+    label: "Customer success & support"
+    field: business
+    patterns: ['\bcustomer (success|support|service|experience|care|operations|advocate|onboarding)', '\bclient (success|services|support|care|experience|relations)',
+               '\b(call|contact) center', '\bsupport (specialist|representative|associate|agent|advocate|analyst)', '\bimplementation (specialist|manager|consultant)', '\bonboarding (specialist|manager)']
+  - id: operations
+    label: "Operations, supply chain & procurement"
+    field: business
+    patterns: ['\boperations (manager|associate|specialist|coordinator|lead|analyst|director)', '\bbusiness operations', '\bstrategy (and|&) operations', '\bsupply chain', '\blogistics',
+               '\bprocurement', '\bpurchasing', '\bbuyer\b', '\b(demand|supply|production|inventory|material|materials) planner', '\binventory (analyst|control|specialist|manager)',
+               '\bsourcing (manager|specialist|analyst)', '\bfleet (manager|coordinator)', '\bchief of staff', '\b(import|export) (coordinator|specialist)', '\bcategory manager', '\bvendor (manager|management)']
+  - id: people_hr
+    label: "People, HR & recruiting"
+    field: business
+    patterns: ['\brecruit(er|ing|ment)', '\btalent (acquisition|partner|sourcer|manager|coordinator)', '\bsourcer\b', '\bhuman resources', '\bHR\b', '\bHRBP\b',
+               '\bpeople (operations|partner|ops|team|business partner|programs)', '\bcompensation', '\bbenefits (specialist|analyst|manager|administrator)', '\blearning (and|&) development',
+               '\btraining (specialist|coordinator|manager)', '\btotal rewards', '\bemployee (relations|experience)', '\bDEI\b', '\bdiversity']
+  - id: legal
+    label: "Legal & compliance"
+    field: business
+    patterns: ['\battorney', '\blawyer', '\bcounsel\b', '\bparalegal', '\blegal (assistant|secretary|analyst|operations|specialist|counsel|intern|ops)', '\bcontracts? (manager|specialist|administrator|negotiator|analyst)',
+               '\bprivacy (counsel|analyst|manager|officer)', '\bpatent (agent|attorney)', '\blaw clerk', '\bcompliance (manager|counsel|director)', '\bregulatory (counsel|attorney)', '\blitigation', '\bgeneral counsel']
+  - id: admin_office
+    label: "Administrative & office"
+    field: business
+    patterns: ['\badministrative (assistant|coordinator|specialist|associate|support)', '\bexecutive (assistant|administrator)', '\boffice (manager|coordinator|administrator|assistant|clerk)',
+               '\breceptionist', '\bfront desk', '\bdata entry', '\bclerk\b', '\bsecretary', '\bvirtual assistant', '\bfacilities (coordinator|manager|specialist)', '\bworkplace (coordinator|experience)', '\bmailroom']
+  - id: consulting
+    label: "Consulting & strategy"
+    field: business
+    patterns: ['\b(management|strategy|business|technology|healthcare|financial|risk|associate|senior) consultant', '\bconsultant\b', '\bstrategy (analyst|associate|manager)', '\bcorporate (development|strategy)',
+               '\bbusiness (strategy|transformation)']
+
+  # ---------- Education & social impact ----------
+  - id: teaching
+    label: "Teaching & tutoring"
+    field: education
+    patterns: ['\bteacher', '\bteaching (assistant|fellow|resident)', '\btutor', '\binstructor\b', '\beducator\b', '\bparaprofessional', '\bpara-?educator', '\bsubstitute',
+               '\blecturer', '\bprofessor', '\bfaculty\b', '\bcurriculum', '\binstructional (designer|coach|aide)', '\binterventionist', '\breading specialist', '\bspecial education', '\bESL\b', '\bESOL\b']
+  - id: childcare
+    label: "Childcare & early education"
+    field: education
+    patterns: ['\bchild ?care', '\bnanny', '\bday ?care', '\bearly (childhood|learning|education|head start)', '\bhead start', '\bpreschool', '\bpre-?k\b', '\binfant (teacher|caregiver)', '\btoddler',
+               '\bafter[- ]school', '\byouth (worker|counselor|program|development|specialist|advocate)', '\bcamp counselor']
+  - id: education_admin
+    label: "School & university administration"
+    field: education
+    patterns: ['\b(academic|admissions?|enrollment|financial aid|student success|student services|career services|registrar|international student) (advisor|counselor|coordinator|officer|specialist|director|manager)',
+               '\bacademic advis', '\b(school|assistant|vice) principal', '\bdean\b', '\bregistrar', '\bstudent (affairs|life)', '\bschool (counselor|psychologist|social worker|leader|operations)', '\bdirector of (admissions|operations|curriculum)']
+  - id: social_impact
+    label: "Nonprofit, community & public service"
+    field: education
+    patterns: ['\bcommunity (outreach|organizer|engagement|liaison|coordinator)', '\bcase ?worker', '\bprogram (coordinator|associate|assistant|officer|specialist)', '\bpolicy (analyst|advisor|associate|manager|director)',
+               '\bgrants? (writer|manager|coordinator|specialist)', '\bfundrais', '\b(philanthropy|donor relations|major gifts|annual giving|advancement|planned giving) (officer|associate|coordinator|director|manager)', '\bdevelopment (officer|associate|coordinator)', '\bvolunteer (coordinator|manager)',
+               '\b(patient|family|victim|client|community|housing|youth|peer|legal|tenant|survivor|domestic violence|policy) advocate', '\boutreach (worker|specialist|coordinator)', '\bhousing (specialist|navigator|coordinator)', '\bresettlement', '\bchaplain']
+
+  # ---------- Creative & media ----------
+  - id: writing_content
+    label: "Writing, editing & translation"
+    field: creative
+    patterns: ['\bwriter\b', '\beditor\b', '\bjournalist', '\breporter', '\bcopy ?editor', '\btechnical writer', '\bcontent (writer|editor|producer)', '\bproducer\b', '\bproofread',
+               '\btranslator', '\binterpreter', '\beditorial', '\bcorrespondent', '\bcolumnist', '\bpodcast']
+  - id: creative_design
+    label: "Graphic, visual & creative arts"
+    field: creative
+    patterns: ['\bgraphic designer', '\b(art|creative|design) director', '\billustrator', '\banimator', '\bmotion (designer|graphics)', '\bvideo (editor|producer|specialist)', '\bvideographer',
+               '\bphotographer', '\b3D (artist|modeler|generalist)', '\bconcept artist', '\b(game|level|narrative) designer', '\binterior designer', '\bfashion designer', '\btextile designer',
+               '\barchitectural (designer|drafter)', '\bdrafter\b', '\bcreative (producer|strategist|lead)', '\bsound designer', '\bmusician']
+
+  # ---------- Engineering & science (non-software) ----------
+  - id: engineering_physical
+    label: "Mechanical, civil, electrical & industrial engineering"
+    field: engineering
+    patterns: ['\bmechanical engineer', '\bcivil engineer', '\bstructural engineer', '\bchemical engineer', '\bmanufacturing engineer', '\bprocess engineer', '\bindustrial engineer',
+               '\bbiomedical engineer', '\benvironmental engineer', '\bgeotechnical', '\baerospace engineer', '\bmaterials engineer', '\bproject engineer', '\bquality engineer',
+               '\b(field|applications?|validation|piping|HVAC|MEP|transportation|traffic|water resources|petroleum|nuclear|mining|power|electrical|design|packaging|plant|facilities|commissioning|propulsion|thermal) engineer\b',
+               '\bengineering technician', '\bCAD (designer|technician|drafter)', '\bsurveyor', '\bengineer in training', '\bEIT\b']
+  - id: science_lab
+    label: "Science & lab research"
+    field: engineering
+    patterns: ['\b(research|lab(oratory)?|clinical|scientific) (associate|assistant|technician)', '\b(bench|formulation|process|analytical|R&D|food|environmental|soil|materials|polymer|protein|cell|lab(oratory)?|QC|bioprocess|biology|chemistry|immunology|toxicology|regulatory|assay|discovery|translational) scientist', '\bchemist\b', '\bbiologist', '\bmicrobiolog', '\bbiochem', '\bgeolog',
+               '\benvironmental (scientist|specialist|technician)', '\bpostdoc', '\bpost-?doctoral', '\bmanufacturing (associate|technician|specialist)', '\bQ[AC] (analyst|associate|chemist|specialist|technician|inspector)',
+               '\bregulatory (affairs|specialist|associate)', '\bclinical (trial|operations|research)', '\bepidemiolog', '\bbiostatistic', '\btoxicolog', '\bpharmacolog', '\bphysicist', '\bastronom']
+  - id: construction
+    label: "Construction & architecture"
+    field: engineering
+    patterns: ['\bconstruction', '\bsuperintendent', '\bestimator', '\bforeman', '\blaborer', '\bproject manager.{0,20}(construction|building)', '\barchitect\b.{0,10}(licensed|project|designer|job captain)',
+               '\b(licensed|project|landscape|staff|junior) architect', '\bjob captain', '\bBIM (coordinator|manager|specialist)', '\bpreconstruction', '\bscheduler.{0,10}construction']
+
+  # ---------- Trades & services ----------
+  - id: skilled_trades
+    label: "Skilled trades & maintenance"
+    field: trades
+    patterns: ['\belectrician', '\bplumber', '\bHVAC\b', '\bwelder', '\bmachinist', '\bcarpenter', '\bmechanic\b', '\bpipefitter', '\bmillwright', '\bboilermaker', '\bCNC\b', '\bdiesel',
+               '\b(maintenance|service|field service|wind|solar|line|elevator|controls|automotive|auto|aircraft|avionics|A&P|instrument|refrigeration|appliance|fiber|cable|installation) (technician|tech|worker|mechanic)',
+               '\bmaintenance (technician|worker|mechanic|supervisor|planner|lead)', '\binstaller\b', '\blineman', '\bpainter\b', '\broofer', '\bfacilities technician', '\bbuilding engineer', '\bstationary engineer']
+  - id: manufacturing_warehouse
+    label: "Manufacturing, warehouse & production"
+    field: trades
+    patterns: ['\b(production|assembly|manufacturing|machine|packaging|warehouse|distribution|fulfillment|shipping|receiving|inventory|plant) (associate|worker|operator|technician|supervisor|lead|clerk|specialist|team member)',
+               '\bassembler', '\bmachine operator', '\bquality (inspector|technician|control)', '\bforklift', '\bmaterial handler', '\bpicker', '\bpacker', '\bloader\b', '\bstocker']
+  - id: driving_delivery
+    label: "Driving & delivery"
+    field: trades
+    patterns: ['\b(truck|delivery|CDL|bus|van|route|commercial|yard|shuttle|courier|class [ab]|tractor[- ]trailer|box truck|local|regional|OTR) driver', '\bdriver (helper|trainee)', '\bCDL\b', '\bcourier', '\bchauffeur', '\bdelivery (associate|specialist)']
+  - id: hospitality_food
+    label: "Hospitality, food & travel"
+    field: trades
+    patterns: ['\b(line|prep|sous|head|executive|pastry|banquet|short order) (cook|chef)', '\bcook\b', '\bchef\b', '\b(restaurant|banquet|cocktail|food) server', '^\s*server\b', '\bbartender', '\bbarista',
+               '\bdishwasher', '\b(restaurant|kitchen|shift|front of house|food service|catering|hotel|cafe|bar) (manager|supervisor|lead|team member|associate|attendant)', '\bfood service', '\bhousekeep',
+               '\bfront desk agent', '\bguest (service|services|relations|experience) (agent|associate|manager)', '\bconcierge', '\bflight attendant', '^\s*host(ess)?\s*$', '\b(restaurant|front of house|dining room) host', '\bbusser', '\bcrew member', '\bevent (staff|server)', '\bvalet']
+  - id: retail
+    label: "Retail & store"
+    field: trades
+    patterns: ['\b(retail|store|sales floor|stock|cashier|customer service) (associate|manager|supervisor|lead|clerk|team member|specialist)', '\bcashier', '\bmerchandis', '\bstore (advisor|associate|team member|employee|clerk)', '^\s*retail\b', '\bkeyholder',
+               '\bstore (manager|director|leader)', '\bassistant (store )?manager', '\bbrand ambassador', '\bstylist', '\bsales associate', '\bshift (lead|leader|supervisor)', '\bdepartment (manager|supervisor|lead)']
+  - id: personal_services
+    label: "Beauty, fitness & personal services"
+    field: trades
+    patterns: ['\b(hair ?)?stylist', '\bcosmetologist', '\besthetician', '\bnail tech', '\bbarber', '\bmassage', '\b(personal|fitness) trainer', '\b(fitness|yoga|pilates|cycling|group fitness) instructor', '\bcoach\b', '\blifeguard', '\bspa (attendant|manager|coordinator)']
+  - id: security_facilities
+    label: "Security, safety & facilities"
+    field: trades
+    patterns: ['\bsecurity (officer|guard|supervisor|specialist)', '\bloss prevention', '\basset protection', '\bcorrections? officer', '\bpolice', '\bfirefighter', '\bEHS\b', '\b(environmental )?health (and|&) safety',
+               '\bsafety (specialist|manager|coordinator|officer)', '\bjanitor', '\bcustodian', '\bgroundskeeper', '\benvironmental services', '\bEVS\b', '\bcleaner\b', '\bporter\b']
 
 # Checked FIRST, and only for users who selected one of the override's
 # families: a
@@ -140,22 +383,32 @@ title_overrides:
 # patterns are detected from the title; a user who does not accept a level
 # has titles matching its patterns dropped (reason title:<matched word>).
 # "mid" has no marker: unmarked titles always pass and the LLM decides.
+# A level's "except" patterns are cut from the title before its patterns
+# are checked: "Staff Nurse" is an ordinary nursing job, not a senior one,
+# and "IV Therapy" is not level IV ("Senior Staff Nurse" is still senior).
 levels:
   - id: internship
     label: "Internship / co-op"
-    patterns: ['\bintern(ship)?\b', '\bco-?op\b']
+    patterns: ['\bintern(ship)?\b', '\bco-?op\b', '\bextern(ship)?\b', '\bstudent nurse', '\bnursing student']
   - id: entry
     label: "Entry level / new grad"
-    patterns: ['\bjunior\b', '\bjr\.?\b', '\bnew grad', '\bentry[- ]level\b', '\bearly career\b', '\bassociate (software|data|engineer)']
+    patterns: ['\bjunior\b', '\bjr\.?\b', '\bnew grad', '\bentry[- ]level\b', '\bearly career\b', '\bassociate (software|data|engineer)',
+               '\bgraduate nurse', '\b(nurse|RN) resident', '\b(nurse|RN|nursing) residency', '\btrainee\b', '\bapprentice']
   - id: mid
     label: "Mid level"
   - id: senior
     label: "Senior / staff / principal"
     patterns: ['\bsenior\b', '\bsr\.?\b', '\bstaff\b', '\bprincipal\b', '\blead\b', '\bIII\b', '\bIV\b', '\bdistinguished\b']
+    except: ['\bstaff (nurse|RN|LPN|LVN|pharmacist|accountant|auditor|attorney|psychologist|psychiatrist|physician|therapist|physical therapist|occupational therapist|social worker|counselor|chaplain|dietitian|technologist|assistant|writer|photographer|interpreter|chef|clinician|anesthetist|nurse practitioner|veterinarian|teacher)',
+             '\b(medical|nursing|clinical|office|support|kitchen|administrative|agency|float|per diem|PRN|house|camp|event) staff\b',
+             '\bIV (therap\w*|team|infusion|nurse|RN|access|start|insertion|certified|pharmacist|room|admixture|hydration|lounge)', '\binfusion ?/ ?IV\b', '\bIV ?/ ?infusion',
+             '\b(school|assistant|vice) principal\b']
   - id: management
     label: "Management"
     patterns: ['\b(engineering|software|technical|development|data|security|infrastructure|platform|IT) manager\b',
-               '\bmanager,? (engineering|software|data)', '\bdirector\b', '\bhead of\b', '\bvp\b', '\bvice president\b', '\bchief\b']
+               '\bmanager,? (engineering|software|data)', '\bdirector\b', '\bhead of\b', '\bvp\b', '\bvice president\b', '\bchief\b',
+               '\b(nurse|nursing|clinical|unit|practice|patient care|store|restaurant|general|branch|district|regional|plant|warehouse|kitchen) manager\b',
+               '\bmanager,? (nursing|clinical|patient care)', '\bsupervisor\b', '\bsuperintendent\b', '\b(school|assistant|vice) principal\b', '\bdean\b']
 
 location:
   allow_countries: ['US']

@@ -152,7 +152,7 @@ role_families:
   - { id: sre, label: "SRE", field: tech, patterns: ['\bSRE\b'] }
   - { id: rn, label: "RN", field: nursing, patterns: ['\bRN\b'] }
 levels:
-  - { id: mid, label: "Mid" }
+  - { id: mid, label: "Mid", except: ['x'] }
 `
 	if err := os.WriteFile(path, []byte(yml), 0o644); err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ levels:
 	if err == nil {
 		t.Fatal("bad fields accepted")
 	}
-	for _, sub := range []string{`field "tech": duplicate id`, `role family "rn": unknown field "nursing"`} {
+	for _, sub := range []string{`field "tech": duplicate id`, `role family "rn": unknown field "nursing"`, `level "mid": except without patterns`} {
 		if !strings.Contains(err.Error(), sub) {
 			t.Errorf("error %q does not mention %q", err, sub)
 		}

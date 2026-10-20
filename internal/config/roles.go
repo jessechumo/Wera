@@ -51,11 +51,13 @@ type TitleOverride struct {
 }
 
 // Level is one selectable seniority level. Patterns detect it from the
-// title; a level without patterns (mid) is never detected.
+// title; a level without patterns (mid) is never detected. Except
+// patterns are cut from the title first ("Staff Nurse" is not senior).
 type Level struct {
 	ID       string   `yaml:"id" json:"id"`
 	Label    string   `yaml:"label" json:"label"`
 	Patterns []string `yaml:"patterns" json:"-"`
+	Except   []string `yaml:"except" json:"-"`
 }
 
 // FamilyIDs returns the set of valid role family ids.
@@ -122,6 +124,8 @@ func LoadRoles(path string) (*Roles, error) {
 			errs = append(errs, fmt.Sprintf("level %d: missing id", i+1))
 		case levels[l.ID]:
 			errs = append(errs, fmt.Sprintf("level %q: duplicate id", l.ID))
+		case len(l.Except) > 0 && len(l.Patterns) == 0:
+			errs = append(errs, fmt.Sprintf("level %q: except without patterns", l.ID))
 		}
 		levels[l.ID] = true
 	}

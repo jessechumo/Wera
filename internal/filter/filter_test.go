@@ -183,6 +183,55 @@ func TestApplyOtherUsers(t *testing.T) {
 	}
 }
 
+// TestApplyCareers covers families outside tech: a nurse and a teacher
+// see their jobs, and words that mean seniority in tech ("Staff", "IV")
+// do not drop ordinary clinical titles.
+func TestApplyCareers(t *testing.T) {
+	e := newEngine(t)
+	nurse := &config.Preferences{RoleFamilies: []string{"registered_nursing"}, Levels: []string{"entry", "mid"}, USOnly: true}
+	experienced := &config.Preferences{RoleFamilies: []string{"registered_nursing"}, Levels: []string{"mid"}, USOnly: true}
+	teacher := &config.Preferences{RoleFamilies: []string{"teaching", "childcare"}, Levels: []string{"entry", "mid"}, USOnly: true}
+	tests := []struct {
+		name   string
+		prefs  *config.Preferences
+		title  string
+		reason string // "" = kept
+	}{
+		{"rn", nurse, "Registered Nurse II, Emergency Department", ""},
+		{"staff nurse is not senior", nurse, "Staff Nurse II, Neonatal ICU", ""},
+		{"iv therapy is not level IV", nurse, "IV Therapy Nurse - Infusion Center", ""},
+		{"charge nurse", nurse, "Charge Nurse, Surgery", ""},
+		{"specialty suffix", nurse, "Stepdown Medicine Nurse BWH", ""},
+		{"rn abbreviation", nurse, "Per Diem RN - Oncology Practice - MGH", ""},
+		{"new grad residency", nurse, "RN Residency Program - Med/Surg", ""},
+		{"residency is entry level", experienced, "RN Residency Program - Med/Surg", "title:rn_residency"},
+		{"senior staff nurse is senior", nurse, "Senior Staff Nurse, Cardiology", "title:senior"},
+		{"nurse manager is management", nurse, "Clinical Nurse Manager, Telemetry", "title:nurse_manager"},
+		{"nursing supervisor", nurse, "Nursing Supervisor, Nights", "title:supervisor"},
+		{"np is its own family", nurse, "Nurse Practitioner, Family Medicine", "title:no_category"},
+		{"cna is its own family", nurse, "Certified Nursing Assistant", "title:no_category"},
+		{"lpn is its own family", nurse, "LPN - Long Term Care", "title:no_category"},
+		{"tech roles hidden", nurse, "Software Engineer", "title:no_category"},
+		{"teacher", teacher, "High School Chemistry Teacher (2026-27)", ""},
+		{"preschool", teacher, "Preschool Lead Teacher", "title:lead"},
+		{"assistant principal is management", teacher, "Assistant Principal, Middle School", "title:assistant_principal"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := e.Apply(tc.prefs, tc.title, "Boston, MA", "")
+			if tc.reason != "" {
+				if res.Stage != StageExcluded || res.Reason != tc.reason {
+					t.Fatalf("want excluded %q, got stage %s reason %q", tc.reason, res.Stage, res.Reason)
+				}
+				return
+			}
+			if res.Stage != StagePendingScore {
+				t.Fatalf("want kept, got %s %q (%q)", res.Stage, res.Reason, res.Evidence)
+			}
+		})
+	}
+}
+
 func TestKeySentences(t *testing.T) {
 	text := "We love Go.\nUnfortunately we will not provide\nvisa sponsorship for this role. Perks include snacks."
 	got := keySentences(text, strings.ToLower(text), sponsorWords)
