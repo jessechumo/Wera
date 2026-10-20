@@ -121,6 +121,64 @@ func reconcileBoards(ctx context.Context, pool *pgxpool.Pool, comps []config.Com
 	return nil
 }
 
+// WatchAddedBoard starts watching the job board (ats, token) that a job a
+// user added came from: the "manual" company the job was filed under
+// becomes that board's company and is fetched every run from then on. It
+// returns the company's name and whether it is newly watched; nothing
+// changes when the board is already known or the job's company is a
+// watched one.
+func WatchAddedBoard(ctx context.Context, pool *pgxpool.Pool, userID, jobID int64, ats, token string) (string, bool, error) {
+	var name string
+	tag, err := pool.Exec(ctx, `
+		UPDATE companies c
+		SET ats = $3, token = $4, enabled = true, added_at = now(), added_by = $1
+		FROM jobs j
+		WHERE j.id = $2 AND c.id = j.company_id AND c.ats = 'manual'
+		  AND NOT EXISTS (SELECT 1 FROM companies k WHERE k.ats = $3 AND lower(k.token) = lower($4))`,
+		userID, jobID, ats, token)
+	if err != nil {
+		return "", false, fmt.Errorf("watch board: %w", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT c.name FROM jobs j JOIN companies c ON c.id = j.company_id WHERE j.id = $1`,
+		jobID).Scan(&name); err != nil {
+		return "", false, err
+	}
+	return name, tag.RowsAffected() == 1, nil
+}
+
+// CanWatchBoard reports whether WatchAddedBoard would watch this board for
+// the job: its company is a "manual" one and no company has the board yet.
+func CanWatchBoard(ctx context.Context, pool *pgxpool.Pool, jobID int64, ats, token string) (bool, error) {
+	var ok bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM jobs j JOIN companies c ON c.id = j.company_id WHERE j.id = $1 AND c.ats = 'manual')
+		   AND NOT EXISTS (SELECT 1 FROM companies k WHERE k.ats = $2 AND lower(k.token) = lower($3))`,
+		jobID, ats, token).Scan(&ok)
+	return ok, err
+}
+
+// AddedCompanies returns the enabled boards found through added jobs
+// (see WatchAddedBoard), to fetch alongside companies.yaml.
+func AddedCompanies(ctx context.Context, pool *pgxpool.Pool) ([]config.Company, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT name, ats, token, industry FROM companies
+		WHERE added_at IS NOT NULL AND enabled AND ats <> 'manual'
+		ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []config.Company
+	for rows.Next() {
+		var c config.Company
+		if err := rows.Scan(&c.Name, &c.ATS, &c.Token, &c.Industry); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // UpdateFetchStatus records the outcome of one company's fetch in the
 // companies table.
 func UpdateFetchStatus(ctx context.Context, pool *pgxpool.Pool, companyID int64, ok bool, errMsg string) error {

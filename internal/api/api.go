@@ -73,6 +73,9 @@ type Server struct {
 	ScoreNow func(ctx context.Context, userID, jobID int64) error
 	// ShareJob offers a job a user added to the other users it suits.
 	ShareJob func(ctx context.Context, jobID, addedBy int64)
+	// CheckBoard lists a job board once and returns its open job count,
+	// before a board found through an added job is watched.
+	CheckBoard func(ctx context.Context, ats, token string) (int, error)
 
 	signupLimit  *auth.Limiter
 	loginLimit   *auth.Limiter

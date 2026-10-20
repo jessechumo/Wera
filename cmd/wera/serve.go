@@ -92,6 +92,7 @@ func runServe(ctx context.Context, args []string) error {
 		}
 		return ran, err
 	}
+	boards := pipeline.NewSourceRegistry(env)
 	srv := &api.Server{
 		Pool:        pool,
 		Log:         log,
@@ -117,6 +118,9 @@ func runServe(ctx context.Context, args []string) error {
 				return
 			}
 			log.Info("shared an added job", "job_id", jobID, "offered", offered, "scored", scored)
+		},
+		CheckBoard: func(ctx context.Context, ats, token string) (int, error) {
+			return pipeline.CheckBoard(ctx, boards, ats, token)
 		},
 		Resumes: resume.NewRenderer(env.TypstBin),
 

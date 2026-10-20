@@ -215,6 +215,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 ## Extending
 
 - **Add a company:** run `wera discover "Name"`, add it to `config/companies.yaml`, then run `wera companies validate` and `wera pipeline`.
+- **Companies found by users:** when someone adds a job (dashboard or extension) from a Greenhouse, Lever, Ashby, SmartRecruiters or Workday board that no company has, Wera checks the board once and, if it has open jobs, fetches it every run from then on. These rows have `added_at` set in the `companies` table; set `enabled = false` there to stop one. If `companies.yaml` later lists the same board, the YAML entry takes it over.
 - **Add a role type:** add a family with its `field` and title patterns to `config/roles.yaml`; users can then pick it. If a word means seniority in one career but not another ("Staff Nurse", "IV Therapy"), add it to that level's `except` list.
 - **Add an industry:** add it to `config/industries.yaml` and tag companies with it.
 - **Add a company on Workday:** its token is `tenant.wdN/site` from the career site URL, e.g. `https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite` is `nvidia.wd5/NVIDIAExternalCareerSite`. SmartRecruiters takes the company identifier, Eightfold `host/domain`.
