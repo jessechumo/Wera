@@ -72,7 +72,12 @@ func (p *Pipeline) RunOnce(ctx context.Context) (ran bool, err error) {
 	p.housekeeping(ctx)
 
 	fetcher := &Fetcher{Pool: p.Pool, Env: p.Env, Log: p.Log, Sources: NewSourceRegistry(p.Env), Metrics: p.Metrics}
-	fstats, fetchErr := fetcher.Run(ctx, p.Companies, "")
+	comps, err := WithAdded(ctx, p.Pool, p.Companies)
+	if err != nil {
+		p.Log.Error("loading added boards failed; fetching companies.yaml only", "err", err)
+		comps = p.Companies
+	}
+	fstats, fetchErr := fetcher.Run(ctx, comps, "")
 	p.CatchUpAt = time.Time{}
 	if fstats != nil {
 		p.CatchUpAt = fstats.RetryAt

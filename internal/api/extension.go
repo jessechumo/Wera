@@ -15,6 +15,7 @@ import (
 	"wera/internal/auth"
 	"wera/internal/pipeline"
 	"wera/internal/profile"
+	"wera/internal/sources"
 	"wera/internal/store"
 )
 
@@ -332,7 +333,7 @@ func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if created {
-		go s.afterAdd(user.ID, id) //nolint:gosec // scoring outlives the request on purpose
+		go s.afterAdd(user.ID, id, in.URL) //nolint:gosec // scoring outlives the request on purpose
 	}
 	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if err != nil {
@@ -346,9 +347,9 @@ func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, status, job)
 }
 
-// afterAdd scores a just-added job for the user who added it, then
-// offers it to everyone else.
-func (s *Server) afterAdd(userID, jobID int64) {
+// afterAdd scores a just-added job for the user who added it, offers it
+// to everyone else, and starts watching the job board it came from.
+func (s *Server) afterAdd(userID, jobID int64, jobURL string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	if s.ScoreNow != nil {
@@ -358,6 +359,37 @@ func (s *Server) afterAdd(userID, jobID int64) {
 	}
 	if s.ShareJob != nil {
 		s.ShareJob(ctx, jobID, userID)
+	}
+	s.watchBoard(ctx, userID, jobID, jobURL)
+}
+
+// watchBoard adds the job board an added job came from to the companies
+// every run fetches, when the address is on a board Wera reads (Greenhouse,
+// Lever, Ashby, SmartRecruiters, Workday), no company has that board yet,
+// and the board answers with open jobs.
+func (s *Server) watchBoard(ctx context.Context, userID, jobID int64, jobURL string) {
+	ats, token, ok := sources.BoardFromURL(jobURL)
+	if !ok || s.CheckBoard == nil {
+		return
+	}
+	if can, err := store.CanWatchBoard(ctx, s.Pool, jobID, ats, token); err != nil || !can {
+		if err != nil {
+			s.Log.Warn("checking an added job's board failed", "job_id", jobID, "err", err)
+		}
+		return
+	}
+	n, err := s.CheckBoard(ctx, ats, token)
+	if err != nil || n == 0 {
+		s.Log.Info("not watching an added job's board", "ats", ats, "token", token, "jobs", n, "err", err)
+		return
+	}
+	name, added, err := store.WatchAddedBoard(ctx, s.Pool, userID, jobID, ats, token)
+	if err != nil {
+		s.Log.Error("watching an added job's board failed", "job_id", jobID, "err", err)
+		return
+	}
+	if added {
+		s.Log.Info("watching a board found through an added job", "company", name, "ats", ats, "token", token, "jobs", n)
 	}
 }
 
