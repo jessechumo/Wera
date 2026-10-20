@@ -76,8 +76,10 @@ Return GitHub-flavored markdown only (no code fences, no preamble), under 700 wo
 ## Constraints and preferences
 (work authorization and sponsorship needs, locations, remote/hybrid/onsite, things to avoid)
 ## Education
-## Technical skills
-(grouped, e.g. Languages, Data/ML, Cloud & infrastructure, Tools)
+## Skills
+(grouped by kind for the candidate's field, e.g. Languages, Cloud, Tools for engineers; Clinical skills, Specialties, Systems such as Epic for nurses)
+## Licenses and certifications
+(each license with its state, and certifications such as BLS, ACLS or a CPA; omit the section if there are none)
 ## Experience
 (each role: title, employer, dates, then 2-4 short bullets with concrete accomplishments)
 ## Projects and research
