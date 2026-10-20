@@ -127,7 +127,11 @@ var knownTerms = strings.Split("python,go,golang,java,javascript,typescript,rust
 	"prometheus,grafana,opentelemetry,datadog,splunk,elasticsearch,kafka,rabbitmq,redis,postgresql,postgres,mysql,"+
 	"mongodb,dynamodb,snowflake,spark,airflow,dbt,pandas,numpy,pytorch,tensorflow,scikit-learn,machine learning,"+
 	"llm,rag,langchain,nlp,computer vision,microservices,distributed systems,system design,networking,security,"+
-	"observability,site reliability,incident response,on-call,slos,tdd,unit testing,agile,figma,tableau", ",")
+	"observability,site reliability,incident response,on-call,slos,tdd,unit testing,agile,figma,tableau,"+
+	"excel,salesforce,hubspot,quickbooks,sap,netsuite,workday,google analytics,seo,adobe creative suite,photoshop,"+
+	"epic,cerner,meditech,bls,acls,pals,nrp,tncc,patient care,triage,telemetry,critical care,medication administration,"+
+	"iv therapy,phlebotomy,wound care,charting,hipaa,case management,infection control,cpr,first aid,"+
+	"classroom management,lesson planning,curriculum development,special education,cdl,osha,forklift,food safety,servsafe", ",")
 
 // KnownTerms lists which common skills a text mentions, in first-seen
 // order (used when a posting has no extracted skills yet).

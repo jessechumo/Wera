@@ -38,7 +38,8 @@ var (
 	standardTitles = []string{"experience", "work experience", "professional experience", "employment", "education", "skills",
 		"technical skills", "projects", "summary", "professional summary", "certifications", "awards", "honors", "publications",
 		"leadership", "volunteer", "activities", "research", "additional experience", "relevant experience", "languages",
-		"interests", "coursework", "patents", "talks", "selected honors", "invited talks", "achievements", "profile"}
+		"interests", "coursework", "patents", "talks", "selected honors", "invited talks", "achievements", "profile",
+		"licenses", "licensure", "licenses and certifications", "clinical experience", "clinical rotations", "teaching experience"}
 )
 
 const (

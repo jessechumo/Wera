@@ -672,6 +672,232 @@ companies:
   - { name: JLL,                          ats: workday,         token: jll.wd1/jllcareers,                                  industry: real_estate, enabled: true }
   - { name: Zillow,                       ats: workday,         token: zillow.wd5/Zillow_Group_External,                    industry: real_estate, enabled: true }
 
+  # =====================================================================
+  # Employers beyond tech: hospitals, clinics, schools, retail, hospitality
+  # and nonprofits, so nurses, teachers and other careers find jobs too
+  # (boards verified 2026-10-20).
+  # =====================================================================
+
+  # ---------- Hospitals & Health Systems ----------
+  - { name: AdventHealth,                          ats: workday,         token: adventhealth.wd12/AH_External_Career_Site,           industry: hospitals, enabled: true }
+  - { name: Adventist HealthCare,                  ats: workday,         token: adventisthealthcare.wd1/AdventistHealthCareCareers,  industry: hospitals, enabled: true }
+  - { name: Advocate Health,                       ats: workday,         token: aah.wd5/External,                                    industry: hospitals, enabled: true }
+  - { name: Allina Health,                         ats: workday,         token: allina.wd5/External,                                 industry: hospitals, enabled: true }
+  - { name: AltaMed,                               ats: workday,         token: altamed.wd1/Careers,                                 industry: hospitals, enabled: true }
+  - { name: "Arkansas Children's",                 ats: workday,         token: archildrens.wd1/External_Career_Site,                industry: hospitals, enabled: true }
+  - { name: Avera Health,                          ats: workday,         token: avera.wd5/avera-careers,                             industry: hospitals, enabled: true }
+  - { name: Banner Health,                         ats: workday,         token: bannerhealth.wd108/Careers,                          industry: hospitals, enabled: true }
+  - { name: Baptist Health Alabama,                ats: workday,         token: baptistfirst.wd12/baptistfirst,                      industry: hospitals, enabled: true }
+  - { name: Baptist Health Jacksonville,           ats: workday,         token: baptistjax.wd1/External_Careers,                     industry: hospitals, enabled: true }
+  - { name: Baptist Health Kentucky,               ats: workday,         token: bhs.wd1/careers,                                     industry: hospitals, enabled: true }
+  - { name: Beth Israel Lahey Health,              ats: workday,         token: bilh.wd1/External,                                   industry: hospitals, enabled: true }
+  - { name: Boston Medical Center,                 ats: workday,         token: bmc.wd1/BMC,                                         industry: hospitals, enabled: true }
+  - { name: Brown University Health,               ats: workday,         token: brownhealth.wd12/External_Careers,                   industry: hospitals, enabled: true }
+  - { name: Capital Health,                        ats: workday,         token: capitalhealth.wd1/CapitalHealthCareers,              industry: hospitals, enabled: true }
+  - { name: Carilion Clinic,                       ats: workday,         token: carilionclinic.wd12/External_Careers,                industry: hospitals, enabled: true }
+  - { name: "Children's Healthcare of Atlanta",    ats: workday,         token: choa.wd12/externalcareers,                           industry: hospitals, enabled: true }
+  - { name: "Children's National Hospital",        ats: workday,         token: childrensnational.wd108/CN_Careers,                  industry: hospitals, enabled: true }
+  - { name: ChristianaCare,                        ats: workday,         token: christianacare.wd5/CCHS,                             industry: hospitals, enabled: true }
+  - { name: "Cincinnati Children's",               ats: workday,         token: cincinnatichildrens.wd5/careersatcincinnatichildrens, industry: hospitals, enabled: true }
+  - { name: Cleveland Clinic,                      ats: workday,         token: ccf.wd1/ClevelandClinicCareers,                      industry: hospitals, enabled: true }
+  - { name: Corewell Health,                       ats: workday,         token: spectrumhealth.wd5/CorewellHealthCareers,            industry: hospitals, enabled: true }
+  - { name: Covenant Health,                       ats: workday,         token: covenanthealth.wd12/CovenantHealthCareers,           industry: hospitals, enabled: true }
+  - { name: Eisenhower Health,                     ats: workday,         token: eisenhower.wd1/Eisenhower_Careers,                   industry: hospitals, enabled: true }
+  - { name: Endeavor Health,                       ats: workday,         token: nshs.wd1/ns-eeh,                                     industry: hospitals, enabled: true }
+  - { name: Essentia Health,                       ats: workday,         token: essentiahealth.wd1/Essentia_Health,                  industry: hospitals, enabled: true }
+  - { name: Geisinger,                             ats: workday,         token: geisinger.wd5/GeisingerExternal,                     industry: hospitals, enabled: true }
+  - { name: Great River Health,                    ats: workday,         token: greatriverhealth.wd5/External,                       industry: hospitals, enabled: true }
+  - { name: Gundersen Health,                      ats: workday,         token: gundersenhealth.wd5/Gundersen,                       industry: hospitals, enabled: true }
+  - { name: Hartford HealthCare,                   ats: workday,         token: hhc.wd5/HHC,                                         industry: hospitals, enabled: true }
+  - { name: HCA Healthcare,                        ats: workday,         token: hcahealthcare.wd3/hcacareers,                        industry: hospitals, enabled: true }
+  - { name: HonorHealth,                           ats: workday,         token: honorhealth.wd12/HonorHealth_careers,                industry: hospitals, enabled: true }
+  - { name: Houston Methodist,                     ats: workday,         token: houstonmethodist.wd12/GTI,                           industry: hospitals, enabled: true }
+  - { name: HSHS,                                  ats: workday,         token: hshs.wd1/hshscareers,                                industry: hospitals, enabled: true }
+  - { name: Intermountain Health,                  ats: workday,         token: imh.wd108/IntermountainCareers,                      industry: hospitals, enabled: true }
+  - { name: Jefferson Health,                      ats: workday,         token: jefferson.wd5/External,                              industry: hospitals, enabled: true }
+  - { name: John Muir Health,                      ats: workday,         token: jmh.wd5/JohnMuirHealthCareers,                       industry: hospitals, enabled: true }
+  - { name: Kaweah Health,                         ats: workday,         token: kaweahhealth.wd1/Careers,                            industry: hospitals, enabled: true }
+  - { name: Lehigh Valley Health Network,          ats: workday,         token: lvhn.wd1/LVHN,                                       industry: hospitals, enabled: true }
+  - { name: "Lurie Children's",                    ats: workday,         token: luriechildrens.wd1/externalportal,                   industry: hospitals, enabled: true }
+  - { name: Memorial Hermann,                      ats: workday,         token: memorialhermann.wd5/external,                        industry: hospitals, enabled: true }
+  - { name: Memorial Sloan Kettering,              ats: workday,         token: msk.wd108/MSKCC_Careers_Primary,                     industry: hospitals, enabled: true }
+  - { name: Mercy,                                 ats: workday,         token: mercy.wd1/mercycareers,                              industry: hospitals, enabled: true }
+  - { name: Methodist Health System,               ats: workday,         token: methodisthealthsystem.wd1/MHS_Careers,               industry: hospitals, enabled: true }
+  - { name: Methodist Le Bonheur,                  ats: workday,         token: methodisthealth.wd5/MLH,                             industry: hospitals, enabled: true }
+  - { name: Moffitt Cancer Center,                 ats: workday,         token: moffitt.wd108/Moffitt,                               industry: hospitals, enabled: true }
+  - { name: Montefiore,                            ats: workday,         token: montefiore.wd12/MMC,                                 industry: hospitals, enabled: true }
+  - { name: MultiCare,                             ats: workday,         token: multicare.wd1/multicare,                             industry: hospitals, enabled: true }
+  - { name: MUSC Health,                           ats: workday,         token: musc.wd1/MUSC,                                       industry: hospitals, enabled: true }
+  - { name: "Nationwide Children's",               ats: workday,         token: nationwidechildrens.wd5/NCHCareers,                  industry: hospitals, enabled: true }
+  - { name: Nebraska Medicine,                     ats: workday,         token: nebraskamed.wd5/NM,                                  industry: hospitals, enabled: true }
+  - { name: NewYork-Presbyterian,                  ats: workday,         token: nyp.wd1/nypcareers,                                  industry: hospitals, enabled: true }
+  - { name: NYU Langone Health,                    ats: workday,         token: nyuhs.wd12/nyuhscareers1,                            industry: hospitals, enabled: true }
+  - { name: Ochsner Health,                        ats: workday,         token: ochsner.wd1/Ochsner,                                 industry: hospitals, enabled: true }
+  - { name: OhioHealth,                            ats: workday,         token: ohiohealth.wd5/OhioHealthJobs,                       industry: hospitals, enabled: true }
+  - { name: Prisma Health,                         ats: workday,         token: prismahealth.wd5/PrismaHealthCorporate,              industry: hospitals, enabled: true }
+  - { name: ProMedica,                             ats: workday,         token: promedica.wd12/External_Careers,                     industry: hospitals, enabled: true }
+  - { name: Pullman Regional Hospital,             ats: workday,         token: pullmanregionalhospital.wd1/Careers,                 industry: hospitals, enabled: true }
+  - { name: "Saint Luke's Health System",          ats: workday,         token: saintlukes.wd1/saintlukeshealthcareers,              industry: hospitals, enabled: true }
+  - { name: Salinas Valley Health,                 ats: workday,         token: salinasvalleyhealth.wd5/SalinasValleyHealth,         industry: hospitals, enabled: true }
+  - { name: Sanford Health,                        ats: workday,         token: sanford.wd5/SanfordHealth,                           industry: hospitals, enabled: true }
+  - { name: Sentara,                               ats: workday,         token: sentara.wd1/SCS,                                     industry: hospitals, enabled: true }
+  - { name: Sharp HealthCare,                      ats: workday,         token: sharp.wd1/External,                                  industry: hospitals, enabled: true }
+  - { name: "Shriners Children's",                 ats: workday,         token: shrinerschildrens.wd12/Shriners,                     industry: hospitals, enabled: true }
+  - { name: St. Charles Health System,             ats: workday,         token: stcharles.wd1/External,                              industry: hospitals, enabled: true }
+  - { name: St. Tammany Health System,             ats: workday,         token: stph.wd5/STPH,                                       industry: hospitals, enabled: true }
+  - { name: The Vancouver Clinic,                  ats: workday,         token: tvc.wd1/external,                                    industry: hospitals, enabled: true }
+  - { name: ThedaCare,                             ats: workday,         token: thedacare.wd5/ThedaCare_Career_Site1,                industry: hospitals, enabled: true }
+  - { name: Trinity Health,                        ats: workday,         token: trinityhealth.wd1/Jobs,                              industry: hospitals, enabled: true }
+  - { name: Tufts Medicine,                        ats: workday,         token: tuftsmedicine.wd1/Jobs,                              industry: hospitals, enabled: true }
+  - { name: University Health Kansas City,         ats: workday,         token: trumed.wd1/TMC_External_Career_Site,                 industry: hospitals, enabled: true }
+  - { name: University of Kansas Health System,    ats: workday,         token: kansashealthsystem.wd1/careers,                      industry: hospitals, enabled: true }
+  - { name: University of Mississippi Medical Center, ats: workday,         token: ummc.wd5/UMCCareers,                                 industry: hospitals, enabled: true }
+  - { name: University of Rochester Medical Center, ats: workday,         token: rochester.wd5/UR_Staff,                              industry: hospitals, enabled: true }
+  - { name: University of Washington (UW Medicine), ats: workday,         token: uw.wd5/UWHires,                                      industry: hospitals, enabled: true }
+  - { name: UofL Health,                           ats: workday,         token: uoflhealth.wd1/UofLHealthCareers,                    industry: hospitals, enabled: true }
+  - { name: "Valley Children's",                   ats: workday,         token: valleychildrens.wd12/VCH_External,                   industry: hospitals, enabled: true }
+  - { name: Vanderbilt University Medical Center,  ats: workday,         token: vumc.wd1/vumccareers,                                industry: hospitals, enabled: true }
+  - { name: VCU Health,                            ats: workday,         token: vcuhealth.wd1/VCUHealth_careers,                     industry: hospitals, enabled: true }
+  - { name: Virtua Health,                         ats: workday,         token: virtua.wd1/Virtua_Health_External_Career_Site,       industry: hospitals, enabled: true }
+  - { name: Wellstar Health System,                ats: workday,         token: wellstar.wd1/wellstarcareers,                        industry: hospitals, enabled: true }
+
+  # ---------- Healthcare & Health Tech ----------
+  - { name: Akido Labs,                            ats: greenhouse,      token: akidolabs,                                           industry: healthcare, enabled: true }
+  - { name: Allara,                                ats: ashby,           token: allarahealth,                                        industry: healthcare, enabled: true }
+  - { name: AMN Healthcare,                        ats: workday,         token: amn.wd1/AMN_Careers,                                 industry: healthcare, enabled: true }
+  - { name: Aya Healthcare,                        ats: greenhouse,      token: ayahealthcare,                                       industry: healthcare, enabled: true }
+  - { name: Baxter,                                ats: workday,         token: baxter.wd1/baxter,                                   industry: healthcare, enabled: true }
+  - { name: Bicycle Health,                        ats: greenhouse,      token: bicyclehealth,                                       industry: healthcare, enabled: true }
+  - { name: Biofourmis,                            ats: greenhouse,      token: biofourmis,                                          industry: healthcare, enabled: true }
+  - { name: Carrot Fertility,                      ats: greenhouse,      token: carrotfertility,                                     industry: healthcare, enabled: true }
+  - { name: Charlie Health,                        ats: greenhouse,      token: charliehealth,                                       industry: healthcare, enabled: true }
+  - { name: ChenMed,                               ats: workday,         token: chenmed.wd1/ChenMed,                                 industry: healthcare, enabled: true }
+  - { name: Clipboard Health,                      ats: smartrecruiters, token: clipboardhealth,                                     industry: healthcare, enabled: true }
+  - { name: Clover Health,                         ats: greenhouse,      token: cloverhealth,                                        industry: healthcare, enabled: true }
+  - { name: Dandy,                                 ats: ashby,           token: dandy,                                               industry: healthcare, enabled: true }
+  - { name: DaVita,                                ats: workday,         token: davita.wd1/DKC_External,                             industry: healthcare, enabled: true }
+  - { name: Devoted Health,                        ats: smartrecruiters, token: devotedhealth,                                       industry: healthcare, enabled: true }
+  - { name: Ensign Group,                          ats: workday,         token: ensign.wd1/SNPCareerSite,                            industry: healthcare, enabled: true }
+  - { name: Equip Health,                          ats: ashby,           token: equip,                                               industry: healthcare, enabled: true }
+  - { name: Everlywell,                            ats: lever,           token: everlywell,                                          industry: healthcare, enabled: true }
+  - { name: Found,                                 ats: greenhouse,      token: found,                                               industry: healthcare, enabled: true }
+  - { name: Fresenius Medical Care,                ats: workday,         token: freseniusmedicalcare.wd3/fme,                        industry: healthcare, enabled: true }
+  - { name: Galileo Health,                        ats: greenhouse,      token: galileo,                                             industry: healthcare, enabled: true }
+  - { name: Grow Therapy,                          ats: ashby,           token: grow-therapy,                                        industry: healthcare, enabled: true }
+  - { name: Henry Schein,                          ats: workday,         token: henryschein.wd1/External_Careers,                    industry: healthcare, enabled: true }
+  - { name: Highmark Health,                       ats: workday,         token: highmarkhealth.wd1/highmark,                         industry: healthcare, enabled: true }
+  - { name: Hinge Health,                          ats: ashby,           token: hinge-health,                                        industry: healthcare, enabled: true }
+  - { name: Honor,                                 ats: greenhouse,      token: honor,                                               industry: healthcare, enabled: true }
+  - { name: Infinitus,                             ats: ashby,           token: infinitus,                                           industry: healthcare, enabled: true }
+  - { name: Interwell Health,                      ats: greenhouse,      token: interwellhealth,                                     industry: healthcare, enabled: true }
+  - { name: Intuitive,                             ats: workday,         token: intuitive.wd1/irtc_careers,                          industry: healthcare, enabled: true }
+  - { name: Main Street Health,                    ats: greenhouse,      token: mainstreethealth,                                    industry: healthcare, enabled: true }
+  - { name: Medely,                                ats: ashby,           token: medely,                                              industry: healthcare, enabled: true }
+  - { name: Midi Health,                           ats: greenhouse,      token: midihealth,                                          industry: healthcare, enabled: true }
+  - { name: Nabla,                                 ats: ashby,           token: nabla,                                               industry: healthcare, enabled: true }
+  - { name: Octave,                                ats: greenhouse,      token: octave,                                              industry: healthcare, enabled: true }
+  - { name: One Oncology,                          ats: greenhouse,      token: oneoncology,                                         industry: healthcare, enabled: true }
+  - { name: Ophelia,                               ats: greenhouse,      token: ophelia,                                             industry: healthcare, enabled: true }
+  - { name: Option Care Health,                    ats: workday,         token: optioncare.wd1/OptionCare,                           industry: healthcare, enabled: true }
+  - { name: Oula,                                  ats: greenhouse,      token: oulahealth,                                          industry: healthcare, enabled: true }
+  - { name: "Owens & Minor",                       ats: workday,         token: owens.wd1/OCC,                                       industry: healthcare, enabled: true }
+  - { name: Papa,                                  ats: greenhouse,      token: papa,                                                industry: healthcare, enabled: true }
+  - { name: Parsley Health,                        ats: greenhouse,      token: parsleyhealth,                                       industry: healthcare, enabled: true }
+  - { name: Pearl Health,                          ats: ashby,           token: pearlhealth,                                         industry: healthcare, enabled: true }
+  - { name: Pelago,                                ats: greenhouse,      token: pelago,                                              industry: healthcare, enabled: true }
+  - { name: Point32Health,                         ats: workday,         token: point32health.wd5/THP,                               industry: healthcare, enabled: true }
+  - { name: Prenuvo,                               ats: greenhouse,      token: prenuvo,                                             industry: healthcare, enabled: true }
+  - { name: ResMed,                                ats: workday,         token: resmed.wd3/ResMed_External_Careers,                  industry: healthcare, enabled: true }
+  - { name: ShiftKey,                              ats: ashby,           token: shiftkey,                                            industry: healthcare, enabled: true }
+  - { name: SonderMind,                            ats: ashby,           token: sondermind,                                          industry: healthcare, enabled: true }
+  - { name: Summer Health,                         ats: ashby,           token: summerhealth,                                        industry: healthcare, enabled: true }
+  - { name: Talkiatry,                             ats: ashby,           token: talkiatry,                                           industry: healthcare, enabled: true }
+  - { name: Teladoc Health,                        ats: workday,         token: teladoc.wd503/teladochealth_is_hiring,               industry: healthcare, enabled: true }
+  - { name: Tend,                                  ats: greenhouse,      token: hellotend,                                           industry: healthcare, enabled: true }
+  - { name: Tennr,                                 ats: ashby,           token: tennr,                                               industry: healthcare, enabled: true }
+  - { name: Tia,                                   ats: greenhouse,      token: tia,                                                 industry: healthcare, enabled: true }
+  - { name: Trusted Health,                        ats: ashby,           token: trustedhealth,                                       industry: healthcare, enabled: true }
+  - { name: Two Chairs,                            ats: greenhouse,      token: twochairs,                                           industry: healthcare, enabled: true }
+  - { name: Unite Us,                              ats: greenhouse,      token: uniteus,                                             industry: healthcare, enabled: true }
+  - { name: Virta Health,                          ats: ashby,           token: virtahealth,                                         industry: healthcare, enabled: true }
+  - { name: Waymark,                               ats: greenhouse,      token: waymark,                                             industry: healthcare, enabled: true }
+  - { name: Wellhub,                               ats: greenhouse,      token: gympass,                                             industry: healthcare, enabled: true }
+  - { name: Wellth,                                ats: ashby,           token: wellth,                                              industry: healthcare, enabled: true }
+  - { name: WW International,                      ats: greenhouse,      token: ww,                                                  industry: healthcare, enabled: true }
+
+  # ---------- Biotech & Life Sciences ----------
+  - { name: AstraZeneca,                           ats: workday,         token: astrazeneca.wd3/Careers,                             industry: biotech, enabled: true }
+  - { name: IQVIA,                                 ats: workday,         token: iqvia.wd1/IQVIA,                                     industry: biotech, enabled: true }
+  - { name: Novartis,                              ats: workday,         token: novartis.wd3/Novartis_Careers,                       industry: biotech, enabled: true }
+  - { name: Sanofi,                                ats: workday,         token: sanofi.wd3/SanofiCareers,                            industry: biotech, enabled: true }
+
+  # ---------- Education ----------
+  - { name: Achievement First,                     ats: greenhouse,      token: achievementfirst,                                    industry: education, enabled: true }
+  - { name: Georgetown University,                 ats: workday,         token: georgetown.wd1/Georgetown_Admin_Careers,             industry: education, enabled: true }
+  - { name: KIPP,                                  ats: smartrecruiters, token: kipp,                                                industry: education, enabled: true }
+  - { name: Ohio State University,                 ats: workday,         token: osu.wd1/OSUCareers,                                  industry: education, enabled: true }
+  - { name: Primrose Schools,                      ats: smartrecruiters, token: primroseschools,                                     industry: education, enabled: true }
+  - { name: "Texas A&M University",                ats: workday,         token: tamus.wd1/System-wide_External,                      industry: education, enabled: true }
+  - { name: Uncommon Schools,                      ats: smartrecruiters, token: uncommonschools,                                     industry: education, enabled: true }
+  - { name: University of Chicago,                 ats: workday,         token: uchicago.wd5/External,                               industry: education, enabled: true }
+  - { name: University of Pennsylvania,            ats: workday,         token: upenn.wd1/careers-at-penn,                           industry: education, enabled: true }
+  - { name: University of Southern California,     ats: workday,         token: usc.wd5/ExternalUSCCareers,                          industry: education, enabled: true }
+  - { name: University of Texas at Austin,         ats: workday,         token: utaustin.wd1/UTstaff,                                industry: education, enabled: true }
+
+  # ---------- Retail & E-commerce ----------
+  - { name: Away,                                  ats: ashby,           token: away,                                                industry: ecommerce, enabled: true }
+  - { name: BarkBox,                               ats: greenhouse,      token: bark,                                                industry: ecommerce, enabled: true }
+  - { name: Bombas,                                ats: greenhouse,      token: bombas,                                              industry: ecommerce, enabled: true }
+  - { name: Brooklinen,                            ats: ashby,           token: brooklinen,                                          industry: ecommerce, enabled: true }
+  - { name: Dollar Tree,                           ats: workday,         token: dollartree.wd5/dollartreeus,                         industry: ecommerce, enabled: true }
+  - { name: Everlane,                              ats: greenhouse,      token: everlane,                                            industry: ecommerce, enabled: true }
+  - { name: "Farmer's Dog",                        ats: greenhouse,      token: thefarmersdog,                                       industry: ecommerce, enabled: true }
+  - { name: Gymshark,                              ats: greenhouse,      token: gymshark,                                            industry: ecommerce, enabled: true }
+  - { name: Hungryroot,                            ats: greenhouse,      token: hungryroot,                                          industry: ecommerce, enabled: true }
+  - { name: Ollie,                                 ats: lever,           token: myollie,                                             industry: ecommerce, enabled: true }
+  - { name: On Running,                            ats: greenhouse,      token: onrunning,                                           industry: ecommerce, enabled: true }
+  - { name: Parachute,                             ats: greenhouse,      token: parachutehome,                                       industry: ecommerce, enabled: true }
+  - { name: Quince,                                ats: greenhouse,      token: quince,                                              industry: ecommerce, enabled: true }
+  - { name: "Rothy's",                             ats: ashby,           token: rothys,                                              industry: ecommerce, enabled: true }
+
+  # ---------- Hospitality & Food ----------
+  - { name: Blue Bottle Coffee,                    ats: lever,           token: bluebottlecoffee,                                    industry: hospitality, enabled: true }
+  - { name: Equinox,                               ats: smartrecruiters, token: equinox,                                             industry: hospitality, enabled: true }
+  - { name: Shake Shack,                           ats: smartrecruiters, token: shakeshack,                                          industry: hospitality, enabled: true }
+  - { name: Sonder,                                ats: ashby,           token: sonder,                                              industry: hospitality, enabled: true }
+  - { name: Sweetgreen,                            ats: greenhouse,      token: sweetgreen,                                          industry: hospitality, enabled: true }
+
+  # ---------- Nonprofit & Civic Tech ----------
+  - { name: ACLU,                                  ats: greenhouse,      token: aclu,                                                industry: nonprofit, enabled: true }
+  - { name: Planned Parenthood,                    ats: lever,           token: ppfa,                                                industry: nonprofit, enabled: true }
+  - { name: YAI,                                   ats: workday,         token: yai.wd5/Careers,                                     industry: nonprofit, enabled: true }
+
+  # ---------- Real Estate & PropTech ----------
+  - { name: Flock Homes,                           ats: greenhouse,      token: flockhomes,                                          industry: real_estate, enabled: true }
+  - { name: Homeward,                              ats: greenhouse,      token: homeward,                                            industry: real_estate, enabled: true }
+
+  # ---------- Consumer Tech & Social ----------
+  - { name: Tonal,                                 ats: ashby,           token: tonal,                                               industry: consumer, enabled: true }
+
+  # ---------- Banking & Financial Services ----------
+  - { name: Vanguard,                              ats: workday,         token: vanguard.wd5/vanguard_external,                      industry: banking, enabled: true }
+
+  # ---------- Insurance ----------
+  - { name: USAA,                                  ats: workday,         token: usaa.wd1/USAAJOBSWD,                                 industry: insurance, enabled: true }
+
+  # ---------- Fintech & Payments ----------
+  - { name: Cleo,                                  ats: greenhouse,      token: cleo,                                                industry: fintech, enabled: true }
+  - { name: Experian,                              ats: smartrecruiters, token: Experian,                                            industry: fintech, enabled: true }
+
+  # ---------- Manufacturing & Industrials ----------
+  - { name: Bosch,                                 ats: smartrecruiters, token: BoschGroup,                                          industry: manufacturing, enabled: true }
+
+  # ---------- Big Tech ----------
+  - { name: Western Digital,                       ats: smartrecruiters, token: WesternDigital,                                      industry: big_tech, enabled: true }
+
+  # ---------- Defense & Public Sector ----------
+  - { name: State of North Carolina,               ats: workday,         token: nc.wd108/NC_Careers,                                 industry: defense, enabled: true }
+
 # Companies whose career sites have no public JSON feed (Google, Apple, Meta,
 # Microsoft, Citadel, Jane Street, ...) are out of scope until one is found.
 # Do not scrape HTML.

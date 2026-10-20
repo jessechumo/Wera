@@ -11,6 +11,7 @@ industries:
   - { id: banking,      label: "Banking & Financial Services",  description: "Banks, asset managers, card networks, exchanges, and payment processors." }
   - { id: crypto,       label: "Crypto & Web3",                 description: "Exchanges, custody, and blockchain infrastructure." }
   - { id: insurance,    label: "Insurance",                     description: "Insurers and insurance technology." }
+  - { id: hospitals,    label: "Hospitals & Health Systems",    description: "Hospitals, health systems, clinics, and other places that provide care." }
   - { id: healthcare,   label: "Healthcare & Health Tech",      description: "Care delivery, health insurance, clinical software, and digital health." }
   - { id: biotech,      label: "Biotech & Life Sciences",       description: "Drug discovery, genomics, and lab software." }
   - { id: aerospace,    label: "Aviation & Aerospace",          description: "Aircraft, eVTOL, drones, satellites, and launch." }
@@ -21,6 +22,7 @@ industries:
   - { id: energy,       label: "Energy & Climate",              description: "Clean energy, grid, fusion, batteries, and climate software." }
   - { id: logistics,    label: "Logistics & Supply Chain",      description: "Freight, fleets, fulfillment, and delivery." }
   - { id: ecommerce,    label: "Retail & E-commerce",           description: "Online retail, marketplaces for goods, and commerce platforms." }
+  - { id: hospitality,  label: "Hospitality & Food",            description: "Restaurants, coffee, hotels, fitness, and travel services." }
   - { id: consumer,     label: "Consumer Tech & Social",        description: "Social apps, travel, dating, and consumer services." }
   - { id: media,        label: "Media & Entertainment",         description: "Streaming, news, music, and creator platforms." }
   - { id: gaming,       label: "Gaming",                        description: "Game studios and game platforms." }
