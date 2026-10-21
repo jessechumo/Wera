@@ -128,6 +128,26 @@ func Cosine(a, b []float32) float64 {
 	return float64(s)
 }
 
+// bgeQuery is the retrieval instruction BGE, Arctic and mxbai models were
+// trained with for queries; their documents take no prefix.
+const bgeQuery = "Represent this sentence for searching relevant passages: "
+
+// Prefixes returns the query and document prefixes a model expects, from
+// its model card ("", "" for models that take none).
+func Prefixes(model string) (query, doc string) {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "bge-") && strings.Contains(m, "-en"),
+		strings.Contains(m, "snowflake-arctic-embed"), strings.Contains(m, "mxbai-embed"):
+		return bgeQuery, ""
+	case strings.Contains(m, "/e5-") || strings.Contains(m, "multilingual-e5"):
+		return "query: ", "passage: "
+	case strings.Contains(m, "nomic-embed-text"):
+		return "search_query: ", "search_document: "
+	}
+	return "", ""
+}
+
 // JobText is what a posting is embedded as: its title and the facts the
 // AI extracted (seniority, skills, a short digest). Facts read far better
 // than raw postings, which open with company boilerplate.

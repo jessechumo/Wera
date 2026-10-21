@@ -35,9 +35,14 @@ type Env struct {
 	// similarity (EMBED_BASE_URL, an OpenAI-compatible /embeddings
 	// endpoint; empty falls back to the built-in TF-IDF ranking), and only
 	// the best-ranked get a per-user AI score.
-	EmbedBaseURL         string
-	EmbedModel           string
-	EmbedAPIKey          string
+	EmbedBaseURL string
+	EmbedModel   string
+	EmbedAPIKey  string
+	// EmbedQueryPrefix and EmbedDocPrefix are the instructions the model
+	// expects before a search query (the profile) and a document (a
+	// posting). Unset (nil), they follow the model: see embed.Prefixes.
+	EmbedQueryPrefix     *string
+	EmbedDocPrefix       *string
 	ScoresPerDay         int // AI scores per user per rolling 24 hours; 0 = no limit
 	ScoresPerRun         int // per scheduled run, after the first scores for a profile; 0 = no limit
 	InactiveAfterDays    int // users unseen this long get InactiveScoresPerDay
@@ -150,6 +155,13 @@ func LoadEnv() (*Env, error) {
 	e.EmbedBaseURL = strings.TrimRight(e.EmbedBaseURL, "/")
 	str("EMBED_MODEL", &e.EmbedModel)
 	str("EMBED_API_KEY", &e.EmbedAPIKey)
+	// Set but empty means "no prefix", so these read presence, not value.
+	if v, ok := os.LookupEnv("EMBED_QUERY_PREFIX"); ok {
+		e.EmbedQueryPrefix = &v
+	}
+	if v, ok := os.LookupEnv("EMBED_DOC_PREFIX"); ok {
+		e.EmbedDocPrefix = &v
+	}
 	intVal("SCORES_PER_DAY", &e.ScoresPerDay)
 	intVal("SCORES_PER_RUN", &e.ScoresPerRun)
 	intVal("INACTIVE_AFTER_DAYS", &e.InactiveAfterDays)

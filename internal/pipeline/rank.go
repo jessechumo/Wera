@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -25,7 +27,10 @@ const embedChunk = 256
 type Embedder struct {
 	Client *embed.Client
 	Model  string
-	Log    *slog.Logger
+	// QueryPrefix goes before the profile text and DocPrefix before each
+	// posting (see embed.Prefixes).
+	QueryPrefix, DocPrefix string
+	Log                    *slog.Logger
 }
 
 // NewEmbedder returns the configured embedder, or nil.
@@ -34,7 +39,28 @@ func NewEmbedder(env *config.Env, log *slog.Logger) *Embedder {
 	if c == nil {
 		return nil
 	}
-	return &Embedder{Client: c, Model: env.EmbedModel, Log: log}
+	q, d := embed.Prefixes(env.EmbedModel)
+	if env.EmbedQueryPrefix != nil {
+		q = *env.EmbedQueryPrefix
+	}
+	if env.EmbedDocPrefix != nil {
+		d = *env.EmbedDocPrefix
+	}
+	return &Embedder{Client: c, Model: env.EmbedModel, QueryPrefix: q, DocPrefix: d, Log: log}
+}
+
+// profileKey and jobKey name stored vectors: the model, plus a mark of
+// the prefix when there is one, so changing a prefix re-embeds instead of
+// comparing vectors made two ways.
+func (e *Embedder) profileKey() string { return keyed(e.Model, "q", e.QueryPrefix) }
+func (e *Embedder) jobKey() string     { return keyed(e.Model, "d", e.DocPrefix) }
+
+func keyed(model, kind, prefix string) string {
+	if prefix == "" {
+		return model
+	}
+	sum := sha256.Sum256([]byte(prefix))
+	return model + "#" + kind + hex.EncodeToString(sum[:4])
 }
 
 // RankPending re-ranks the user's unscored matches against their profile
@@ -139,22 +165,22 @@ func Blend(markdown string, prefs config.Preferences, titles map[int64]string, f
 // facts, embedding the profile and any postings not embedded yet. On an
 // error it still returns what it could compute.
 func (e *Embedder) Similarities(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile, jobIDs []int64) (map[int64]float64, error) {
-	pv, err := store.ProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.Model)
+	pv, err := store.ProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.profileKey())
 	if err != nil {
 		return nil, err
 	}
 	if pv == nil {
-		vecs, err := e.Client.Embed(ctx, []string{embed.ProfileText(prof.Markdown)})
+		vecs, err := e.Client.Embed(ctx, []string{e.QueryPrefix + embed.ProfileText(prof.Markdown)})
 		if err != nil {
 			return nil, fmt.Errorf("embed profile: %w", err)
 		}
 		pv = vecs[0]
-		if err := store.SaveProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.Model, pv); err != nil {
+		if err := store.SaveProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.profileKey(), pv); err != nil {
 			return nil, err
 		}
 	}
 	_, embedErr := e.EmbedJobs(ctx, pool, jobIDs)
-	vecs, err := store.JobEmbeddings(ctx, pool, jobIDs, e.Model)
+	vecs, err := store.JobEmbeddings(ctx, pool, jobIDs, e.jobKey())
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +194,7 @@ func (e *Embedder) Similarities(ctx context.Context, pool *pgxpool.Pool, prof *s
 // EmbedJobs embeds those of the jobs that have facts but no current
 // embedding, and returns how many it embedded.
 func (e *Embedder) EmbedJobs(ctx context.Context, pool *pgxpool.Pool, jobIDs []int64) (int, error) {
-	todo, err := store.JobsToEmbed(ctx, pool, jobIDs, e.Model)
+	todo, err := store.JobsToEmbed(ctx, pool, jobIDs, e.jobKey())
 	if err != nil {
 		return 0, err
 	}
@@ -177,7 +203,7 @@ func (e *Embedder) EmbedJobs(ctx context.Context, pool *pgxpool.Pool, jobIDs []i
 		part := todo[start:min(start+embedChunk, len(todo))]
 		texts := make([]string, len(part))
 		for i, c := range part {
-			texts[i] = embed.JobText(c.Title, c.Facts.Seniority, c.Facts.SkillsRequired, c.Facts.Digest)
+			texts[i] = e.DocPrefix + embed.JobText(c.Title, c.Facts.Seniority, c.Facts.SkillsRequired, c.Facts.Digest)
 		}
 		vecs, err := e.Client.Embed(ctx, texts)
 		if err != nil {
@@ -187,7 +213,7 @@ func (e *Embedder) EmbedJobs(ctx context.Context, pool *pgxpool.Pool, jobIDs []i
 		for i, c := range part {
 			batch[c.ID] = vecs[i]
 		}
-		if err := store.SaveJobEmbeddings(ctx, pool, e.Model, batch); err != nil {
+		if err := store.SaveJobEmbeddings(ctx, pool, e.jobKey(), batch); err != nil {
 			return done, err
 		}
 		done += len(part)

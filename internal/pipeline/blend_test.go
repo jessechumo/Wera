@@ -33,3 +33,23 @@ func TestBlendRanksFitAndPenalizesYears(t *testing.T) {
 		t.Error("no facts, nothing to blend")
 	}
 }
+
+func TestEmbedderKeysMarkPrefixes(t *testing.T) {
+	e := &Embedder{Model: "BAAI/bge-small-en-v1.5"}
+	if e.profileKey() != e.Model || e.jobKey() != e.Model {
+		t.Errorf("no prefix keeps the model as the key: %q %q", e.profileKey(), e.jobKey())
+	}
+	e.QueryPrefix = "Represent this sentence for searching relevant passages: "
+	if e.profileKey() == e.Model || e.jobKey() != e.Model {
+		t.Errorf("a query prefix must change only the profile key: %q %q", e.profileKey(), e.jobKey())
+	}
+	env := &config.Env{EmbedBaseURL: "http://embed/v1", EmbedModel: "intfloat/e5-base-v2"}
+	if ne := NewEmbedder(env, nil); ne.QueryPrefix != "query: " || ne.DocPrefix != "passage: " {
+		t.Errorf("model defaults: %+v", ne)
+	}
+	none := ""
+	env.EmbedQueryPrefix, env.EmbedDocPrefix = &none, &none
+	if ne := NewEmbedder(env, nil); ne.QueryPrefix != "" || ne.DocPrefix != "" {
+		t.Errorf("set-but-empty prefixes must win: %+v", ne)
+	}
+}
