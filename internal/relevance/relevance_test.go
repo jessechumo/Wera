@@ -1,6 +1,7 @@
 package relevance
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -48,6 +49,39 @@ func TestRankKeepsTopMatchesApart(t *testing.T) {
 	for k := 1; k < 5; k++ {
 		if got[int64(k)] >= got[int64(k+1)] {
 			t.Fatalf("more overlap must score higher: %d -> %d, %d -> %d", k, got[int64(k)], k+1, got[int64(k+1)])
+		}
+	}
+}
+
+func TestSimilaritiesAndSkillOverlap(t *testing.T) {
+	docs := []Doc{
+		{ID: 1, Title: "Registered Nurse", Body: "ICU telemetry, BLS, ACLS"},
+		{ID: 2, Title: "Data Engineer", Body: "Spark, Airflow, SQL"},
+	}
+	sims := Similarities("Registered nurse with ICU and telemetry experience; BLS and ACLS.", docs)
+	if sims[1] <= sims[2] {
+		t.Errorf("the nursing job should be closer: %v", sims)
+	}
+	if Similarities("the and of", docs) != nil {
+		t.Error("a profile with no usable words should give nil")
+	}
+	have := TokenSet("Skills: Python, SQL, Apache Spark")
+	if got := SkillOverlap(have, []string{"Python", "Spark", "Kubernetes", "SQL"}); got != 0.75 {
+		t.Errorf("overlap = %v, want 0.75", got)
+	}
+	if got := SkillOverlap(have, nil); got != 0.5 {
+		t.Errorf("no listed skills should be neutral, got %v", got)
+	}
+}
+
+func TestStandardize(t *testing.T) {
+	z := Standardize(map[int64]float64{1: 1, 2: 2, 3: 3})
+	if z[2] != 0 || z[1] >= 0 || z[3] <= 0 || math.Abs(z[1]+z[3]) > 1e-9 {
+		t.Errorf("standardize = %v", z)
+	}
+	for _, v := range Standardize(map[int64]float64{1: 5, 2: 5}) {
+		if v != 0 {
+			t.Errorf("equal values should all be 0, got %v", v)
 		}
 	}
 }
