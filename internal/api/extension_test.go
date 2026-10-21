@@ -325,4 +325,9 @@ func TestAutofillRuns(t *testing.T) {
 	if code, _ := do(t, client, http.MethodGet, ts.URL+"/api/autofill-runs?job_id=x", ""); code != 400 {
 		t.Errorf("bad job id: want 400, got %d", code)
 	}
+	// The job shows as autofilled, and joined the tracker.
+	_, body = do(t, client, http.MethodGet, fmt.Sprintf("%s/api/jobs/%d", ts.URL, testJobIDs[0]), "")
+	if strings.Contains(body, `"autofilled_at":null`) || !strings.Contains(body, `"autofilled_at":"`) || !strings.Contains(body, `"application_status":"`) {
+		t.Errorf("job after autofill: %s", body)
+	}
 }

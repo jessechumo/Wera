@@ -21,7 +21,8 @@ type AutofillRun struct {
 }
 
 // StartAutofillRun records a new run. A job id the user does not have is
-// dropped, so a run never points at someone else's job.
+// dropped, so a run never points at someone else's job. A job being
+// applied to joins the tracker (as saved) if it was not there yet.
 func StartAutofillRun(ctx context.Context, pool *pgxpool.Pool, userID int64, jobID *int64, host string, filled, suggested int) (*AutofillRun, error) {
 	r := &AutofillRun{}
 	err := pool.QueryRow(ctx, `
@@ -29,6 +30,12 @@ func StartAutofillRun(ctx context.Context, pool *pgxpool.Pool, userID int64, job
 		VALUES ($1, (SELECT job_id FROM user_jobs WHERE user_id = $1 AND job_id = $2), $3, $4, $5)
 		RETURNING id, job_id, host, pages, filled, suggested, created_at, updated_at`,
 		userID, jobID, host, filled, suggested).Scan(&r.ID, &r.JobID, &r.Host, &r.Pages, &r.Filled, &r.Suggested, &r.CreatedAt, &r.UpdatedAt)
+	if err != nil || r.JobID == nil {
+		return r, err
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO applications (user_id, job_id, status, notes) VALUES ($1, $2, 'saved', '')
+		ON CONFLICT DO NOTHING`, userID, *r.JobID)
 	return r, err
 }
 

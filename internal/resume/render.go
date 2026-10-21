@@ -207,3 +207,46 @@ func (rd *Renderer) Measure(ctx context.Context, r *Resume, l Layout) (Measure, 
 	fill := (end.Y - end.Top) / (end.Height - end.Top - end.Bottom)
 	return Measure{Pages: end.Page, Fill: max(0, min(1, fill))}, nil
 }
+
+// Letter is a cover letter laid out as a file: the sender's contact line,
+// the date, who it is for and the text (paragraphs split by blank lines).
+type Letter struct {
+	Name     string `json:"name"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
+	Location string `json:"location,omitempty"`
+	Date     string `json:"date"`
+	Company  string `json:"company,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Body     string `json:"body"`
+	Paper    string `json:"paper,omitempty"`
+}
+
+// LetterPDF renders a cover letter.
+func (rd *Renderer) LetterPDF(ctx context.Context, l Letter) ([]byte, error) {
+	if l.Paper != "a4" {
+		l.Paper = "us-letter"
+	}
+	data, err := json.Marshal(l)
+	if err != nil {
+		return nil, err
+	}
+	main, err := templateFS.ReadFile("templates/letter.typ")
+	if err != nil {
+		return nil, err
+	}
+	dir, err := os.MkdirTemp("", "wera-letter-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	for name, b := range map[string][]byte{"main.typ": main, "letter.json": data} {
+		if err := os.WriteFile(filepath.Join(dir, name), b, 0o600); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := rd.run(ctx, dir, "compile", "main.typ", "out.pdf"); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(filepath.Join(dir, "out.pdf")) //nolint:gosec // our own temp folder's output file
+}

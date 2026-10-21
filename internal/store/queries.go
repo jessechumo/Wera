@@ -60,6 +60,9 @@ type JobView struct {
 	// EstimatedScore is the local relevance estimate (35..85), shown
 	// until the LLM fit score arrives.
 	EstimatedScore *int `json:"estimated_score"`
+	// AutofilledAt is when the extension last filled an application for
+	// the job (nil: never).
+	AutofilledAt *time.Time `json:"autofilled_at"`
 }
 
 // jobViewSelect selects one user's view of jobs: their rule outcome,
@@ -73,7 +76,8 @@ const jobViewSelect = `
 	       a.fit_score, a.verdict, a.seniority, a.years_required,
 	       a.sponsorship, a.work_mode, a.location_summary,
 	       a.skills_matched, a.skills_missing, a.reason,
-	       ap.status, ap.notes, uj.estimated_score
+	       ap.status, ap.notes, uj.estimated_score,
+	       (SELECT max(r.updated_at) FROM autofill_runs r WHERE r.user_id = uj.user_id AND r.job_id = j.id)
 	FROM user_jobs uj
 	JOIN jobs j ON j.id = uj.job_id
 	JOIN companies c ON c.id = j.company_id
@@ -92,7 +96,7 @@ func jobViewScan(v *JobView) []any {
 		&v.FitScore, &v.Verdict, &v.Seniority, &v.YearsRequired,
 		&v.Sponsorship, &v.WorkMode, &v.LocationSummary,
 		&v.SkillsMatched, &v.SkillsMissing, &v.Reason,
-		&v.AppStatus, &v.AppNotes, &v.EstimatedScore}
+		&v.AppStatus, &v.AppNotes, &v.EstimatedScore, &v.AutofilledAt}
 }
 
 // normalizeLimit clamps a page size for API queries.
