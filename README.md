@@ -33,10 +33,10 @@ Everything runs with Docker Compose on one host (see [deploy/hetzner](deploy/het
 4. **Rank locally** with TF-IDF against the user's profile. These estimates show a new user ranked matches within seconds of signing up.
 5. **Extract shared facts** once per posting with the LLM: seniority, years required, sponsorship (the quote must appear verbatim in the posting), work mode, skills and a short digest. Every user reuses them.
 6. **Exclude on facts** at no cost: jobs needing too many years, refusing sponsorship, outside the US or too senior never reach a per-user call.
-7. **Rank by embeddings**: each posting's facts and each profile are embedded once by a small local model (the `wera-embed` container, no API cost), and every remaining job is ranked by similarity.
+7. **Rank without AI**: each posting's facts and each profile are embedded once by a local model (the `wera-embed` container, no API cost). Every remaining job is ranked by a blend of that embedding similarity (counted double), word matching between the facts and the profile's roles and skills, and the share of required skills the profile names, minus a penalty when the posting asks for more years than the user accepts. Postings without facts yet are ranked by word matching on their text.
 8. **Score fit** per user, for the best-ranked jobs only: at most `SCORES_PER_DAY` per user (default 100, at most `SCORES_PER_RUN` per run once their profile has scores; users away for a week get just enough for their digest). The call sends a compact job card plus the cached profile and returns only a score, a verdict and one sentence; matched and missing skills are worked out in code. Jobs below the cut keep their estimate, and opening one scores it immediately.
 
-Measured on the development data: a new account is ready in about 5 seconds. Embedding ranking puts 83% of the jobs the LLM rates 80+ in a user's top fifth (TF-IDF: 47%), so the score limit keeps nearly all strong matches. A fit call costs about $0.00018 (it was $0.00057 before the shorter reply and cache warm-up), and with the limit a user's scoring costs roughly a tenth of scoring every candidate.
+Measured on the development data: a new account is ready in about 5 seconds. On 903 AI-scored jobs from six profiles, the blend puts 60% of the jobs the AI rates 70+ in a user's top fifth (bge-small embeddings alone: 43%), and its order agrees with the AI's (Spearman 0.66, against 0.45). The blend weights were chosen by leave-one-user-out validation. A fit call costs about $0.00018 (it was $0.00057 before the shorter reply and cache warm-up), and with the limit a user's scoring costs roughly a tenth of scoring every candidate.
 
 ## Features
 
@@ -250,6 +250,6 @@ docs/                 Architecture and pipeline diagrams (Excalidraw sources in 
 
 ## Stack
 
-Go 1.27, chi, pgx, PostgreSQL 16, goose, any OpenAI-compatible LLM (default Coral Bricks `deepseek-v4.1-flash-fast`; DeepInfra `deepseek-ai/DeepSeek-V4.1-Flash`), a local embedding model (bge-small), Prometheus, Docker Compose, GitHub Actions, release-please.
+Go 1.27, chi, pgx, PostgreSQL 16, goose, any OpenAI-compatible LLM (default Coral Bricks `deepseek-v4.1-flash-fast`; DeepInfra `deepseek-ai/DeepSeek-V4.1-Flash`), a local embedding model (Snowflake Arctic Embed M v1.5), Prometheus, Docker Compose, GitHub Actions, release-please.
 
 See `PLAN.md` for the original design.

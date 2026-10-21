@@ -72,7 +72,7 @@ func LoadEnv() (*Env, error) {
 		MaxCostPerRunUSD:     1.00,
 		UserBudgetUSD:        10,
 		MaxMonthlyCostUSD:    100,
-		EmbedModel:           "BAAI/bge-small-en-v1.5",
+		EmbedModel:           "Snowflake/snowflake-arctic-embed-m-v1.5",
 		ScoresPerDay:         100,
 		ScoresPerRun:         30,
 		InactiveAfterDays:    7,

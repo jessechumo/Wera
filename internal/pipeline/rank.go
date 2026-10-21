@@ -104,10 +104,11 @@ func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *sto
 
 // Blend weights. Each signal is standardized over the user's candidates
 // first, so the weights compare like with like. They were fit to 903 AI
-// fit scores of six users (leave-one-user-out Spearman 0.60, against 0.46
-// for embedding similarity alone); every held-out fit chose the same ones.
+// fit scores of six users by leave-one-user-out validation, and every
+// held-out fit chose the same ones. With Arctic Embed M the blend agrees
+// with the AI's order at Spearman 0.66 (bge-small embeddings alone: 0.45).
 const (
-	weightEmbedding = 1.0
+	weightEmbedding = 2.0
 	weightWords     = 1.0
 	weightSkills    = 1.0
 	// penaltyTooManyYears is subtracted when a posting asks for more
