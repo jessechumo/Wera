@@ -10,6 +10,7 @@ import (
 
 	"wera/internal/auth"
 	"wera/internal/config"
+	"wera/internal/resume"
 	"wera/internal/store"
 	"wera/internal/testutil"
 )
@@ -176,6 +177,59 @@ func TestApplicantDetails(t *testing.T) {
 	code, body = do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"first_name":"Ada","phone":"512 555 0142","needs_sponsorship":"yes"}`)
 	if code != 200 || !strings.Contains(body, `"saved":true`) || !strings.Contains(body, `"phone":"512 555 0142"`) {
 		t.Errorf("save: %d %s", code, body)
+	}
+}
+
+// Details the user never typed come from their profile answers and their
+// main resume; what they saved always wins.
+func TestApplicantFilledFromResumeAndProfile(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	ctx := context.Background()
+	t.Cleanup(func() {
+		pool.Exec(ctx, `DELETE FROM resumes WHERE user_id = $1`, testUserID)
+		pool.Exec(ctx, `DELETE FROM user_applicant WHERE user_id = $1`, testUserID)
+		pool.Exec(ctx, `UPDATE profiles SET answers = '{}' WHERE user_id = $1`, testUserID)
+	})
+	testutil.Profile(t, pool, testUserID, "# Candidate Profile", config.Preferences{RoleFamilies: []string{"data"}, Levels: []string{"entry"}})
+	pool.Exec(ctx, `UPDATE profiles SET answers = '{"current_title":"Data Scientist","years_experience":3,"work_authorization":"sponsorship_future","work_modes":["remote"]}' WHERE user_id = $1`, testUserID)
+	doc := &store.ResumeDoc{Title: "My resume", Layout: resume.DefaultLayout, Data: resume.Resume{
+		Name: "Jesse Chumo", Email: "jesse@example.com", Phone: "469 555 0101", Location: "Dallas, TX",
+		Links: []resume.Link{{Label: "linkedin.com/in/jesse", URL: "https://linkedin.com/in/jesse"}},
+		Sections: []resume.Section{
+			{ID: "e", Kind: resume.KindEntries, Title: "Education", Entries: []resume.Entry{{ID: "e1", Heading: "UT Dallas", Subheading: "Master of Science in Business Analytics", Dates: "2022 – 2024"}}},
+			{ID: "x", Kind: resume.KindEntries, Title: "Experience", Entries: []resume.Entry{{ID: "x1", Heading: "Globex", Subheading: "Analyst", Dates: "Jun 2024 – Present", Bullets: []resume.Bullet{{ID: "b", Text: "Built models"}}}}},
+		},
+	}}
+	if _, err := store.SaveResume(ctx, pool, testUserID, doc); err != nil {
+		t.Fatal(err)
+	}
+	var v applicantView
+	code, body := do(t, client, http.MethodGet, ts.URL+"/api/applicant", "")
+	if err := json.Unmarshal([]byte(body), &v); code != 200 || err != nil {
+		t.Fatalf("get: %d %s", code, body)
+	}
+	a := v.Applicant
+	if a.School != "UT Dallas" || a.Degree != "Master of Science" || a.Major != "Business Analytics" || a.GraduationYear != "2024" ||
+		a.CurrentCompany != "Globex" || a.LinkedIn != "https://linkedin.com/in/jesse" || a.City != "Dallas" || a.State != "TX" {
+		t.Errorf("from the resume: %+v", a)
+	}
+	// The profile answers come first: its title, years and work authorization.
+	if a.CurrentTitle != "Data Scientist" || a.YearsExperience != "3" || a.AuthorizedToWork != "yes" || a.NeedsSponsorship != "yes" || a.WorkPreference != "remote" {
+		t.Errorf("from the profile: %+v", a)
+	}
+	if v.Sources["school"] != "resume" || v.Sources["work_preference"] != "profile" {
+		t.Errorf("sources: %v", v.Sources)
+	}
+	if len(v.Experience) != 1 || v.Experience[0].Description != "Built models" || !v.Experience[0].Current || len(v.Education) != 1 {
+		t.Errorf("history: %+v %+v", v.Experience, v.Education)
+	}
+	// Saved details win, and are not marked as filled in.
+	do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"school":"SMU","gender":"Male"}`)
+	_, body = do(t, client, http.MethodGet, ts.URL+"/api/applicant", "")
+	v = applicantView{}
+	json.Unmarshal([]byte(body), &v)
+	if v.Applicant.School != "SMU" || v.Sources["school"] != "" || v.Applicant.Degree != "Master of Science" || v.Applicant.Gender != "Male" {
+		t.Errorf("saved wins: %+v %v", v.Applicant, v.Sources)
 	}
 }
 
