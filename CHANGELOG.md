@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/jessechumo/Wera/compare/wera-v0.5.0...wera-v0.6.0) (2026-10-21)
+
+
+### Features
+
+* **api:** cover letter as a PDF file ([8b18fb5](https://github.com/jessechumo/Wera/commit/8b18fb5817b044ac62e7dd5cd8af083fd58d8022))
+* **api:** show which jobs the extension filled ([2e52cba](https://github.com/jessechumo/Wera/commit/2e52cba9539eec4d25f97517819a3c0cab22160d))
+* better job ranking: Arctic Embed M plus a blended score ([8a6733e](https://github.com/jessechumo/Wera/commit/8a6733e19de77b6ad60b5e56ed526e3396c90e53))
+* **embed:** give the model the query and document prefixes it expects ([cb359ba](https://github.com/jessechumo/Wera/commit/cb359ba0e80afdd44284029a52d8cacbdf9c41a3))
+* **embed:** rank with Snowflake Arctic Embed M v1.5 ([928406f](https://github.com/jessechumo/Wera/commit/928406f71fbc52ea1b45923094e64c92eafbf9b8))
+* **pipeline:** rank jobs by a blend of embeddings, words, skills and years ([dd4cd00](https://github.com/jessechumo/Wera/commit/dd4cd00d723b6a838b7a2bee8a76269bb85edb30))
+* **relevance:** add similarity, skill-overlap and standardize helpers ([7ed9564](https://github.com/jessechumo/Wera/commit/7ed9564a28e7d0765e4da915041ac0313e1a1bcf))
+
+
+### Bug Fixes
+
+* **deps:** build with Go 1.27.3 ([c8c0a7c](https://github.com/jessechumo/Wera/commit/c8c0a7c4aed6156684e294773c5d5ab5fd5a0d79))
+* **deps:** build with Go 1.27.3 ([a3e8db1](https://github.com/jessechumo/Wera/commit/a3e8db1eafb3c7bf273cf9f5422a9a95b0f5bf72))
+
 ## [0.5.0](https://github.com/jessechumo/Wera/compare/wera-v0.4.0...wera-v0.5.0) (2026-10-20)
 
 
