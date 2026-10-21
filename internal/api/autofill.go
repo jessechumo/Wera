@@ -70,12 +70,12 @@ func (s *Server) suggestFill(w http.ResponseWriter, r *http.Request) {
 	if !s.aiReady(w, r, "suggesting answers") {
 		return
 	}
-	a, _, err := store.GetApplicant(r.Context(), s.Pool, user)
+	view, err := s.applicantFor(r.Context(), user)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	raw, _ := json.Marshal(a)
+	raw, _ := json.Marshal(view.Applicant)
 	var all map[string]string
 	_ = json.Unmarshal(raw, &all)
 	details := map[string]string{}
