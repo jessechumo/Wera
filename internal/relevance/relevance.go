@@ -72,10 +72,23 @@ func termFreq(doc Doc) map[string]float64 {
 // candidates, rank put the top hundred all at 84 or 85. Estimates only
 // order jobs and preview them; the LLM score replaces them.
 func Rank(profile string, docs []Doc) map[int64]int {
-	out := make(map[int64]int, len(docs))
 	if len(docs) == 0 {
+		return map[int64]int{}
+	}
+	sims := Similarities(profile, docs)
+	if sims == nil {
+		out := make(map[int64]int, len(docs))
+		for _, d := range docs {
+			out[d.ID] = 50
+		}
 		return out
 	}
+	return Scale(sims)
+}
+
+// Similarities returns each doc's TF-IDF cosine similarity to the profile
+// (IDF over the docs), or nil when the profile has no usable words.
+func Similarities(profile string, docs []Doc) map[int64]float64 {
 	tfs := make([]map[string]float64, len(docs))
 	df := map[string]float64{}
 	for i, d := range docs {
@@ -99,10 +112,7 @@ func Rank(profile string, docs []Doc) map[int64]int {
 	}
 	pv, pnorm := weigh(termFreq(Doc{Body: profile}))
 	if pnorm == 0 {
-		for _, d := range docs {
-			out[d.ID] = 50
-		}
-		return out
+		return nil
 	}
 
 	sims := make(map[int64]float64, len(docs))
@@ -118,7 +128,72 @@ func Rank(profile string, docs []Doc) map[int64]int {
 		}
 		sims[d.ID] = sim
 	}
-	return Scale(sims)
+	return sims
+}
+
+// SkillOverlap returns the share of a job's required skills whose words
+// all appear in the profile text (0.5 when the job lists none, so a
+// missing list neither helps nor hurts).
+func SkillOverlap(profile map[string]bool, skills []string) float64 {
+	var listed, held float64
+	for _, s := range skills {
+		toks := Tokens(s)
+		if len(toks) == 0 {
+			continue
+		}
+		listed++
+		all := true
+		for _, t := range toks {
+			if !profile[t] {
+				all = false
+				break
+			}
+		}
+		if all {
+			held++
+		}
+	}
+	if listed == 0 {
+		return 0.5
+	}
+	return held / listed
+}
+
+// TokenSet is the set of Tokens in s.
+func TokenSet(s string) map[string]bool {
+	m := map[string]bool{}
+	for _, t := range Tokens(s) {
+		m[t] = true
+	}
+	return m
+}
+
+// Standardize rescales values to mean 0 and standard deviation 1, so
+// signals on different scales can be added (all zeros when they are
+// equal).
+func Standardize(v map[int64]float64) map[int64]float64 {
+	out := make(map[int64]float64, len(v))
+	if len(v) == 0 {
+		return out
+	}
+	var mean float64
+	for _, x := range v {
+		mean += x
+	}
+	mean /= float64(len(v))
+	var sd float64
+	for _, x := range v {
+		sd += (x - mean) * (x - mean)
+	}
+	sd = math.Sqrt(sd / float64(len(v)))
+	for id, x := range v {
+		if sd > 0 {
+			out[id] = (x - mean) / sd
+		} else {
+			out[id] = 0
+		}
+	}
+	return out
 }
 
 // Scale maps similarities onto estimates in 35..85: the best gets 85 and
