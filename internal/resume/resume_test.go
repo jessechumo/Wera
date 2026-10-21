@@ -295,3 +295,23 @@ func TestLayoutClampAndPlaceholders(t *testing.T) {
 		t.Errorf("placeholders kept: %q %+v", r.Headline, e)
 	}
 }
+
+func TestLetterPDF(t *testing.T) {
+	rd := renderer(t)
+	body := "Dear team,\n\nI build #eval(\"1+1\") ]#panic(\"x\") things.\nSecond line.\n\nBest,\nAda"
+	pdf, err := rd.LetterPDF(context.Background(), Letter{Name: "Ada Lovelace", Email: "ada@example.com", Date: "October 21, 2026", Company: "Acme", Title: "Engineer", Body: body})
+	if err != nil || !strings.HasPrefix(string(pdf), "%PDF") {
+		t.Fatalf("letter pdf: %v", err)
+	}
+	if _, err := exec.LookPath("pdftotext"); err == nil {
+		cmd := exec.Command("pdftotext", "-", "-")
+		cmd.Stdin = strings.NewReader(string(pdf))
+		out, _ := cmd.Output()
+		txt := strings.Join(strings.Fields(string(out)), " ")
+		for _, want := range []string{"Ada Lovelace", "ada@example.com", "Re: Engineer", `I build #eval("1+1") ]#panic("x") things. Second line.`} {
+			if !strings.Contains(txt, want) {
+				t.Errorf("letter text is missing %q:\n%s", want, txt)
+			}
+		}
+	}
+}

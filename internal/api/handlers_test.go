@@ -488,6 +488,13 @@ func TestCoverLetterEdits(t *testing.T) {
 	if code, body := do(t, client, http.MethodGet, url, ""); code != 200 || !strings.Contains(body, "I built it, well.") {
 		t.Errorf("get after edit: %d %s", code, body)
 	}
+	// As a file, for forms that want one attached (503 without typst).
+	if code, body := do(t, client, http.MethodGet, url+"/pdf?download=1", ""); code != 503 && (code != 200 || !strings.HasPrefix(body, "%PDF")) {
+		t.Errorf("letter pdf: %d %.40s", code, body)
+	}
+	if code, _ := do(t, client, http.MethodGet, fmt.Sprintf("%s/api/jobs/999999999/cover-letter/pdf", ts.URL), ""); code != 404 && code != 503 {
+		t.Errorf("letter pdf for someone else's job: want 404, got %d", code)
+	}
 	if code, _ := do(t, client, http.MethodPut, fmt.Sprintf("%s/api/jobs/999999999/cover-letter", ts.URL), `{"body":"x"}`); code != 404 {
 		t.Errorf("letter for someone else's job: want 404, got %d", code)
 	}
