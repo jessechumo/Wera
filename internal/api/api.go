@@ -153,6 +153,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/jobs/{id}/cover-letter", s.getCoverLetter)
 			r.Post("/jobs/{id}/cover-letter", s.generateCoverLetter)
 			r.Put("/jobs/{id}/cover-letter", s.putCoverLetter)
+			r.Get("/jobs/{id}/cover-letter/pdf", s.coverLetterPDF)
 
 			r.Get("/posts", s.listPosts)
 			r.Post("/posts", s.createPost)

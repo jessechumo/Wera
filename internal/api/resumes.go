@@ -647,3 +647,67 @@ func (s *Server) suggestBullet(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"suggestions": out})
 }
+
+// coverLetterPDF is GET /api/jobs/{id}/cover-letter/pdf (?download=1): the
+// job's cover letter as a file, for forms that ask to attach one.
+func (s *Server) coverLetterPDF(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.pathID(w, r, "id", "job")
+	if !ok || !s.renderer(w) {
+		return
+	}
+	user := currentUser(r)
+	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		s.writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	c, err := store.GetCoverLetter(r.Context(), s.Pool, user.ID, id)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if c == nil || strings.TrimSpace(c.Body) == "" {
+		s.writeError(w, http.StatusNotFound, "no cover letter yet")
+		return
+	}
+	a, _, err := store.GetApplicant(r.Context(), s.Pool, user)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	name := strings.TrimSpace(strings.Join(strings.Fields(a.FirstName+" "+a.LastName), " "))
+	if name == "" {
+		name = user.Name
+	}
+	var place []string
+	for _, p := range []string{a.City, a.State} {
+		if p = strings.TrimSpace(p); p != "" {
+			place = append(place, p)
+		}
+	}
+	pdf, err := s.Resumes.LetterPDF(r.Context(), resume.Letter{
+		Name: name, Email: a.Email, Phone: a.Phone, Location: strings.Join(place, ", "),
+		Date: time.Now().Format("January 2, 2006"), Company: job.Company, Title: job.Title, Body: c.Body,
+	})
+	if err != nil {
+		s.Log.Error("letter pdf failed", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "could not render the letter")
+		return
+	}
+	disposition := "inline"
+	if r.URL.Query().Get("download") == "1" {
+		disposition = "attachment"
+	}
+	file := safeFilename(strings.ReplaceAll(name, " ", "_") + "_Cover_Letter.pdf")
+	if file == "" || strings.HasPrefix(file, ".") || strings.HasPrefix(file, "_") {
+		file = "Cover_Letter.pdf"
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, file))
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; object-src 'self'; frame-ancestors 'self'")
+	_, _ = w.Write(pdf)
+}
