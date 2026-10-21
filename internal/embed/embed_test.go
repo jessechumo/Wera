@@ -105,3 +105,18 @@ func TestJobText(t *testing.T) {
 		t.Fatalf("JobText = %q", got)
 	}
 }
+
+func TestPrefixes(t *testing.T) {
+	for model, want := range map[string][2]string{
+		"BAAI/bge-small-en-v1.5":             {bgeQuery, ""},
+		"BAAI/bge-base-en-v1.5":              {bgeQuery, ""},
+		"Snowflake/snowflake-arctic-embed-m": {bgeQuery, ""},
+		"intfloat/e5-base-v2":                {"query: ", "passage: "},
+		"nomic-ai/nomic-embed-text-v1.5":     {"search_query: ", "search_document: "},
+		"thenlper/gte-base":                  {"", ""},
+	} {
+		if q, d := Prefixes(model); q != want[0] || d != want[1] {
+			t.Errorf("Prefixes(%q) = %q, %q", model, q, d)
+		}
+	}
+}

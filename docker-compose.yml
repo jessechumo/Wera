@@ -22,13 +22,13 @@ services:
   #   docker compose up -d --build
   # `docker compose up -d postgres` still starts only the database.
 
-  # Local embedding model (BAAI/bge-small-en-v1.5, CPU, ~700 MB RAM): ranks
+  # Local embedding model (Snowflake/snowflake-arctic-embed-m-v1.5, CPU, about 1 GB RAM): ranks
   # every pending job for each user without an AI call, so only the best
-  # ranked get a paid AI score. Downloads the model (~130 MB) on first start.
+  # ranked get a paid AI score. Downloads the model (~440 MB) on first start.
   wera-embed:
     container_name: wera-embed
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
-    command: ["--model-id", "BAAI/bge-small-en-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
+    command: ["--model-id", "Snowflake/snowflake-arctic-embed-m-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
     volumes:
       - wera-embed-models:/data
     healthcheck:
