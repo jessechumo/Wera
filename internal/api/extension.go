@@ -414,12 +414,14 @@ func (s *Server) jobContext(r *http.Request, jobID int64, company, title, desc s
 // application question, for the user to edit.
 func (s *Server) answerQuestion(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Question    string `json:"question"`
-		MaxWords    int    `json:"max_words"`
-		JobID       int64  `json:"job_id"`
-		Company     string `json:"company"`
-		Title       string `json:"title"`
-		Description string `json:"description"`
+		Question     string `json:"question"`
+		MaxWords     int    `json:"max_words"`
+		Instructions string `json:"instructions"`
+		Draft        string `json:"draft"`
+		JobID        int64  `json:"job_id"`
+		Company      string `json:"company"`
+		Title        string `json:"title"`
+		Description  string `json:"description"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeError(w, http.StatusBadRequest, "bad JSON body")
@@ -427,6 +429,10 @@ func (s *Server) answerQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	if q := strings.TrimSpace(in.Question); len(q) < 5 || len(q) > 1000 {
 		s.writeError(w, http.StatusBadRequest, "the question needs 5 to 1000 characters")
+		return
+	}
+	if len(in.Instructions) > 600 || len(in.Draft) > 8000 {
+		s.writeError(w, http.StatusBadRequest, "the request or the draft is too long")
 		return
 	}
 	user := currentUser(r)
@@ -446,9 +452,22 @@ func (s *Server) answerQuestion(w http.ResponseWriter, r *http.Request) {
 	if !s.aiReady(w, r, "drafting answers") {
 		return
 	}
-	reply, err := s.chatForUser(r.Context(), user.ID, "answer", 700, profile.AnswerMessages(profile.AnswerInput{
+	// Answers the user wrote on earlier forms: their own stories and voice, for questions like "Tell me about a time...".
+	saved, err := store.ListAnswers(r.Context(), s.Pool, user.ID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	var prior []profile.PriorAnswer
+	for _, sa := range saved {
+		if sa.Kind == "long" {
+			prior = append(prior, profile.PriorAnswer{Question: sa.Question, Answer: sa.Answer})
+		}
+	}
+	reply, err := s.chatForUser(r.Context(), user.ID, "answer", 900, profile.AnswerMessages(profile.AnswerInput{
 		Question: in.Question, MaxWords: in.MaxWords, Profile: prof.Markdown, Resume: prof.ResumeText,
-		Company: company, Title: title, Description: desc,
+		Company: company, Title: title, Description: desc, Prior: prior,
+		Instructions: strings.TrimSpace(in.Instructions), Draft: strings.TrimSpace(in.Draft), Today: time.Now(),
 	}))
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
