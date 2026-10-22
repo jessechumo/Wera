@@ -133,12 +133,12 @@ func (s *Server) deleteExtToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getApplicant(w http.ResponseWriter, r *http.Request) {
-	a, saved, err := store.GetApplicant(r.Context(), s.Pool, currentUser(r))
+	v, err := s.applicantFor(r.Context(), currentUser(r))
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"applicant": a, "saved": saved})
+	s.writeJSON(w, http.StatusOK, v)
 }
 
 func (s *Server) putApplicant(w http.ResponseWriter, r *http.Request) {
