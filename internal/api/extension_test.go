@@ -257,6 +257,13 @@ func TestExtensionAIFeatures(t *testing.T) {
 	if _, body = do(t, client, http.MethodPost, ts.URL+"/api/ext/answer", `{"question":"What are your salary expectations?"}`); !strings.Contains(body, `"needs_input"`) {
 		t.Errorf("salary should ask the user: %s", body)
 	}
+	// A rework: the draft and the user's steer are taken; a steer past the limit is refused.
+	if code, _ = do(t, client, http.MethodPost, ts.URL+"/api/ext/answer", `{"question":"Why do you want to work at Acme?","company":"Acme","title":"SRE","draft":"Robots.","instructions":"shorter"}`); code != http.StatusOK {
+		t.Errorf("rework: %d", code)
+	}
+	if code, _ = do(t, client, http.MethodPost, ts.URL+"/api/ext/answer", `{"question":"Why do you want to work at Acme?","instructions":"`+strings.Repeat("x", 700)+`"}`); code != http.StatusBadRequest {
+		t.Errorf("long steer: %d", code)
+	}
 
 	do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"city":"Austin","gender":"Female"}`)
 	do(t, client, http.MethodPut, ts.URL+"/api/applicant/answers", `{"answers":[{"question":"Notice period?","answer":"Two weeks"}]}`)
