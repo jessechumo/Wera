@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/jessechumo/Wera/compare/wera-v0.7.0...wera-v0.7.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **api:** reading application details never starts an AI import ([170fc5e](https://github.com/jessechumo/Wera/commit/170fc5e51e0af4fbfa5ca73968e35fafa337fe8d))
+* **api:** self-identification starts unanswered, never declined ([54b45fe](https://github.com/jessechumo/Wera/commit/54b45fe4348862d7c0bb4a13f778ebe3a6d78499))
+
 ## [0.7.0](https://github.com/jessechumo/Wera/compare/wera-v0.6.0...wera-v0.7.0) (2026-10-22)
 
 
