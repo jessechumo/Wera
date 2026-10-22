@@ -168,7 +168,7 @@ func TestBearerTokensAreNotCookies(t *testing.T) {
 func TestApplicantDetails(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	code, body := do(t, client, http.MethodGet, ts.URL+"/api/applicant", "")
-	if code != 200 || !strings.Contains(body, `"saved":false`) || !strings.Contains(body, `"gender":"decline"`) || !strings.Contains(body, `"first_name":"API"`) {
+	if code != 200 || !strings.Contains(body, `"saved":false`) || !strings.Contains(body, `"gender":""`) || !strings.Contains(body, `"first_name":"API"`) {
 		t.Fatalf("defaults: %d %s", code, body)
 	}
 	if code, _ := do(t, client, http.MethodPut, ts.URL+"/api/applicant", `{"needs_sponsorship":"maybe"}`); code != 400 {
