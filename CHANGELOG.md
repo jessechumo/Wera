@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/jessechumo/Wera/compare/wera-v0.7.1...wera-v0.7.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ai:** tell form answers today's date ([18927e4](https://github.com/jessechumo/Wera/commit/18927e4c8ba476b6e6f47f16240266aee97749fd))
+* **ai:** tell form answers today's date and drop start dates that have passed ([61d08f7](https://github.com/jessechumo/Wera/commit/61d08f714ec67b9a9c88d68077a71b77e196e10b))
+
 ## [0.7.1](https://github.com/jessechumo/Wera/compare/wera-v0.7.0...wera-v0.7.1) (2026-10-22)
 
 
