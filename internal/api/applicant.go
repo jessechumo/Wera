@@ -48,8 +48,7 @@ func withHTTPS(u string) string {
 
 // applicantFor builds the view. Saved details always win; blanks are
 // filled from the profile answers, then the main resume (or, without
-// one, the links and phone number in the uploaded resume, while the main
-// resume is built from it in the background).
+// one, the links and phone number in the uploaded resume).
 func (s *Server) applicantFor(ctx context.Context, user *store.User) (*applicantView, error) {
 	a, saved, err := store.GetApplicant(ctx, s.Pool, user)
 	if err != nil {
@@ -136,8 +135,9 @@ func (s *Server) applicantFor(ctx context.Context, user *store.User) (*applicant
 			if m := resumePhone.FindString(prof.ResumeText); m != "" {
 				fill("phone", m, "resume")
 			}
-			// The jobs and schools come once the main resume is built.
-			s.importInBackground(user.ID, prof.ResumeText)
+			// The jobs and schools come once the main resume is built from
+			// the upload (started when it was uploaded, never from here:
+			// reading details must not spend the user's AI budget).
 		}
 	default:
 		return nil, err
