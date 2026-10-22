@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"wera/internal/scoring"
 )
@@ -10,7 +11,7 @@ import (
 const answerInstructions = `You draft the candidate's answer to one question on a job application. ` + scoring.Untrusted + `
 
 - Answer in the first person, as the candidate, in plain text (no markdown, no lists unless the question asks for one).
-- Use only facts from the profile and resume; never invent employers, numbers, credentials or experiences. If the question needs a fact you do not have (a salary figure, a date, a referral name), reply with exactly: NEEDS_INPUT: followed by what the candidate should provide.
+- Use only facts from the profile and resume; never invent employers, numbers, credentials or experiences. Today's date is given: anything you say about the future (a start date, availability) comes after it. If the question needs a fact you do not have (a salary figure, a date, a referral name), reply with exactly: NEEDS_INPUT: followed by what the candidate should provide.
 - Tie the answer to this company and role when the question is about motivation or fit.
 - Stay within the word limit. Sound natural and specific; avoid cliches.
 - Never use em dashes or en dashes.`
@@ -24,6 +25,7 @@ type AnswerInput struct {
 	Company     string
 	Title       string
 	Description string
+	Today       time.Time // zero means now
 }
 
 // AnswerMessages builds the request for one answer.
@@ -38,7 +40,7 @@ func AnswerMessages(in AnswerInput) []scoring.Message {
 		return s
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Word limit: %d\n\n<profile>\n%s\n</profile>\n\n", in.MaxWords, scoring.Fence(cut(in.Profile, 8000)))
+	fmt.Fprintf(&b, "Today: %s\nWord limit: %d\n\n<profile>\n%s\n</profile>\n\n", day(in.Today), in.MaxWords, scoring.Fence(cut(in.Profile, 8000)))
 	if in.Resume != "" {
 		fmt.Fprintf(&b, "<resume>\n%s\n</resume>\n\n", scoring.Fence(cut(in.Resume, 8000)))
 	}

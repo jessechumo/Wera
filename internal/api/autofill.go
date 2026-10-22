@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -95,15 +96,16 @@ func (s *Server) suggestFill(w http.ResponseWriter, r *http.Request) {
 			prior = append(prior, profile.PriorAnswer{Question: sa.Question, Answer: sa.Answer})
 		}
 	}
+	now := time.Now()
 	reply, err := s.chatForUser(r.Context(), user.ID, "autofill", 2000, profile.AutofillMessages(profile.AutofillInput{
 		Fields: in.Fields, Profile: prof.Markdown, Resume: prof.ResumeText, Details: details, Prior: prior,
-		Company: company, Title: title, Description: desc,
+		Company: company, Title: title, Description: desc, Today: now,
 	}))
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI service did not answer; try again")
 		return
 	}
-	out, err := profile.ParseAutofill(reply, in.Fields)
+	out, err := profile.ParseAutofill(reply, in.Fields, now)
 	if err != nil {
 		s.writeError(w, http.StatusBadGateway, "the AI returned unusable answers; try again")
 		return
