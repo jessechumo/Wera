@@ -132,7 +132,8 @@ type Applicant struct {
 	NoticePeriod      string `json:"notice_period"`
 	Languages         string `json:"languages"`
 	HowHeard          string `json:"how_heard"`
-	// Voluntary self-identification; "decline" unless the user chooses.
+	// Voluntary self-identification: "" until the user answers (on a form
+	// or in Application details), "decline" only when they choose it.
 	Gender            string `json:"gender"`
 	Pronouns          string `json:"pronouns"`
 	Transgender       string `json:"transgender"`
@@ -193,9 +194,9 @@ func GetApplicant(ctx context.Context, pool *pgxpool.Pool, user *User) (*Applica
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
-	a := &Applicant{Email: user.Email, HowHeard: "Company website", Over18: "yes",
-		Gender: "decline", Race: "decline", Hispanic: "decline", Veteran: "decline", Disability: "decline",
-		Transgender: "decline", SexualOrientation: "decline"}
+	// Self-identification starts unanswered: the extension asks on the
+	// first form and remembers the answer; it never declines for the user.
+	a := &Applicant{Email: user.Email, HowHeard: "Company website", Over18: "yes"}
 	if f := strings.Fields(user.Name); len(f) > 0 {
 		a.FirstName, a.LastName = f[0], strings.Join(f[1:], " ")
 	}
