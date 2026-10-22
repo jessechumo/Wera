@@ -1,8 +1,10 @@
 package config
 
 import (
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"wera/internal/scoring"
 )
@@ -60,7 +62,9 @@ func TestAIOpenAICompatibleNeedsURLModelAndPrice(t *testing.T) {
 	}
 
 	t.Setenv("AI_BASE_URL", "https://llm.example.com/v1/")
-	t.Setenv("AI_MODEL", "acme/unpriced-model")
+	// A new name each run: setting prices below registers this model in the shared price table.
+	model := "acme/unpriced-model-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	t.Setenv("AI_MODEL", model)
 	if _, errs := loadAI(); len(errs) == 0 || !strings.Contains(strings.Join(errs, " "), "no known price") {
 		t.Errorf("unpriced model accepted: %v", errs)
 	}
@@ -72,10 +76,10 @@ func TestAIOpenAICompatibleNeedsURLModelAndPrice(t *testing.T) {
 	if len(errs) > 0 {
 		t.Fatal(errs)
 	}
-	if a.BaseURL != "https://llm.example.com/v1" || a.DeepModel != "acme/unpriced-model" {
+	if a.BaseURL != "https://llm.example.com/v1" || a.DeepModel != model {
 		t.Errorf("openai-compatible: %+v", a)
 	}
-	if p, ok := scoring.PriceFor("acme/unpriced-model"); !ok || p.Output != 1.5 || p.CachedInput != 0.05 {
+	if p, ok := scoring.PriceFor(model); !ok || p.Output != 1.5 || p.CachedInput != 0.05 {
 		t.Errorf("price override: %+v %v", p, ok)
 	}
 }
