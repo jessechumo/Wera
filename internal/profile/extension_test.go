@@ -3,6 +3,7 @@ package profile
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseJobDraftSlicesTheDescriptionFromThePage(t *testing.T) {
@@ -96,7 +97,7 @@ func TestParseAutofillKeepsOnlyAnswersThatFit(t *testing.T) {
 		{"id":"w9","value":"unknown field"},
 		{"id":"w2","value":"Bachelor's"}
 	]}` + "\n```"
-	got, err := ParseAutofill(reply, fields)
+	got, err := ParseAutofill(reply, fields, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,59 @@ func TestParseAutofillKeepsOnlyAnswersThatFit(t *testing.T) {
 	if got[0].Confidence != "high" || got[2].Confidence != "low" || got[0].Why != "saved answer" {
 		t.Errorf("confidence or why lost: %+v", got)
 	}
-	if _, err := ParseAutofill("nope", fields); err == nil {
+	if _, err := ParseAutofill("nope", fields, time.Time{}); err == nil {
 		t.Error("unreadable reply must be an error")
+	}
+}
+
+func TestPromptsCarryTodaysDate(t *testing.T) {
+	today := time.Date(2026, 10, 22, 15, 0, 0, 0, time.UTC)
+	a := AutofillMessages(AutofillInput{Fields: []FormField{{ID: "w1", Label: "Start date", Kind: "text"}}, Profile: "p", Today: today})
+	q := AnswerMessages(AnswerInput{Question: "When can you start?", Profile: "p", Today: today})
+	for _, m := range [][]string{{a[1].Content, a[0].Content}, {q[1].Content, q[0].Content}} {
+		if !strings.Contains(m[0], "Today: 2026-10-22") {
+			t.Errorf("no date in %q", m[0][:60])
+		}
+	}
+	if !strings.Contains(a[0].Content, "never before today") {
+		t.Error("autofill rules say nothing about start dates")
+	}
+}
+
+func TestParseAutofillDropsStartDatesThatHavePassed(t *testing.T) {
+	today := time.Date(2026, 10, 22, 0, 0, 0, 0, time.UTC)
+	fields := []FormField{
+		{ID: "a", Label: "Earliest start date", Kind: "text"},
+		{ID: "b", Label: "When are you available to start?", Kind: "text"},
+		{ID: "c", Label: "Desired start date (MM/DD/YYYY)", Kind: "text"},
+		{ID: "d", Label: "Start month", Kind: "text"},
+		{ID: "e", Label: "Available from", Kind: "text"},
+		{ID: "f", Label: "Start date", Kind: "text"},
+		{ID: "g", Label: "Graduation year", Kind: "text"},
+		{ID: "h", Label: "Start date", Kind: "text"},
+	}
+	reply := `{"answers":[
+		{"id":"a","value":"2025-01-15","confidence":"low"},
+		{"id":"b","value":"January 2025","confidence":"low"},
+		{"id":"c","value":"11/03/2026","confidence":"low"},
+		{"id":"d","value":"2026-10","confidence":"low"},
+		{"id":"e","value":"Two weeks after an offer","confidence":"low"},
+		{"id":"f","value":"2026-10-22","confidence":"low"},
+		{"id":"g","value":"2025","confidence":"high"},
+		{"id":"h","value":"2026-09","confidence":"low"}]}`
+	got, err := ParseAutofill(reply, fields, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept := map[string]bool{}
+	for _, s := range got {
+		kept[s.ID] = true
+	}
+	// Past starts go; future ones, this month, today, words, and dates that are not starts stay.
+	want := map[string]bool{"a": false, "b": false, "c": true, "d": true, "e": true, "f": true, "g": true, "h": false}
+	for id, w := range want {
+		if kept[id] != w {
+			t.Errorf("%s kept=%v, want %v", id, kept[id], w)
+		}
 	}
 }

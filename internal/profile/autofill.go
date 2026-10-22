@@ -3,7 +3,10 @@ package profile
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"wera/internal/scoring"
@@ -11,7 +14,7 @@ import (
 
 const autofillInstructions = `You fill in one page of a job application form for the candidate. ` + scoring.Untrusted + `
 
-You get the candidate's profile, resume, saved application details, answers they gave on earlier forms, the job posting, and the form's fields (id, label, kind, options, character limit) as JSON.
+You get today's date, the candidate's profile, resume, saved application details, answers they gave on earlier forms, the job posting, and the form's fields (id, label, kind, options, character limit) as JSON.
 
 Return ONLY a JSON object: {"answers": [{"id": "<field id>", "value": "<answer>", "confidence": "high" or "low", "why": "<a few words: where the answer came from>"}]}
 
@@ -23,6 +26,7 @@ Rules:
 - For a single checkbox, answer "yes" to tick it or leave it out.
 - Never answer gender, race, ethnicity, sexual orientation, transgender, veteran, disability or other self-identification questions, legal agreements, signatures, consents or attestations: leave them out. The candidate answers those.
 - Dates as YYYY-MM-DD unless the label shows another format. Numbers as plain digits.
+- A start date or availability date is never before today. Use the candidate's stated start date only when it is still ahead; with only a notice period, count it from today; otherwise leave the field out.
 - Text fields get a short, plain answer (a name, a number, a few words). Longer free-text questions get at most 80 words in the first person, specific to this job, and confidence "low".
 - Salary questions: use the candidate's stated expectation only; never guess one.
 - confidence "high" when the data states the answer directly; "low" when you inferred it.
@@ -54,6 +58,7 @@ type AutofillInput struct {
 	Company     string
 	Title       string
 	Description string
+	Today       time.Time // zero means now
 }
 
 // Suggestion is the AI's answer for one field.
@@ -91,6 +96,7 @@ func AutofillMessages(in AutofillInput) []scoring.Message {
 		prior.WriteByte('\n')
 	}
 	var b strings.Builder
+	fmt.Fprintf(&b, "Today: %s\n\n", day(in.Today))
 	fmt.Fprintf(&b, "<profile>\n%s\n\nApplication details: %s\n</profile>\n\n", scoring.Fence(cutRunes(in.Profile, 6000)), scoring.Fence(string(details)))
 	if in.Resume != "" {
 		fmt.Fprintf(&b, "<resume>\n%s\n</resume>\n\n", scoring.Fence(cutRunes(in.Resume, 7000)))
@@ -120,10 +126,60 @@ func matchChoice(options []string, v string) string {
 	return ""
 }
 
+// day is the date the AI is told it is today.
+func day(t time.Time) string {
+	if t.IsZero() {
+		t = time.Now()
+	}
+	return t.Format("2006-01-02")
+}
+
+var (
+	startLabel = regexp.MustCompile(`(?i)start|availab|join|begin|commence`)
+	isoMonth   = regexp.MustCompile(`^\d{4}-\d{1,2}$`)
+	usDate     = regexp.MustCompile(`^\d{1,2}/\d{1,2}/\d{4}$`)
+	yearOnly   = regexp.MustCompile(`\b(19|20)\d{2}\b`)
+)
+
+// pastStart reports whether v is a start or availability date that has
+// already gone by: a form must never be told the candidate starts in the past.
+func pastStart(label, v string, today time.Time) bool {
+	if !startLabel.MatchString(label) {
+		return false
+	}
+	if today.IsZero() {
+		today = time.Now()
+	}
+	y, m, d := today.Date()
+	cut := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	v = strings.TrimSpace(v)
+	if t, err := time.Parse("2006-01-02", v); err == nil {
+		return t.Before(cut)
+	}
+	if usDate.MatchString(v) {
+		t, err := time.Parse("1/2/2006", v)
+		return err == nil && t.Before(cut)
+	}
+	if isoMonth.MatchString(v) {
+		t, err := time.Parse("2006-1", v)
+		return err == nil && !t.AddDate(0, 1, 0).After(cut) // the whole month has gone by
+	}
+	// "January 2025", "2025": only a year to go by.
+	if ys := yearOnly.FindAllString(v, -1); len(ys) > 0 {
+		for _, s := range ys {
+			if n, _ := strconv.Atoi(s); n >= y {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // ParseAutofill keeps the suggestions that fit their field: a known id, an
-// option that exists, a length within the field's limit. Dashes are
-// replaced as in letters.
-func ParseAutofill(reply string, fields []FormField) ([]Suggestion, error) {
+// option that exists, a length within the field's limit, no start date
+// that has passed. Dashes are replaced as in letters.
+func ParseAutofill(reply string, fields []FormField, today time.Time) ([]Suggestion, error) {
 	var raw struct {
 		Answers []struct {
 			ID         string `json:"id"`
@@ -158,7 +214,7 @@ func ParseAutofill(reply string, fields []FormField) ([]Suggestion, error) {
 			}
 		}
 		v = strings.TrimSpace(CleanLetter(v))
-		if v == "" {
+		if v == "" || pastStart(f.Label, v, today) {
 			continue
 		}
 		if choiceKinds[f.Kind] && len(f.Options) > 0 {
