@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/jessechumo/Wera/compare/wera-v0.6.0...wera-v0.7.0) (2026-10-22)
+
+
+### Features
+
+* **api:** fill application details from the profile and resume ([0ae9ca5](https://github.com/jessechumo/Wera/commit/0ae9ca5fe22bd32541017e9111255df47a3b14f5))
+* **resume:** read a resume's jobs, schools and contact details ([43b84bd](https://github.com/jessechumo/Wera/commit/43b84bd70f050682c0da8fd25f1453ea4dcd99c1))
+
 ## [0.6.0](https://github.com/jessechumo/Wera/compare/wera-v0.5.0...wera-v0.6.0) (2026-10-21)
 
 
