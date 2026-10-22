@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/jessechumo/Wera/compare/wera-v0.7.2...wera-v0.8.0) (2026-10-22)
+
+
+### Features
+
+* **ai:** rework answers on request, from the user's own stories ([c5359db](https://github.com/jessechumo/Wera/commit/c5359db9e5997c480798d05dac5350e65e94f2a7))
+* **ai:** rework answers on request, from the user's own stories ([bb29129](https://github.com/jessechumo/Wera/commit/bb291292d4dd8adcce86ec6e9ae8bc5494b4b326))
+
 ## [0.7.2](https://github.com/jessechumo/Wera/compare/wera-v0.7.1...wera-v0.7.2) (2026-10-22)
 
 
