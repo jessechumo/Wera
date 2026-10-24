@@ -198,7 +198,7 @@ func (s *Server) importInBackground(userID int64, text string) {
 	if ok, err := store.StartResumeImport(ctx, s.Pool, userID); err != nil || !ok {
 		return
 	}
-	go func() {
+	s.background("resume import", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		failure := ""
@@ -213,7 +213,7 @@ func (s *Server) importInBackground(userID int64, text string) {
 		if err := store.FinishResumeImport(ctx, s.Pool, userID, failure); err != nil {
 			s.Log.Error("recording a resume import failed", "user_id", userID, "err", err)
 		}
-	}()
+	})
 }
 
 func starterResume(u *store.User) *resume.Resume {

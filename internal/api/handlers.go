@@ -119,11 +119,12 @@ func (s *Server) triggerRun(w http.ResponseWriter, r *http.Request) {
 	release(unlockCtx)
 	cancel()
 
-	go func() { //nolint:gosec // the run outlives the request on purpose
+	// The run outlives the request on purpose.
+	s.background("pipeline run", func() {
 		if _, err := s.RunPipeline(context.Background()); err != nil {
 			s.Log.Error("triggered pipeline run failed", "err", err)
 		}
-	}()
+	})
 	s.writeJSON(w, http.StatusAccepted, map[string]string{"status": "triggered"})
 }
 
