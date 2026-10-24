@@ -333,7 +333,8 @@ func (s *Server) addJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if created {
-		go s.afterAdd(user.ID, id, in.URL) //nolint:gosec // scoring outlives the request on purpose
+		// Scoring outlives the request on purpose.
+		s.background("added job", func() { s.afterAdd(user.ID, id, in.URL) })
 	}
 	job, err := store.GetJob(r.Context(), s.Pool, user.ID, id)
 	if err != nil {
