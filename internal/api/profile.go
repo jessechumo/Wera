@@ -236,7 +236,8 @@ func (s *Server) putProfile(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}
 	if s.MatchUser != nil {
-		go s.MatchUser(context.Background(), user.ID) //nolint:gosec // matching outlives the request on purpose
+		// Matching outlives the request on purpose.
+		s.background("match user", func() { s.MatchUser(context.Background(), user.ID) })
 	}
 	s.getProfile(w, r)
 }
