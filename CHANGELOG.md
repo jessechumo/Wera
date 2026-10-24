@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/jessechumo/Wera/compare/wera-v0.8.0...wera-v0.8.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **api:** recover panics in background tasks instead of crashing the server ([#72](https://github.com/jessechumo/Wera/issues/72)) ([a7afcdb](https://github.com/jessechumo/Wera/commit/a7afcdb0f7f78fef71e28775922f684bd74ec18e))
+
 ## [0.8.0](https://github.com/jessechumo/Wera/compare/wera-v0.7.2...wera-v0.8.0) (2026-10-22)
 
 
