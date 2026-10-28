@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/jessechumo/Wera/compare/wera-v0.8.1...wera-v0.8.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **scoring:** score from 0-10 ratings of each part of fit, rescore old scores in place ([#75](https://github.com/jessechumo/Wera/issues/75)) ([56f3742](https://github.com/jessechumo/Wera/commit/56f3742dca772015282f3a53e89712b13384a331))
+
 ## [0.8.1](https://github.com/jessechumo/Wera/compare/wera-v0.8.0...wera-v0.8.1) (2026-10-24)
 
 
