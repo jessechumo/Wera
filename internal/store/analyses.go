@@ -40,6 +40,29 @@ func PendingWithCachedAnalysis(ctx context.Context, pool *pgxpool.Pool, userID i
 	return pendingJobs(ctx, pool, userID, profileHash, 0, nil, true)
 }
 
+// StaleScoredJobs loads up to limit of the user's scored jobs whose score
+// came from an older scoring method or profile text (its analysis is not
+// stored under scoreKey), best score first, with any analysis for
+// scoreKey that can be reused. They keep showing their old score until
+// the new one replaces it.
+func StaleScoredJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, scoreKey string, limit int) ([]PendingJob, error) {
+	return queryPending(ctx, pool, `
+		SELECT j.id, c.name, j.title, COALESCE(j.location_raw, ''), j.url,
+		       COALESCE(j.description, ''),
+		       a.id, a.fit_score, a.verdict, a.seniority, a.years_required,
+		       a.sponsorship, a.sponsorship_quote, a.work_mode, a.us_eligible,
+		       a.location_summary, a.skills_matched, a.skills_missing, a.reason
+		FROM user_jobs uj
+		JOIN jobs j ON j.id = uj.job_id
+		JOIN companies c ON c.id = j.company_id
+		JOIN analyses old ON old.id = uj.analysis_id
+		LEFT JOIN analyses a ON a.job_id = j.id AND a.kind = 'score' AND a.profile_hash = $2
+		WHERE uj.user_id = $1 AND uj.stage = 'scored' AND j.closed_at IS NULL
+		  AND old.profile_hash <> $2
+		ORDER BY old.fit_score DESC NULLS LAST, j.id DESC
+		LIMIT $3`, userID, scoreKey, limit)
+}
+
 func pendingJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string, limit int, onlyIDs []int64, cachedOnly bool) ([]PendingJob, error) {
 	desc, join := "COALESCE(j.description, '')", "LEFT JOIN"
 	if cachedOnly {
@@ -66,7 +89,13 @@ func pendingJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, profileH
 	if onlyIDs == nil {
 		onlyIDs = []int64{}
 	}
-	rows, err := pool.Query(ctx, q, userID, profileHash, onlyIDs)
+	return queryPending(ctx, pool, q, userID, profileHash, onlyIDs)
+}
+
+// queryPending runs a query selecting a job and an optional analysis (the
+// columns of pendingJobs) and reads the rows.
+func queryPending(ctx context.Context, pool *pgxpool.Pool, q string, args ...any) ([]PendingJob, error) {
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("load pending jobs: %w", err)
 	}
