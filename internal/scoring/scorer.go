@@ -323,6 +323,7 @@ func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
 		s.skillsOnce.Do(func() { s.skills = NewSkillSet(string(s.Profile)) })
 		fit.SkillsMatched, fit.SkillsMissing = MatchSkills(s.skills, f.SkillsRequired)
 	}
+	fit.Finish()
 	out.Analysis = Merge(f, fit)
 	if reason, evidence := PostLLMExclusion(out.Analysis, s.Rules); reason != "" {
 		out.Stage, out.ExcludeReason, out.ExcludeEvidence = StageExcluded, reason, evidence

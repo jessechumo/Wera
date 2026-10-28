@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"wera/internal/config"
+	"wera/internal/scoring"
 	"wera/internal/store"
 	"wera/internal/testutil"
 )
@@ -197,7 +198,7 @@ func TestScoreLimit(t *testing.T) {
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO analyses (job_id, kind, model, profile_hash, raw, user_id, created_at)
 		SELECT $1, 'score', 'm', $2, 'null', $3, now() - g * interval '1 minute' FROM generate_series(1, 1) g`,
-		jobs[0], prof.ProfileHash, u.ID); err != nil {
+		jobs[0], scoring.ScoreKey(prof.ProfileHash), u.ID); err != nil {
 		t.Fatal(err)
 	}
 	check("scored profile", 30)

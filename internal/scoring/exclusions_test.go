@@ -16,13 +16,13 @@ func TestScorerPostLLMExclusions(t *testing.T) {
 		reason   string
 		evidence string
 	}{
-		{"sponsorship refusal", `{"fit_score":90,"verdict":"strong","seniority":"junior","years_required":null,"sponsorship":"no","sponsorship_quote":"We do not sponsor visas.","us_eligible":true,"work_mode":"onsite","location_summary":"NYC","skills_matched":[],"skills_missing":[],"reason":"Good match."}`,
+		{"sponsorship refusal", `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"seniority":"junior","years_required":null,"sponsorship":"no","sponsorship_quote":"We do not sponsor visas.","us_eligible":true,"work_mode":"onsite","location_summary":"NYC","skills_matched":[],"skills_missing":[],"reason":"Good match."}`,
 			StageExcluded, "llm:sponsorship_no", "We do not sponsor visas."},
-		{"years over max", `{"fit_score":90,"verdict":"strong","seniority":"mid","years_required":6,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":true,"work_mode":"remote","location_summary":"Remote","skills_matched":[],"skills_missing":[],"reason":"Needs 6 years."}`,
+		{"years over max", `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"seniority":"mid","years_required":6,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":true,"work_mode":"remote","location_summary":"Remote","skills_matched":[],"skills_missing":[],"reason":"Needs 6 years."}`,
 			StageExcluded, "llm:years>3", "Needs 6 years."},
-		{"non us", `{"fit_score":40,"verdict":"stretch","seniority":"junior","years_required":1,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":false,"work_mode":"onsite","location_summary":"London, UK","skills_matched":[],"skills_missing":[],"reason":"Based in London."}`,
+		{"non us", `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"seniority":"junior","years_required":1,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":false,"work_mode":"onsite","location_summary":"London, UK","skills_matched":[],"skills_missing":[],"reason":"Based in London."}`,
 			StageExcluded, "llm:non_us", "London, UK"},
-		{"senior seniority", `{"fit_score":60,"verdict":"stretch","seniority":"senior","years_required":null,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":true,"work_mode":"remote","location_summary":"Remote","skills_matched":[],"skills_missing":[],"reason":"Senior role."}`,
+		{"senior seniority", `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"seniority":"senior","years_required":null,"sponsorship":"unknown","sponsorship_quote":null,"us_eligible":true,"work_mode":"remote","location_summary":"Remote","skills_matched":[],"skills_missing":[],"reason":"Senior role."}`,
 			StageExcluded, "llm:senior", "Senior role."},
 	}
 

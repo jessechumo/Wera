@@ -39,7 +39,7 @@ func FilterUser(ctx context.Context, pool *pgxpool.Pool, eng *filter.Engine, emb
 	// Jobs this exact profile text was already scored for (before a
 	// refilter or a profile save that kept the text) get their score back
 	// now, for free, so lists never show them as unscored.
-	pendingCached, err := store.PendingWithCachedAnalysis(ctx, pool, prof.UserID, prof.ProfileHash)
+	pendingCached, err := store.PendingWithCachedAnalysis(ctx, pool, prof.UserID, scoring.ScoreKey(prof.ProfileHash))
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +110,10 @@ func ExclusionsFor(p *config.Preferences) scoring.Exclusions {
 	}
 }
 
+// staleBatch is how many jobs scored by an older scoring method one run
+// scores again (best first; the run's cost budget still applies).
+const staleBatch = 300
+
 // ScoreStats summarizes one scoring pass.
 type ScoreStats struct {
 	Scored           int
@@ -160,18 +164,33 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	if prof.Markdown == "" {
 		return nil, scoring.ErrNoProfile
 	}
-	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, prof.ProfileHash, limit, onlyIDs)
+	key := scoring.ScoreKey(prof.ProfileHash)
+	pending, err := store.PendingScoreJobs(ctx, pool, prof.UserID, key, limit, onlyIDs)
 	if err != nil {
 		return nil, err
+	}
+	// Jobs scored by an older scoring method keep their score until this
+	// run replaces it (they are not held to the user's score limit).
+	var stalePending []store.PendingJob
+	if len(onlyIDs) == 0 {
+		if stalePending, err = store.StaleScoredJobs(ctx, pool, prof.UserID, key, staleBatch); err != nil {
+			return nil, err
+		}
 	}
 	st := &ScoreStats{}
 	rules := ExclusionsFor(&prof.Preferences)
 
 	// Reuse analyses that already exist for this profile text.
-	var jobs []scoring.Job
-	for _, pj := range pending {
+	var jobs, stale []scoring.Job
+	isStale := map[int64]bool{}
+	for i, pj := range append(pending, stalePending...) {
 		if pj.Cached == nil {
-			jobs = append(jobs, pj.Job)
+			if i >= len(pending) {
+				stale = append(stale, pj.Job)
+				isStale[pj.Job.ID] = true
+			} else {
+				jobs = append(jobs, pj.Job)
+			}
 			continue
 		}
 		if err := linkCached(ctx, pool, prof.UserID, pj, rules); err != nil {
@@ -179,7 +198,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		}
 		st.Reused++
 	}
-	if len(jobs) == 0 {
+	if len(jobs) == 0 && len(stale) == 0 {
 		log.Info("no pending jobs to score", "user_id", prof.UserID, "reused", st.Reused)
 		return st, nil
 	}
@@ -190,7 +209,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	scorer := &scoring.Scorer{
 		Client:      client,
 		Profile:     []byte(prof.Markdown),
-		ProfileHash: prof.ProfileHash,
+		ProfileHash: prof.ProfileHash, // the provider's prompt cache key
 		Model:       env.AI.Model,
 		Rules:       rules,
 		MaxCostUSD:  maxCostUSD,
@@ -217,8 +236,9 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 			}
 			m.LLMRequests.WithLabelValues(env.AI.Model, result).Inc()
 		}
-		if out.Stage != "" {
-			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.AI.Model, prof.ProfileHash, out); err != nil {
+		// A rescore that failed keeps the job's old score.
+		if out.Stage != "" && (!isStale[out.JobID] || out.Stage != scoring.StageFailed) {
+			if err := store.SaveAnalysis(ctx, pool, prof.UserID, out.JobID, env.AI.Model, key, out); err != nil {
 				log.Error("saving analysis failed", "job_id", out.JobID, "err", err)
 			} else {
 				log.Debug("job scored", "user_id", prof.UserID, "job_id", out.JobID,
@@ -276,8 +296,9 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	// 1. Shared facts (extracted once per posting, for everyone), best
 	// ranked first. They may use at most half of the allowance, so a new
 	// user with thousands of unseen postings still gets scores this run.
-	ids := make([]int64, len(jobs))
-	for i, j := range jobs {
+	all := append(append([]scoring.Job{}, jobs...), stale...)
+	ids := make([]int64, len(all))
+	for i, j := range all {
 		ids[i] = j.ID
 	}
 	facts, err := store.FactsFor(ctx, pool, ids)
@@ -285,7 +306,7 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		return st, err
 	}
 	var missing []scoring.Job
-	for _, j := range jobs {
+	for _, j := range all {
 		if facts[j.ID] == nil {
 			missing = append(missing, j)
 		}
@@ -305,8 +326,8 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 	}
 
 	// 2. The user's rules on those facts, at no cost.
-	var candidates []scoring.Job
-	for _, j := range jobs {
+	var candidates, rescore []scoring.Job
+	for _, j := range all {
 		if f := facts[j.ID]; f != nil {
 			if reason, evidence := scoring.PostLLMExclusion(scoring.Merge(f, nil), rules); reason != "" {
 				if err := store.ExcludeUserJob(ctx, pool, prof.UserID, j.ID, reason, evidence); err != nil {
@@ -316,7 +337,11 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 				continue
 			}
 		}
-		candidates = append(candidates, j)
+		if isStale[j.ID] {
+			rescore = append(rescore, j)
+		} else {
+			candidates = append(candidates, j)
+		}
 	}
 
 	// 3. Rank what is left (embeddings now cover the new facts) and keep
@@ -340,7 +365,8 @@ func ScoreUser(ctx context.Context, pool *pgxpool.Pool, env *config.Env, log *sl
 		}
 	}
 
-	// 4. Per-user AI fit scores.
+	// 4. Per-user AI fit scores: new jobs first, then rescores.
+	candidates = append(candidates, rescore...)
 	if len(candidates) > 0 && ctx.Err() == nil {
 		scorer.Facts = facts
 		scorer.MaxCostUSD = maxCostUSD - extractor.Spent()
@@ -375,7 +401,7 @@ func scoreInt(a *scoring.Analysis) any {
 // INACTIVE_AFTER_DAYS get INACTIVE_SCORES_PER_DAY, enough for their
 // digest, or none when no digest would be sent.
 func ScoreLimit(ctx context.Context, pool *pgxpool.Pool, env *config.Env, prof *store.Profile) (int, string, error) {
-	act, err := store.UserScoreActivity(ctx, pool, prof.UserID, prof.ProfileHash)
+	act, err := store.UserScoreActivity(ctx, pool, prof.UserID, scoring.ScoreKey(prof.ProfileHash))
 	if err != nil {
 		return 0, "", err
 	}
