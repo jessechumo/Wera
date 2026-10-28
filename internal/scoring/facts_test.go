@@ -37,11 +37,15 @@ func TestParseFacts(t *testing.T) {
 }
 
 func TestParseFit(t *testing.T) {
-	f, err := ParseFit("```json\n" + `{"fit_score":82,"verdict":"strong","skills_matched":["Go"],"skills_missing":[],"reason":"Good."}` + "\n```")
-	if err != nil || f.FitScore != 82 || f.Verdict != "strong" {
+	f, err := ParseFit("```json\n" + `{"ratings":{"role":10,"seniority":9,"skills":9,"domain":8,"location":10,"blocker":false},"reason":"Good."}` + "\n```")
+	if err != nil {
 		t.Fatalf("fit: %+v %v", f, err)
 	}
-	for _, bad := range []string{`{"fit_score":101,"verdict":"strong"}`, `{"fit_score":50,"verdict":"great"}`} {
+	f.Finish()
+	if f.FitScore != 94 || f.Verdict != "strong" {
+		t.Fatalf("fit: %+v", f)
+	}
+	for _, bad := range []string{`{"fit_score":82,"verdict":"strong"}`, `{"ratings":{"role":12,"seniority":5,"skills":5,"domain":5,"location":5}}`} {
 		if _, err := ParseFit(bad); err == nil {
 			t.Errorf("%s accepted", bad)
 		}

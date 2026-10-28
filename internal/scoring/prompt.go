@@ -9,13 +9,13 @@ import (
 // systemPromptText is the fixed scoring instruction from PLAN.md
 // section 7.4. It is byte-identical on every call so the prompt prefix
 // stays cached.
-const systemPromptText = `You evaluate job postings for one candidate. Return ONLY a JSON object, no prose, no markdown fences, matching this schema exactly. Be strict and literal: base sponsorship, years_required, and us_eligible only on what the posting says. If the posting does not mention sponsorship, use "unknown". sponsorship_quote must be copied verbatim from the posting or be null. Score fit 0-100 for THIS candidate considering role type, seniority, required skills, industry, and location. Roles that match the candidate's target roles, seniority, and skills (see their profile, including any scoring guidance) should score highest. Penalize roles requiring clearly more experience than the candidate has, deep specialization they lack, a license or certification they do not hold (for example an RN license, a CPA, a CDL), or work outside their targets.`
+const systemPromptText = `You evaluate job postings for one candidate. Return ONLY a JSON object, no prose, no markdown fences, matching this schema exactly. Be strict and literal: base sponsorship, years_required, and us_eligible only on what the posting says. If the posting does not mention sponsorship, use "unknown". sponsorship_quote must be copied verbatim from the posting or be null. Judge fit for THIS candidate from their profile, including their target roles, level, skills, locations and any scoring guidance in it. ` + rubricText + ` A license or certification they do not hold (for example an RN license, a CPA, a CDL) is a blocker.`
 
 // systemPrompt is the full fixed instruction: the prose plus the exact
 // JSON schema the reply must match (field names and types matter).
 const systemPrompt = systemPromptText + " " + Untrusted + `
 
-Your reply must be exactly this JSON shape (types matter: fit_score is an integer 0-100; years_required is an integer or null; us_eligible is a boolean or null; sponsorship_quote is a string copied verbatim from the posting or null; skills_matched and skills_missing are arrays of strings):
+Your reply must be exactly this JSON shape (types matter: each rating is an integer 0-10 and blocker a boolean; years_required is an integer or null; us_eligible is a boolean or null; sponsorship_quote is a string copied verbatim from the posting or null; skills_matched and skills_missing are arrays of strings):
 
 ` + schemaJSON
 

@@ -11,6 +11,8 @@ import (
 // 7.4. YearsRequired and SponsorshipQuote are nullable; every string
 // field must match its enum after validation.
 type Analysis struct {
+	// Ratings are what the model returns; FitScore and Verdict are computed from them.
+	Ratings          *Ratings `json:"ratings,omitempty"`
 	FitScore         int      `json:"fit_score"`
 	Verdict          string   `json:"verdict"`
 	Seniority        string   `json:"seniority"`
@@ -28,8 +30,7 @@ type Analysis struct {
 // schemaJSON is the model-facing schema documentation embedded in tests and
 // available for prompts that need to restate the exact shape.
 const schemaJSON = `{
-  "fit_score": 0,
-  "verdict": "strong|good|stretch|poor",
+  "ratings": {"role": 0, "seniority": 0, "skills": 0, "domain": 0, "location": 0, "blocker": false},
   "seniority": "entry|junior|mid|senior|unknown",
   "years_required": null,
   "sponsorship": "yes|no|unknown",
@@ -47,7 +48,6 @@ const schemaJSON = `{
 var ErrInvalidSchema = errors.New("reply is not valid JSON for the schema")
 
 var (
-	verdicts  = map[string]bool{"strong": true, "good": true, "stretch": true, "poor": true}
 	seniority = map[string]bool{"entry": true, "junior": true, "mid": true, "senior": true, "unknown": true}
 	sponsor   = map[string]bool{"yes": true, "no": true, "unknown": true}
 	workModes = map[string]bool{"remote": true, "hybrid": true, "onsite": true, "unknown": true}
@@ -82,12 +82,11 @@ func ParseAnalysis(text string) (*Analysis, error) {
 	if err := json.Unmarshal([]byte(StripFences(text)), a); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidSchema, err)
 	}
-	if a.FitScore < 0 || a.FitScore > 100 {
-		return nil, fmt.Errorf("%w: fit_score %d out of range 0-100", ErrInvalidSchema, a.FitScore)
+	if a.Ratings == nil || !a.Ratings.Valid() {
+		return nil, fmt.Errorf("%w: ratings missing or out of range 0-10", ErrInvalidSchema)
 	}
-	if !verdicts[a.Verdict] {
-		return nil, fmt.Errorf("%w: verdict %q", ErrInvalidSchema, a.Verdict)
-	}
+	a.FitScore = a.Ratings.Score(Coverage(a.SkillsMatched, a.SkillsMissing))
+	a.Verdict = VerdictFor(a.FitScore)
 	if !seniority[a.Seniority] {
 		return nil, fmt.Errorf("%w: seniority %q", ErrInvalidSchema, a.Seniority)
 	}
