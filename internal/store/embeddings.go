@@ -131,8 +131,11 @@ type ScoreActivity struct {
 func UserScoreActivity(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash string) (ScoreActivity, error) {
 	var a ScoreActivity
 	err := pool.QueryRow(ctx, `
-		SELECT (SELECT count(*) FROM analyses
-		        WHERE user_id = $1 AND kind = 'score' AND created_at > now() - interval '24 hours'),
+		SELECT (SELECT count(*) FROM analyses a
+		        WHERE a.user_id = $1 AND a.kind = 'score' AND a.created_at > now() - interval '24 hours'
+		          -- first scores only: scoring a job again (a new scoring method) is not a new job
+		          AND NOT EXISTS (SELECT 1 FROM analyses b WHERE b.job_id = a.job_id AND b.kind = 'score'
+		                          AND b.user_id = $1 AND b.created_at < a.created_at)),
 		       EXISTS (SELECT 1 FROM analyses WHERE user_id = $1 AND kind = 'score' AND profile_hash = $2),
 		       u.last_seen_at
 		FROM users u WHERE u.id = $1`, userID, profileHash).Scan(&a.ScoredLastDay, &a.ScoredProfile, &a.LastSeen)

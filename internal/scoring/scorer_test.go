@@ -89,7 +89,7 @@ func TestScorerScoresValidReply(t *testing.T) {
 	if outs[0].Stage != StageScored {
 		t.Errorf("stage: got %q, want scored (err=%v)", outs[0].Stage, outs[0].Err)
 	}
-	if outs[0].Analysis == nil || outs[0].Analysis.FitScore != 72 {
+	if outs[0].Analysis == nil || outs[0].Analysis.FitScore != 74 {
 		t.Errorf("analysis: %+v", outs[0].Analysis)
 	}
 	// Cost from the fake usage: uncached 100 prompt x 0.15 + 50 x 0.50.
@@ -157,12 +157,12 @@ func TestScorerStreamsOutcomesInOrder(t *testing.T) {
 }
 
 func TestScorerCompactPathUsesFacts(t *testing.T) {
-	s, script := newTestScorer(t, `{"fit_score":77,"verdict":"good","skills_matched":["Linux"],"skills_missing":["Go"],"reason":"Solid."}`)
+	s, script := newTestScorer(t, `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"skills_matched":["Linux"],"skills_missing":["Go"],"reason":"Solid."}`)
 	years := 2
 	s.Facts = map[int64]*Facts{1: {Seniority: "junior", YearsRequired: &years, Sponsorship: "unknown",
 		WorkMode: "remote", LocationSummary: "Remote, US", SkillsRequired: []string{"Linux", "Go"}, Digest: "Run Linux fleets."}}
 	out := s.Score(context.Background(), testJobs(1))[0]
-	if out.Stage != StageScored || out.Analysis.FitScore != 77 || out.Analysis.Seniority != "junior" ||
+	if out.Stage != StageScored || out.Analysis.FitScore != 75 || out.Analysis.Verdict != "good" || out.Analysis.Seniority != "junior" ||
 		*out.Analysis.YearsRequired != 2 || out.Analysis.WorkMode != "remote" {
 		t.Fatalf("merged analysis: stage %q %+v", out.Stage, out.Analysis)
 	}
@@ -173,7 +173,7 @@ func TestScorerCompactPathUsesFacts(t *testing.T) {
 }
 
 func TestScorerCompactMatchesSkillsInCode(t *testing.T) {
-	s, _ := newTestScorer(t, `{"fit_score":70,"verdict":"good","reason":"Fits the Linux work."}`)
+	s, _ := newTestScorer(t, `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"reason":"Fits the Linux work."}`)
 	s.Facts = map[int64]*Facts{1: {Seniority: "junior", Sponsorship: "unknown", WorkMode: "remote",
 		SkillsRequired: []string{"Linux", "Haskell"}, Digest: "Run Linux fleets."}}
 	out := s.Score(context.Background(), testJobs(1))[0]

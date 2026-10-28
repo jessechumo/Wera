@@ -29,8 +29,7 @@ func TestStripFences(t *testing.T) {
 }
 
 const validReply = `{
-  "fit_score": 72,
-  "verdict": "good",
+  "ratings": {"role": 8, "seniority": 8, "skills": 7, "domain": 6, "location": 7, "blocker": false},
   "seniority": "junior",
   "years_required": 2,
   "sponsorship": "unknown",
@@ -48,7 +47,8 @@ func TestParseAnalysisValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseAnalysis: %v", err)
 	}
-	if a.FitScore != 72 || a.Verdict != "good" || a.Seniority != "junior" {
+	// Skills 7 blended with 2 of 3 required skills matched: 74, good.
+	if a.FitScore != 74 || a.Verdict != "good" || a.Seniority != "junior" {
 		t.Errorf("got %+v", a)
 	}
 	if a.YearsRequired == nil || *a.YearsRequired != 2 {
@@ -68,12 +68,12 @@ func TestParseAnalysisInvalid(t *testing.T) {
 		in   string
 	}{
 		{"not json", "Sure! Here's my assessment: the job looks good."},
-		{"bad verdict", strings.Replace(validReply, `"good"`, `"maybe"`, 1)},
+		{"no ratings", strings.Replace(validReply, `"ratings"`, `"fit_score"`, 1)},
 		{"bad seniority", strings.Replace(validReply, `"junior"`, `"grizzled veteran"`, 1)},
 		{"bad sponsorship", strings.Replace(validReply, `"unknown"`, `"maybe"`, 1)},
 		{"bad work_mode", strings.Replace(validReply, `"remote"`, `"orbital"`, 1)},
-		{"score too high", strings.Replace(validReply, `"fit_score": 72`, `"fit_score": 101`, 1)},
-		{"score negative", strings.Replace(validReply, `"fit_score": 72`, `"fit_score": -1`, 1)},
+		{"rating too high", strings.Replace(validReply, `"role": 8`, `"role": 11`, 1)},
+		{"rating negative", strings.Replace(validReply, `"skills": 7`, `"skills": -1`, 1)},
 		{"negative years", strings.Replace(validReply, `"years_required": 2`, `"years_required": -3`, 1)},
 	}
 	for _, tc := range tests {
@@ -87,7 +87,7 @@ func TestParseAnalysisInvalid(t *testing.T) {
 }
 
 func TestParseAnalysisNullsAllowed(t *testing.T) {
-	reply := `{"fit_score": 50, "verdict": "stretch", "seniority": "unknown",
+	reply := `{"ratings": {"role": 5, "seniority": 5, "skills": 5, "domain": 5, "location": 5, "blocker": false}, "seniority": "unknown",
 	           "years_required": null, "sponsorship": "unknown",
 	           "sponsorship_quote": null, "us_eligible": null,
 	           "work_mode": "unknown", "location_summary": "",

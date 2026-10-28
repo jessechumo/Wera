@@ -22,7 +22,7 @@ import (
 
 // fakeCoral answers facts and fit calls like the inference API would and
 // counts each kind. A posting mentioning "8+ years" gets 8 required years
-// in its facts; every fit scores 81.
+// in its facts; every fit's ratings score 75.
 type fakeCoral struct {
 	facts, fits atomic.Int64
 }
@@ -50,7 +50,7 @@ func (f *fakeCoral) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			`"skills_required":["Go","Kubernetes"],"digest":"Runs production infrastructure."}`
 	case strings.HasPrefix(system, "You score how well"):
 		f.fits.Add(1)
-		content = `{"fit_score":81,"verdict":"good","skills_matched":["Go"],"skills_missing":[],"reason":"Matches the target role."}`
+		content = `{"ratings":{"role":8,"seniority":8,"skills":7,"domain":6,"location":7,"blocker":false},"skills_matched":["Go"],"skills_missing":[],"reason":"Matches the target role."}`
 	default:
 		http.Error(w, "unexpected prompt", http.StatusBadRequest)
 		return
@@ -168,7 +168,7 @@ func TestMatchingEndToEnd(t *testing.T) {
 	}
 	found := false
 	for _, j := range jobs {
-		if j.ID == good && j.FitScore != nil && *j.FitScore == 81 {
+		if j.ID == good && j.FitScore != nil && *j.FitScore == 75 {
 			found = true
 		}
 	}
@@ -212,6 +212,61 @@ func TestMatchingEndToEnd(t *testing.T) {
 	if coral.facts.Load() != 2 || coral.fits.Load() != 2 {
 		t.Errorf("user 2 should reuse facts: %d facts, %d fits", coral.facts.Load(), coral.fits.Load())
 	}
+
+	// A score from the old scoring method (stored under the bare profile
+	// hash) keeps showing until the next run scores the job again, and the
+	// rescore does not use up the user's daily score limit.
+	if _, err := pool.Exec(ctx, `UPDATE analyses SET profile_hash = $1, fit_score = 88, verdict = 'strong'
+		WHERE id = (SELECT analysis_id FROM user_jobs WHERE user_id = $2 AND job_id = $3)`, p1.ProfileHash, u1.ID, good); err != nil {
+		t.Fatal(err)
+	}
+	if fit := todayScore(t, pool, u1.ID, good); fit != 88 {
+		t.Errorf("old score hidden before the rescore: %d", fit)
+	}
+	before, err := store.UserScoreActivity(ctx, pool, u1.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err = ScoreUser(ctx, pool, env, log, p1, 0, nil, 1, nil)
+	if err != nil {
+		t.Fatalf("rescore: %v", err)
+	}
+	if stage, _ := stageOf(t, pool, u1.ID, good); stage != "scored" {
+		t.Errorf("rescored job: %s", stage)
+	}
+	if fit := todayScore(t, pool, u1.ID, good); fit != 75 {
+		t.Errorf("rescored job shows %d, want 75", fit)
+	}
+	// The run also scored the user's other pending jobs: only those count.
+	after, err := store.UserScoreActivity(ctx, pool, u1.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.ScoredLastDay != before.ScoredLastDay+st.Scored-1 {
+		t.Errorf("a rescore counted against the daily limit: %d scores today before, %d after %d scored", before.ScoredLastDay, after.ScoredLastDay, st.Scored)
+	}
+	// Nothing older is left: the next run calls nothing.
+	fitsBefore := coral.fits.Load()
+	if _, err := ScoreUser(ctx, pool, env, log, p1, 0, nil, 1, nil); err != nil {
+		t.Fatal(err)
+	}
+	if coral.fits.Load() != fitsBefore {
+		t.Error("a current score was scored again")
+	}
+}
+
+func todayScore(t *testing.T, pool *pgxpool.Pool, userID, jobID int64) int {
+	t.Helper()
+	jobs, _, err := store.TodayJobs(context.Background(), pool, userID, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range jobs {
+		if j.ID == jobID && j.FitScore != nil {
+			return *j.FitScore
+		}
+	}
+	return -1
 }
 
 // TestShareJob checks that a job one user adds reaches the others it

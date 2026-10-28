@@ -20,7 +20,7 @@ func jsonDecode(r *http.Request, out any) error {
 	return json.Unmarshal(body, out)
 }
 
-const fakeReply = `{"choices":[{"message":{"content":"{\"fit_score\":80,\"verdict\":\"good\",\"seniority\":\"junior\",\"years_required\":null,\"sponsorship\":\"unknown\",\"sponsorship_quote\":null,\"us_eligible\":true,\"work_mode\":\"remote\",\"location_summary\":\"Remote\",\"skills_matched\":[],\"skills_missing\":[],\"reason\":\"ok\"}"}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}}}`
+const fakeReply = `{"choices":[{"message":{"content":"{\"ratings\":{\"role\":8,\"seniority\":8,\"skills\":7,\"domain\":6,\"location\":7,\"blocker\":false},\"seniority\":\"junior\",\"years_required\":null,\"sponsorship\":\"unknown\",\"sponsorship_quote\":null,\"us_eligible\":true,\"work_mode\":\"remote\",\"location_summary\":\"Remote\",\"skills_matched\":[],\"skills_missing\":[],\"reason\":\"ok\"}"}}],"usage":{"prompt_tokens":1000,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":900}}}`
 
 func okHandler(body string) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
