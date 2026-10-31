@@ -81,7 +81,7 @@ func runServe(ctx context.Context, args []string) error {
 	// advisory lock keeps it from overlapping a worker run).
 	runNow := func(ctx context.Context) (bool, error) {
 		ran, err := p.RunOnce(ctx)
-		if at := p.CatchUpAt; !at.IsZero() {
+		if at := p.CatchUpAt; ran && !at.IsZero() {
 			log.Info("catch-up run after job board maintenance", "at", at.Add(2*time.Minute).Format(time.RFC3339))
 			go func() { //nolint:gosec // a one-off catch-up run after the maintenance window
 				time.Sleep(time.Until(at) + 2*time.Minute)
