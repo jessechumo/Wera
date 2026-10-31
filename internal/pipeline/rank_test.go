@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"wera/internal/config"
 	"wera/internal/scoring"
 	"wera/internal/store"
@@ -230,4 +232,71 @@ func TestScoreLimit(t *testing.T) {
 	}
 	env.ScoresPerDay, env.ScoresPerRun = 0, 0
 	check("no limits", -1)
+}
+
+// TestLearnedFollowsTheUsersScores checks the learning from a user's scores
+// end to end: the AI liked jobs pointing one way and not the other, so a new
+// job pointing the good way is estimated higher, once there are enough scores.
+func TestLearnedFollowsTheUsersScores(t *testing.T) {
+	pool := testutil.Pool(t)
+	ctx := context.Background()
+	model := testutil.Unique("embed")
+	e := &Embedder{Model: model, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+
+	companyID, _ := testutil.Company(t, pool, "ai_ml")
+	const count = 12
+	jobs := make([]testutil.Job, count)
+	for i := range jobs {
+		jobs[i] = testutil.Job{Title: testutil.Unique("Engineer"), Location: "Remote, US", Description: "Build."}
+	}
+	ids := testutil.Jobs(t, pool, companyID, jobs...)
+	u := testutil.User(t, pool, false)
+	prof := testutil.Profile(t, pool, u.ID, sreProfile+"\n"+testutil.Unique("note"), srePrefs)
+	t.Cleanup(func() {
+		pool.Exec(context.Background(), `DELETE FROM analyses WHERE user_id = $1`, u.ID)
+		pool.Exec(context.Background(), `DELETE FROM job_embeddings WHERE model = $1`, model)
+	})
+
+	good, bad := []float32{1, 0}, []float32{0, 1}
+	vecs := map[int64][]float32{}
+	for i, id := range ids {
+		v, score := good, 90
+		if i%2 == 1 {
+			v, score = bad, 20
+		}
+		vecs[id] = v
+		if i < minLearnedScores-1 {
+			mustScore(t, pool, u.ID, id, scoring.ScoreKey(prof.ProfileHash), score)
+		}
+	}
+	if err := store.SaveJobEmbeddings(ctx, pool, e.jobKey(), vecs); err != nil {
+		t.Fatal(err)
+	}
+	fresh := map[int64][]float32{1: good, 2: bad}
+	if got, n, err := e.Learned(ctx, pool, prof, fresh); err != nil || got != nil || n != 0 {
+		t.Fatalf("too few scores: %v, %d, %v", got, n, err)
+	}
+	for i, id := range ids[minLearnedScores-1:] {
+		score := 90
+		if (i+minLearnedScores-1)%2 == 1 {
+			score = 20
+		}
+		mustScore(t, pool, u.ID, id, prof.ProfileHash, score) // an older method's key counts too
+	}
+	got, n, err := e.Learned(ctx, pool, prof, fresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != count || !(got[1] > got[2]+40) {
+		t.Errorf("learned %v from %d scores", got, n)
+	}
+}
+
+func mustScore(t *testing.T, pool *pgxpool.Pool, userID, jobID int64, key string, score int) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO analyses (job_id, kind, model, profile_hash, fit_score, raw, user_id)
+		VALUES ($1, 'score', 'test', $2, $3, '{}', $4)`, jobID, key, score, userID); err != nil {
+		t.Fatal(err)
+	}
 }

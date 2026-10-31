@@ -24,6 +24,12 @@ func ScoreKey(profileHash string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// ScoreKeys are every key a profile text's scores may be stored under, one
+// for each scoring method so far (version 1 used the hash itself).
+func ScoreKeys(profileHash string) []string {
+	return []string{profileHash, ScoreKey(profileHash)}
+}
+
 // Ratings are the model's judgments of one job for one candidate, each
 // 0-10 against the anchors in rubricText.
 type Ratings struct {
