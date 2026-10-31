@@ -36,7 +36,7 @@ services:
   wera-embed:
     container_name: wera-embed
     logging: *logging
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     command: ["--model-id", "Snowflake/snowflake-arctic-embed-m-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
     volumes:
       - wera-embed-models:/data
