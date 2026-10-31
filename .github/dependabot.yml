@@ -17,3 +17,12 @@ updates:
     directory: /
     schedule: { interval: weekly }
     commit-message: { prefix: "build(docker)" }
+  # The images docker-compose.yml names (cloudflared sat a year out of date).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+    commit-message: { prefix: "build(docker)" }
+    ignore:
+      # A new Postgres major needs a dump and restore, not a version bump.
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
