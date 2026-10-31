@@ -125,6 +125,35 @@ func TestMaintenanceRedirect(t *testing.T) {
 	}
 }
 
+func TestWordInAddressIsNotMaintenance(t *testing.T) {
+	// Aviation Institute of Maintenance's board: nobody is down.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"total": 3}`))
+	}))
+	defer srv.Close()
+	var out struct{ Total int }
+	url := srv.URL + "/v1/boards/aviationinstituteofmaintenance/jobs"
+	if err := fastHTTP().GetJSON(context.Background(), url, &out); err != nil || out.Total != 3 {
+		t.Errorf("%+v %v", out, err)
+	}
+}
+
+func TestRedirectBetweenBoardPagesIsNotMaintenance(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/boards/aviationinstituteofmaintenance/jobs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"total": 3}`))
+	})
+	mux.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/boards/aviationinstituteofmaintenance/jobs", http.StatusMovedPermanently)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	var out struct{ Total int }
+	if err := fastHTTP().GetJSON(context.Background(), srv.URL+"/old", &out); err != nil || out.Total != 3 {
+		t.Errorf("%+v %v", out, err)
+	}
+}
+
 func TestPostJSONSendsBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
