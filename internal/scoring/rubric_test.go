@@ -73,3 +73,13 @@ func TestRatingsValid(t *testing.T) {
 		t.Error("out-of-range ratings accepted")
 	}
 }
+
+func TestScoreKeysCoverEveryMethod(t *testing.T) {
+	keys := ScoreKeys("abc")
+	if len(keys) != Version {
+		t.Fatalf("one key per scoring method: %v", keys)
+	}
+	if keys[0] != "abc" || keys[1] != ScoreKey("abc") {
+		t.Errorf("keys: %v", keys)
+	}
+}

@@ -70,9 +70,10 @@ func keyed(model, kind, prefix string) string {
 // limit, and preview jobs on the dashboard. It returns them unrounded, so
 // the best jobs keep their order: many share each whole number.
 //
-// Jobs with shared facts are ranked by Blend (see there); the rest (new
-// postings whose facts are not extracted yet) fall back to TF-IDF on the
-// posting until they have facts.
+// Jobs with shared facts are ranked by Blend (see there) and by what the AI's
+// scores so far say about this user (see Learned); the rest (new postings
+// whose facts are not extracted yet) fall back to TF-IDF on the posting until
+// they have facts.
 func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *store.Profile) (map[int64]float64, error) {
 	docs, err := store.RankDocs(ctx, pool, prof.UserID)
 	if err != nil {
@@ -95,12 +96,20 @@ func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *sto
 			return nil, err
 		}
 		var sims map[int64]float64
+		var vecs map[int64][]float32
 		if e != nil {
-			if sims, err = e.Similarities(ctx, pool, prof, ids); err != nil {
+			if sims, vecs, err = e.Similarities(ctx, pool, prof, ids); err != nil {
 				e.Log.Warn("embedding ranking unavailable; ranking by words and skills", "user_id", prof.UserID, "err", err)
 			}
 		}
 		blend := Blend(prof.Markdown, prof.Preferences, titles, facts, sims)
+		if e != nil && len(vecs) > 0 {
+			learned, n, err := e.Learned(ctx, pool, prof, vecs)
+			if err != nil {
+				e.Log.Warn("ranking without the user's scores", "user_id", prof.UserID, "err", err)
+			}
+			blend = withLearned(blend, learned, n)
+		}
 		for id, v := range relevance.ScaleExact(blend) {
 			exact[id] = v
 		}
@@ -244,33 +253,100 @@ func Blend(markdown string, prefs config.Preferences, titles map[int64]string, f
 }
 
 // Similarities returns the profile's similarity to each job that has
-// facts, embedding the profile and any postings not embedded yet. On an
-// error it still returns what it could compute.
-func (e *Embedder) Similarities(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile, jobIDs []int64) (map[int64]float64, error) {
+// facts, and those jobs' embeddings, embedding the profile and any postings
+// not embedded yet. On an error it still returns what it could compute.
+func (e *Embedder) Similarities(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile, jobIDs []int64) (map[int64]float64, map[int64][]float32, error) {
 	pv, err := store.ProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.profileKey())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if pv == nil {
 		vecs, err := e.Client.Embed(ctx, []string{e.QueryPrefix + embed.ProfileText(prof.Markdown)})
 		if err != nil {
-			return nil, fmt.Errorf("embed profile: %w", err)
+			return nil, nil, fmt.Errorf("embed profile: %w", err)
 		}
 		pv = vecs[0]
 		if err := store.SaveProfileEmbedding(ctx, pool, prof.UserID, prof.ProfileHash, e.profileKey(), pv); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	_, embedErr := e.EmbedJobs(ctx, pool, jobIDs)
 	vecs, err := store.JobEmbeddings(ctx, pool, jobIDs, e.jobKey())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sims := make(map[int64]float64, len(vecs))
 	for id, v := range vecs {
 		sims[id] = embed.Cosine(pv, v)
 	}
-	return sims, embedErr
+	return sims, vecs, embedErr
+}
+
+// Learning from a user's scores. Measured on seven users' real queues: of the
+// 40 best pending jobs per user, the AI rated 63% good going by the blend
+// alone and 69% with this.
+const (
+	minLearnedScores = 10   // fewer say nothing yet
+	maxLearnedScores = 3000 // more add nothing and take longer to fit
+	learnedLambda    = 1.0  // results barely change from 0.3 to 3
+)
+
+// Learned estimates each job from the AI's own scores for this user so far:
+// a ridge regression over the embeddings of the jobs it scored. Every score
+// says what this user's fit looks like (a domain, a kind of team, a pattern
+// of blockers) in ways a profile does not spell out, and the AI's call is
+// what the ranking is trying to foretell. It returns the estimates and how
+// many scores they rest on: nil and 0 while there are too few.
+func (e *Embedder) Learned(ctx context.Context, pool *pgxpool.Pool, prof *store.Profile, vecs map[int64][]float32) (map[int64]float64, int, error) {
+	scored, err := store.ScoredVectors(ctx, pool, prof.UserID, scoring.ScoreKeys(prof.ProfileHash), e.jobKey(), maxLearnedScores)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(scored) < minLearnedScores {
+		return nil, 0, nil
+	}
+	x, y := make([][]float32, len(scored)), make([]float64, len(scored))
+	for i, s := range scored {
+		x[i], y[i] = s.Vector, s.Score
+	}
+	model := embed.FitRidge(x, y, learnedLambda)
+	if model == nil {
+		return nil, 0, nil
+	}
+	out := make(map[int64]float64, len(vecs))
+	for id, v := range vecs {
+		out[id] = model.Predict(v)
+	}
+	return out, len(scored), nil
+}
+
+// learnedWeight is how much estimates resting on n scores count against the
+// blend. It tracks the best weight measured from 10 scores (0.1) to 3,000
+// (1.9): early scores add a little, and later the user's own scores outweigh
+// everything the profile says.
+func learnedWeight(n int) float64 {
+	return 2 * float64(n) / float64(n+200)
+}
+
+// withLearned mixes learned estimates into a blend, both standardized over
+// the blend's jobs. A job with no estimate counts as average.
+func withLearned(blend, learned map[int64]float64, n int) map[int64]float64 {
+	if len(learned) == 0 {
+		return blend
+	}
+	known := make(map[int64]float64, len(blend))
+	for id := range blend {
+		if v, ok := learned[id]; ok {
+			known[id] = v
+		}
+	}
+	out := relevance.Standardize(blend)
+	z := relevance.Standardize(known)
+	w := learnedWeight(n)
+	for id := range out {
+		out[id] += w * z[id]
+	}
+	return out
 }
 
 // EmbedJobs embeds those of the jobs that have facts but no current

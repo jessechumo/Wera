@@ -136,6 +136,43 @@ func TestLevelGap(t *testing.T) {
 	}
 }
 
+func TestLearnedWeightGrowsWithEvidence(t *testing.T) {
+	last := 0.0
+	for _, n := range []int{10, 100, 1000, 3000} {
+		w := learnedWeight(n)
+		if w <= last || w >= 2 {
+			t.Errorf("learnedWeight(%d) = %v after %v", n, w, last)
+		}
+		last = w
+	}
+	if w := learnedWeight(10); w > 0.15 {
+		t.Errorf("ten scores should barely count: %v", w)
+	}
+}
+
+func TestWithLearned(t *testing.T) {
+	blend := map[int64]float64{1: 3, 2: 2, 3: 1}
+	if got := withLearned(blend, nil, 0); got[1] != 3 {
+		t.Errorf("no estimates keep the blend: %v", got)
+	}
+	// The AI's scores say job 3 is the best and job 1 the worst.
+	learned := map[int64]float64{1: 10, 2: 50, 3: 90}
+	if got := withLearned(blend, learned, 20); !(got[1] > got[3]) {
+		t.Errorf("twenty scores should not overturn the blend: %v", got)
+	}
+	if got := withLearned(blend, learned, 3000); !(got[3] > got[1]) {
+		t.Errorf("thousands of scores should: %v", got)
+	}
+	// A job with no vector has no estimate, and counts as average.
+	got := withLearned(blend, map[int64]float64{1: 10, 3: 90}, 3000)
+	if got[2] != 0 {
+		t.Errorf("a job without an estimate moved: %v", got)
+	}
+	if out := withLearned(nil, learned, 3000); len(out) != 0 {
+		t.Errorf("no blend: %v", out)
+	}
+}
+
 func TestEmbedderKeysMarkPrefixes(t *testing.T) {
 	e := &Embedder{Model: "BAAI/bge-small-en-v1.5"}
 	if e.profileKey() != e.Model || e.jobKey() != e.Model {
