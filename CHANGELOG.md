@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.9.1](https://github.com/jessechumo/Wera/compare/wera-v0.9.0...wera-v0.9.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **api:** never cut a character in half when shortening text ([8493c0b](https://github.com/jessechumo/Wera/commit/8493c0bf0caae86a9e30a8a1e9054548e0112ac9))
+* **autofill:** never give a confident no that the data does not state ([6b1d292](https://github.com/jessechumo/Wera/commit/6b1d2924795a44bd1fc552c6ea2515a88b8a42a9))
+* **deploy:** bring the public site back after a long network outage ([#82](https://github.com/jessechumo/Wera/issues/82)) ([7d890fa](https://github.com/jessechumo/Wera/commit/7d890fa30bf769acaae1e7209256bda0910ccab7))
+* **fetch:** save postings with text Postgres refuses ([dd32b42](https://github.com/jessechumo/Wera/commit/dd32b42eac4150f79aa636a82c21b8acaa61a688))
+* **fetch:** stop reading a company's name as a maintenance page ([29d7add](https://github.com/jessechumo/Wera/commit/29d7adde0168adb65553fd95de1dc4725d4179cf))
+* **fetch:** stop reading a job's title as a maintenance page, and say why details fail ([6c8c853](https://github.com/jessechumo/Wera/commit/6c8c8530894525072b24c1b50048f47c0bc2ec21))
+* **jobs:** keep added jobs open when their company is fetched ([58c8f45](https://github.com/jessechumo/Wera/commit/58c8f45d5ce780cb615945910771f72f5ce31603))
+* release the outage recovery, the fetch fixes and the tracker fix ([b4b2721](https://github.com/jessechumo/Wera/commit/b4b2721992d275dfa28e16276e5e76936771c5c4))
+* **resume:** count bullet suggestions against the user's AI budget ([944b7c0](https://github.com/jessechumo/Wera/commit/944b7c04d94f9dea0e64b015267f7f475126ba4b))
+* **scoring:** stop a batch when the AI provider keeps failing ([b1d5a59](https://github.com/jessechumo/Wera/commit/b1d5a59951ef048ea96eeb185f12eec71de882c0))
+* **serve:** schedule a catch-up run only after a run that happened ([bf8fe08](https://github.com/jessechumo/Wera/commit/bf8fe08e58be78661ee29e7e7d6a5f61f27c6119))
+* **tracker:** keep applications whose posting has closed ([1e10009](https://github.com/jessechumo/Wera/commit/1e1000916cc8cbee8ec6778fe69a1296aa0c3557))
+
+
+### Documentation
+
+* **contributing:** say pull requests go to dev first ([4dcb813](https://github.com/jessechumo/Wera/commit/4dcb813e72f09d88bed7101d25826771be6c0629))
+* **readme:** describe the home server, backups and what to do when things break ([ce0a097](https://github.com/jessechumo/Wera/commit/ce0a097d15faf803e443a9c83902e70b5fec958c))
+
 ## [0.9.0](https://github.com/jessechumo/Wera/compare/wera-v0.8.2...wera-v0.9.0) (2026-10-31)
 
 
