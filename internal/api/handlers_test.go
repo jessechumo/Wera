@@ -81,6 +81,34 @@ func TestPutApplicationPersists(t *testing.T) {
 	}
 }
 
+func TestTrackedJobStaysWhenThePostingCloses(t *testing.T) {
+	ts, pool := testServer(t, nil)
+	ctx := context.Background()
+	id := testJobIDs[0]
+	url := fmt.Sprintf("%s/api/jobs/%d/application", ts.URL, id)
+	if code, body := do(t, client, http.MethodPut, url, `{"status":"applied"}`); code != 200 {
+		t.Fatalf("apply: %d %s", code, body)
+	}
+	// The company takes the posting down, as most do within weeks.
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET closed_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { pool.Exec(ctx, `UPDATE jobs SET closed_at = NULL WHERE id = $1`, id) })
+
+	code, body := getBody(t, ts.URL+"/api/jobs?status=applied")
+	want := fmt.Sprintf(`"id":%d,`, id)
+	if code != 200 || !strings.Contains(body, want) {
+		t.Fatalf("the tracker lost an application when its posting closed: %d %s", code, body)
+	}
+	if strings.Contains(body, `"closed_at":null`) || !strings.Contains(body, `"closed_at":"`) {
+		t.Errorf("a closed posting should say so: %s", body)
+	}
+	// Browsing without a status still shows open jobs only.
+	if code, body := getBody(t, ts.URL+"/api/jobs"); code != 200 || strings.Contains(body, want) {
+		t.Errorf("a closed job in the open list: %d %s", code, body)
+	}
+}
+
 func TestSummaryEndpoints(t *testing.T) {
 	ts, _ := testServer(t, nil)
 	for _, path := range []string{
