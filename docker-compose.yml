@@ -1,7 +1,15 @@
+# Docker keeps container logs forever unless told otherwise.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: wera-postgres
+    logging: *logging
     environment:
       POSTGRES_USER: wera
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wera}
@@ -27,6 +35,7 @@ services:
   # ranked get a paid AI score. Downloads the model (~440 MB) on first start.
   wera-embed:
     container_name: wera-embed
+    logging: *logging
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
     command: ["--model-id", "Snowflake/snowflake-arctic-embed-m-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
     volumes:
@@ -48,6 +57,7 @@ services:
         COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-migrate
+    logging: *logging
     command: ["migrate"]
     environment:
       DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:-wera}@postgres:5432/wera?sslmode=disable
@@ -65,6 +75,7 @@ services:
         COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-api
+    logging: *logging
     env_file:
       - path: .env
         required: false
@@ -99,6 +110,7 @@ services:
         COMMIT: ${WERA_COMMIT:-unknown}
     image: wera:local
     container_name: wera-worker
+    logging: *logging
     command: ["worker"]
     env_file:
       - path: .env
@@ -132,6 +144,7 @@ services:
         APP_COMMIT: ${WERA_WEB_COMMIT:-dev}
     image: wera-web:local
     container_name: wera-web
+    logging: *logging
     ports:
       - "${WEB_PORT:-3000}:80"
     depends_on:
@@ -154,6 +167,7 @@ services:
         APP_COMMIT: ${WERA_ADMIN_COMMIT:-dev}
     image: wera-admin:local
     container_name: wera-admin
+    logging: *logging
     ports:
       - "${ADMIN_PORT:-3001}:80"
     depends_on:
@@ -175,6 +189,7 @@ services:
     profiles: [public]
     image: wera:local
     container_name: wera-api-public
+    logging: *logging
     env_file:
       - path: .env
         required: false
@@ -200,14 +215,17 @@ services:
     restart: unless-stopped
 
   # Cloudflare quick tunnel to wera-api-public: an outbound connection, so no
-  # router ports are opened. The https://*.trycloudflare.com address is in
-  # `docker logs wera-tunnel` and changes whenever this container restarts;
-  # replace it with a named tunnel once there is a domain.
+  # router ports are opened. Its https://*.trycloudflare.com address changes
+  # whenever this container restarts; deploy/home/tunnel-watch.sh replaces a
+  # tunnel that a long outage killed and keeps vercel.json up to date. Move
+  # to a named tunnel once there is a domain. The metrics port is how the
+  # watch reads the address; it is not published.
   wera-tunnel:
     profiles: [public]
-    image: cloudflare/cloudflared:2025.9.1
+    image: cloudflare/cloudflared:2026.10.7
     container_name: wera-tunnel
-    command: tunnel --no-autoupdate --url http://wera-api-public:8080
+    logging: *logging
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:20241 --url http://wera-api-public:8080
     depends_on:
       wera-api-public:
         condition: service_healthy

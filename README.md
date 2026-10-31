@@ -158,7 +158,7 @@ docker compose --profile public up -d wera-api-public wera-tunnel
 docker logs wera-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com'
 ```
 
-Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, so switch to a named tunnel once a domain exists.
+Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, and a quick tunnel does not survive an outage of more than about 12 minutes, so on a home server install the [tunnel watch](deploy/home), which replaces a dead tunnel and updates `vercel.json` by itself. Switch to a named tunnel once a domain exists.
 
 ### Accounts
 
