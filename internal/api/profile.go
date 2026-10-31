@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"wera/internal/config"
+	"wera/internal/normalize"
 	"wera/internal/pipeline"
 	"wera/internal/profile"
 	"wera/internal/scoring"
@@ -113,11 +114,7 @@ func (s *Server) uploadResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.importInBackground(currentUser(r).ID, text)
-	preview := text
-	if len(preview) > 600 {
-		preview = preview[:600]
-	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"resume_chars": len([]rune(text)), "preview": preview})
+	s.writeJSON(w, http.StatusOK, map[string]any{"resume_chars": len([]rune(text)), "preview": normalize.Clip(text, 600)})
 }
 
 type profileInput struct {

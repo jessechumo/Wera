@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"wera/internal/config"
+	"wera/internal/normalize"
 	"wera/internal/scoring"
 )
 
@@ -132,11 +133,7 @@ func DraftMessages(resume string, a Answers, prefs config.Preferences, roles *co
 
 // CleanDraft strips code fences and surrounding whitespace from a reply.
 func CleanDraft(s string) string {
-	s = strings.TrimSpace(scoring.StripFences(s))
-	if len(s) > MaxProfileChars {
-		s = s[:MaxProfileChars]
-	}
-	return s
+	return normalize.Clip(strings.TrimSpace(scoring.StripFences(s)), MaxProfileChars)
 }
 
 func labels(ids []string, names map[string]string) string {

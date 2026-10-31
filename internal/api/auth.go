@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"wera/internal/auth"
+	"wera/internal/normalize"
 	"wera/internal/store"
 )
 
@@ -246,10 +247,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	name := strings.TrimSpace(c.Name)
-	if len(name) > 100 {
-		name = name[:100]
-	}
+	name := normalize.Clip(strings.TrimSpace(c.Name), 100)
 	hash, err := auth.HashPassword(c.Password)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "could not hash password")

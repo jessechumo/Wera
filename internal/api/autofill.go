@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"wera/internal/normalize"
 	"wera/internal/profile"
 	"wera/internal/store"
 )
@@ -51,9 +52,7 @@ func (s *Server) suggestFill(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if len(in.Description) > 60000 {
-		in.Description = in.Description[:60000]
-	}
+	in.Description = normalize.Clip(in.Description, 60000)
 	user := currentUser(r)
 	prof, err := store.GetProfile(r.Context(), s.Pool, user.ID)
 	if err != nil || prof == nil || prof.Markdown == "" {

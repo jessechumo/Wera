@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wera/internal/mail"
+	"wera/internal/normalize"
 	"wera/internal/store"
 )
 
@@ -214,9 +215,9 @@ func firstSentence(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	cut := strings.LastIndex(s[:n], " ")
-	if cut < n/2 {
-		cut = n
+	s = normalize.Clip(s, n)
+	if cut := strings.LastIndex(s, " "); cut >= n/2 {
+		s = s[:cut]
 	}
-	return strings.TrimRight(s[:cut], " ,;:") + "…"
+	return strings.TrimRight(s, " ,;:") + "…"
 }
