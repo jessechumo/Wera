@@ -326,7 +326,7 @@ func TestShareJob(t *testing.T) {
 	}
 
 	// Added postings close after their lifetime.
-	pool.Exec(ctx, `UPDATE jobs SET first_seen_at = now() - interval '60 days' WHERE id = $1`, sre)
+	pool.Exec(ctx, `UPDATE jobs SET last_seen_at = now() - interval '60 days' WHERE id = $1`, sre)
 	if n, err := store.CloseStaleManualJobs(ctx, pool); err != nil || n < 1 {
 		t.Errorf("close stale: %d, %v", n, err)
 	}

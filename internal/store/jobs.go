@@ -106,7 +106,9 @@ func SaveJobs(ctx context.Context, pool *pgxpool.Pool, jobs []JobInput) (seen, n
 
 // CloseMissingJobs marks jobs that no longer appear in a company's feed
 // as closed. It is only called after a successful fetch, so a flaky feed
-// never causes mass closing. Returns how many jobs were closed.
+// never causes mass closing. Jobs users added stay open: they are filed
+// under the company but the feed never listed them (see
+// CloseStaleManualJobs). Returns how many jobs were closed.
 func CloseMissingJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, openExtIDs []string) (int64, error) {
 	if openExtIDs == nil {
 		openExtIDs = []string{}
@@ -116,6 +118,7 @@ func CloseMissingJobs(ctx context.Context, pool *pgxpool.Pool, companyID int64, 
 		SET closed_at = now(), last_seen_at = now()
 		WHERE company_id = $1
 		  AND closed_at IS NULL
+		  AND source <> 'manual'
 		  AND NOT (ext_id = ANY($2::text[]))`, companyID, openExtIDs)
 	if err != nil {
 		return 0, fmt.Errorf("close missing jobs for company %d: %w", companyID, err)
