@@ -29,7 +29,7 @@ companies:
   - { name: PEAK6,               ats: greenhouse, token: peak6,            industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
   - { name: Jump Trading,        ats: greenhouse, token: jumptrading,      industry: trading, enabled: true, h1b_names: [Jump Operations] }  # verified via discover
   - { name: Chicago Trading Co,  ats: greenhouse, token: chicagotrading,   industry: trading, enabled: true }  # verified via discover
-  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,industry: trading, enabled: true, h1b_names: [Old Mission Capital] }  # verified via discover
+  - { name: Old Mission,         ats: greenhouse, token: oldmissioncapital,industry: trading, enabled: false, h1b_names: [Old Mission Capital] }  # verified via discover
   - { name: Tower Research,      ats: greenhouse, token: towerresearchcapital, industry: trading, enabled: true, h1b_names: [Tower Research Capital] }  # verified via discover
   - { name: Two Sigma,           ats: greenhouse, token: twosigma,         industry: trading, enabled: false, notes: "no board on greenhouse/lever/ashby; custom career site" }
 
@@ -224,7 +224,7 @@ companies:
   - { name: Shield AI,                     ats: lever,      token: shieldai,            industry: aerospace, enabled: true }
   - { name: Skydio,                        ats: ashby,      token: skydio,              industry: aerospace, enabled: true }
   - { name: Skyryse,                       ats: greenhouse, token: skyryse,             industry: aerospace, enabled: true }
-  - { name: Slingshot Aerospace,           ats: greenhouse, token: slingshotaerospace,  industry: aerospace, enabled: true }
+  - { name: Slingshot Aerospace,           ats: ashby,      token: slingshot-aerospace, industry: aerospace, enabled: true }
   - { name: SpaceX,                        ats: greenhouse, token: spacex,              industry: aerospace, enabled: true, h1b_names: [Space Exploration Technologies] }
   - { name: Spire Global,                  ats: greenhouse, token: spire,               industry: aerospace, enabled: true }
   - { name: Varda Space,                   ats: greenhouse, token: vardaspace,          industry: aerospace, enabled: true }
@@ -262,7 +262,7 @@ companies:
   - { name: Agility Robotics,              ats: greenhouse, token: agilityrobotics,     industry: robotics, enabled: true }
   - { name: Apptronik,                     ats: greenhouse, token: apptronik,           industry: robotics, enabled: true }
   - { name: Bright Machines,               ats: lever,      token: brightmachines,      industry: robotics, enabled: true }
-  - { name: Carbon Robotics,               ats: greenhouse, token: carbonrobotics,      industry: robotics, enabled: true }
+  - { name: Carbon Robotics,               ats: ashby,      token: carbon-robotics,     industry: robotics, enabled: true }
   - { name: Dexterity,                     ats: lever,      token: dexterity,           industry: robotics, enabled: true }
   - { name: Figure AI,                     ats: greenhouse, token: figureai,            industry: robotics, enabled: true }
   - { name: Formic,                        ats: greenhouse, token: formic,              industry: robotics, enabled: true }
@@ -988,7 +988,7 @@ companies:
   - { name: Mem0, ats: ashby, token: mem0, industry: ai_ml }
   - { name: Mercor, ats: ashby, token: mercor, industry: ai_ml }
   - { name: Meshy, ats: ashby, token: meshy, industry: ai_ml }
-  - { name: MintMCP, ats: ashby, token: mintmcp, industry: ai_ml }
+  - { name: MintMCP, ats: ashby, token: mintmcp, industry: ai_ml, enabled: false }
   - { name: Mirage, ats: ashby, token: mirage, industry: ai_ml }
   - { name: Mistral AI, ats: ashby, token: mistral.ai, industry: ai_ml }
   - { name: Navi AI, ats: ashby, token: navi, industry: ai_ml }
@@ -1031,7 +1031,7 @@ companies:
   - { name: Tavus, ats: ashby, token: tavus, industry: ai_ml }
   - { name: TensorWave, ats: ashby, token: tensorwave, industry: ai_ml }
   - { name: The Allen Institute for AI, ats: greenhouse, token: thealleninstitute, industry: ai_ml }
-  - { name: Tilde Research, ats: ashby, token: tilderesearch, industry: ai_ml }
+  - { name: Tilde Research, ats: ashby, token: tilderesearch, industry: ai_ml, enabled: false }
   - { name: Uare.ai, ats: greenhouse, token: uareai, industry: ai_ml }
   - { name: Unwrap, ats: ashby, token: Unwrap, industry: ai_ml }
   - { name: Upscale AI, ats: lever, token: upscale-ai, industry: ai_ml }
@@ -1121,7 +1121,7 @@ companies:
   - { name: Depot, ats: ashby, token: depot, industry: cloud }
   - { name: Eventual, ats: ashby, token: eventualcomputing, industry: cloud }
   - { name: F5, ats: workday, token: ffive.wd5/f5jobs, industry: cloud }
-  - { name: Firetiger, ats: ashby, token: firetiger, industry: cloud }
+  - { name: Firetiger, ats: ashby, token: firetiger, industry: cloud, enabled: false }
   - { name: Flow Engineering, ats: ashby, token: flowengineering, industry: cloud }
   - { name: FlutterFlow, ats: ashby, token: flutterflow, industry: cloud }
   - { name: Freshpaint, ats: ashby, token: freshpaint, industry: cloud }
@@ -1990,7 +1990,7 @@ companies:
   - { name: Dispatch, ats: ashby, token: dispatch, industry: aerospace }
   - { name: E-Space, ats: lever, token: espace, industry: aerospace }
   - { name: Epsilon3, ats: lever, token: epsilon3, industry: aerospace }
-  - { name: General Astronautics, ats: ashby, token: generalastro, industry: aerospace }
+  - { name: General Astronautics, ats: ashby, token: generalastronautics, industry: aerospace }
   - { name: H3X Technologies, ats: ashby, token: h3x-technologies, industry: aerospace }
   - { name: Hadrian, ats: ashby, token: hadrian-automation, industry: aerospace }
   - { name: Heven AeroTech, ats: greenhouse, token: hevenaerotech, industry: aerospace }
@@ -4480,7 +4480,7 @@ companies:
   - { name: Rox Data, ats: ashby, token: Rox-Data-Corp, industry: ai_ml }
   - { name: Runway, ats: ashby, token: runway-ml, industry: ai_ml }
   - { name: Scribe, ats: ashby, token: scribe, industry: ai_ml }
-  - { name: Sema4.ai, ats: ashby, token: sema4.ai, industry: ai_ml }
+  - { name: Sema4.ai, ats: ashby, token: sema4.ai, industry: ai_ml, enabled: false }
   - { name: Sesame, ats: ashby, token: sesame, industry: ai_ml }
   - { name: Seven AI, ats: ashby, token: sevenai, industry: ai_ml }
   - { name: Simular, ats: ashby, token: simular, industry: ai_ml }
@@ -4983,7 +4983,7 @@ companies:
   - { name: Enviva, ats: greenhouse, token: enviva, industry: energy }
   - { name: EOLA Power, ats: greenhouse, token: eolapower, industry: energy }
   - { name: Fugro, ats: workday, token: fugro.wd3/careers, industry: energy }
-  - { name: Giga Energy, ats: greenhouse, token: gigaenergy, industry: energy }
+  - { name: Giga Energy, ats: ashby, token: giga-energy, industry: energy }
   - { name: Group14 Technologies, ats: greenhouse, token: group14, industry: energy }
   - { name: InCharge Energy, ats: greenhouse, token: inchargeenergy, industry: energy }
   - { name: Panthalassa, ats: greenhouse, token: panthalassa, industry: energy }
@@ -5390,7 +5390,7 @@ companies:
   - { name: Dashlane, ats: greenhouse, token: dashlane, industry: security }
   - { name: DataGrail, ats: greenhouse, token: datagrail, industry: security }
   - { name: DigiCert, ats: greenhouse, token: digicert, industry: security }
-  - { name: DNSFilter, ats: greenhouse, token: dnsfilter, industry: security }
+  - { name: DNSFilter, ats: ashby, token: dnsfilter, industry: security }
   - { name: Dragos, ats: greenhouse, token: dragos, industry: security }
   - { name: Dropzone AI, ats: greenhouse, token: dropzoneai, industry: security }
   - { name: Endor Labs, ats: greenhouse, token: endorlabs, industry: security }
