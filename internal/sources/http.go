@@ -172,9 +172,10 @@ func truncate(b []byte, n int) string {
 	return string(b)
 }
 
-// maintenancePage matches a path naming a maintenance page, and not a
-// company with the word in its name (/boards/aviationinstituteofmaintenance).
-var maintenancePage = regexp.MustCompile(`(?i)/maintenance(?:[-_./]|$)`)
+// maintenancePage matches a path ending in a maintenance page, and not a
+// board or a job with the word in its name: Aviation Institute of
+// Maintenance's board, or Workday's /job/Austin/Maintenance-Technician_R12.
+var maintenancePage = regexp.MustCompile(`(?i)/maintenance(?:[-_]page)?(?:\.html?)?/?$`)
 
 // redirectedToMaintenance reports whether the request was redirected to a
 // maintenance page (Workday sends every tenant to
