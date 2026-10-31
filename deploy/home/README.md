@@ -10,6 +10,22 @@ browser ──> Vercel ──> *.trycloudflare.com ──> wera-tunnel ──> w
 LAN     ──> :3000 wera-web ──> wera-api
 ```
 
+## Use a cable
+
+Put the server on Ethernet. On the home server, every long outage came from its
+USB Wi-Fi adapter and not from the internet: the link stops passing traffic,
+about 5 minutes later the router drops it, and the adapter then takes up to 20
+minutes to get back on (11 times in 17 days). All 6 outages that killed the tunnel
+line up with one of these. If drops come back, look at the machine before the
+provider:
+
+```bash
+journalctl -k | grep -E 'disassociated|authentication with'
+```
+
+The LAN address comes from DHCP and can change, so use the machine's name:
+`http://<hostname>.local:3000`.
+
 ## When the network drops
 
 | Offline for | What happens to the tunnel | What brings it back |
