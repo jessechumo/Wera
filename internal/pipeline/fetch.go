@@ -306,7 +306,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 					firstErr = fmt.Errorf("%s: %w", j.ExtID, derr)
 				}
 				mu.Unlock()
-				return nil //nolint:nilerr // a failed detail is skipped and retried next run, not fatal
+				return nil // skipped and retried next run, not fatal
 			}
 			mu.Lock()
 			detailed = append(detailed, j)
