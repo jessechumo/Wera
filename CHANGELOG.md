@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/jessechumo/Wera/compare/wera-v0.8.2...wera-v0.9.0) (2026-10-31)
+
+
+### Features
+
+* **scoring:** take traps for AI tools out of what models read ([54084f0](https://github.com/jessechumo/Wera/commit/54084f0e3963545755f49f0a97c4431c39c875b1))
+* **scoring:** take traps for AI tools out of what models read ([#78](https://github.com/jessechumo/Wera/issues/78)) ([bb94da4](https://github.com/jessechumo/Wera/commit/bb94da4bed3b2ec82f4e6b7ae78f892cd44198b2))
+
+
+### Documentation
+
+* **security:** say how traps for AI tools are handled ([#79](https://github.com/jessechumo/Wera/issues/79)) ([3847eb5](https://github.com/jessechumo/Wera/commit/3847eb5b4b8d27b333a43853a6bcb06bc268dec6))
+
 ## [0.8.2](https://github.com/jessechumo/Wera/compare/wera-v0.8.1...wera-v0.8.2) (2026-10-28)
 
 
