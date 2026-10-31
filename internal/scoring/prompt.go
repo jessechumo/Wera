@@ -69,7 +69,7 @@ func BuildMessages(profile []byte, j Job) []Message {
 
 // buildJobMessage renders the per-job part of the prompt.
 func buildJobMessage(j Job) string {
-	desc := j.Description
+	desc := ScrubPosting(j.Description)
 	if len(desc) > maxDescriptionChars {
 		desc = desc[:maxDescriptionChars]
 	}

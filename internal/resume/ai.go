@@ -115,7 +115,7 @@ func TailorMessages(r *Resume, company, title, description string, missing []str
 			}
 		}
 	}
-	desc := description
+	desc := scoring.ScrubPosting(description)
 	if r := []rune(desc); len(r) > 8000 {
 		desc = string(r[:8000])
 	}

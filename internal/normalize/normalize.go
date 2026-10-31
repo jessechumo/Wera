@@ -21,6 +21,9 @@ var (
 	itemEndRE = regexp.MustCompile(`(?i)</\s*(li|dt|dd)\s*>`)
 	tagRE     = regexp.MustCompile(`(?s)<[^>]*>`)
 	spaceRE   = regexp.MustCompile(`[ \t\r\f\v\x{00A0}]+`)
+	// hiddenRE matches an element styled out of sight: how a posting hides
+	// lines meant only for AI tools.
+	hiddenRE = regexp.MustCompile(`(?is)<(?:span|div|p|font|small|li|td|section|b|i|em|strong)\b[^>]*\bstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*[0-2](?:\.\d+)?(?:px|pt|em|rem|%)?\s*(?:;|["'])|opacity\s*:\s*0(?:\.0\d*)?\s*(?:;|["'])|color\s*:\s*(?:transparent|#fff(?:fff)?\b|white\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))|(?:left|top|text-indent)\s*:\s*-\d{3,}(?:\.\d+)?px)[^>]*>.*?</(?:span|div|p|font|small|li|td|section|b|i|em|strong)\s*>`)
 )
 
 // HTMLToText converts HTML to plain text: entities are unescaped, tags are
@@ -37,6 +40,7 @@ func HTMLToText(s string) string {
 	s = html.UnescapeString(s) // reveal the real markup
 	s = scriptRE.ReplaceAllString(s, " ")
 	s = styleRE.ReplaceAllString(s, " ")
+	s = hiddenRE.ReplaceAllString(s, " ") // what a person cannot see on the page is no part of the job
 	s = brRE.ReplaceAllString(s, "\n")
 	s = paraEndRE.ReplaceAllString(s, "\n\n")
 	s = itemEndRE.ReplaceAllString(s, "\n")
