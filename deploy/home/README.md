@@ -14,8 +14,8 @@ LAN     ──> :3000 wera-web ──> wera-api
 
 | Offline for | What happens to the tunnel | What brings it back |
 |---|---|---|
-| Up to 6 minutes or so | cloudflared reconnects on the same address | Nothing to do |
-| More than about 12 minutes | Cloudflare forgets it. cloudflared keeps running and logs `control stream encountered a failure` until it is replaced | The tunnel watch |
+| Up to about 6 minutes | cloudflared reconnects on the same address | Nothing to do |
+| More than about 12 minutes | Cloudflare deletes it. cloudflared keeps running and logs `Tunnel not found` (`control stream encountered a failure` on older versions) until it is replaced | The tunnel watch |
 
 Restarting the machine or `wera-tunnel` also gives a new address, and the watch
 handles that the same way.

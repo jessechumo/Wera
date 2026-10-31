@@ -4,10 +4,10 @@
 #
 # The dashboard is on Vercel, which sends /api through a Cloudflare quick
 # tunnel to this machine. A quick tunnel rides out short drops. After about
-# 12 minutes offline Cloudflare forgets it: cloudflared stays up, retrying
-# forever with "control stream encountered a failure", and the site stays
-# down with the network back. Only a new tunnel works, and it has a new
-# address, which has to reach vercel.json. This does both.
+# 12 minutes offline Cloudflare deletes it: cloudflared stays up, retrying
+# forever with "Tunnel not found", and the site stays down with the network
+# back. Only a new tunnel works, and it has a new address, which has to reach
+# vercel.json. This does both.
 #
 # It does nothing while the site answers, while this machine is offline (a
 # new tunnel needs the internet, and the old one may yet recover), while the
@@ -70,10 +70,11 @@ tunnel_host() {
   curl -fsS -m 3 "http://$ip:20241/quicktunnel" 2>/dev/null | sed -n 's/.*"hostname":"\([^"]*\)".*/\1/p'
 }
 
-# cloudflared's sign that Cloudflare has forgotten the tunnel: of 18 drops
+# cloudflared's sign that Cloudflare has deleted the tunnel. Of 18 drops
 # logged, it appeared in all 6 that never recovered and in none that did.
+# Versions word it differently: 2025.9 logged the second of these.
 stuck() {
-  [ "$(docker logs --since 3m "$TUNNEL" 2>&1 | grep -c 'control stream encountered a failure')" -ge 3 ]
+  [ "$(docker logs --since 3m "$TUNNEL" 2>&1 | grep -cE 'Tunnel not found|control stream encountered a failure')" -ge 3 ]
 }
 
 new_tunnel() {

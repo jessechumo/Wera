@@ -9,6 +9,9 @@ ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 FAILED=0
 
+# What cloudflared logs once Cloudflare has forgotten its tunnel.
+STUCK='ERR Register tunnel error from server side error="Unauthorized: Tunnel not found"'
+OLD_STUCK='ERR Serve tunnel error error="control stream encountered a failure while serving"'
 OLD=old-address-here.trycloudflare.com
 NEW=new-address-here.trycloudflare.com
 
@@ -24,7 +27,7 @@ case "$1" in
       *State.Status*) cat "$WORLD/tunnel-state" ;;
       *Health*) cat "$WORLD/api-health" ;;
     esac ;;
-  logs) [ -e "$WORLD/stuck" ] && printf 'control stream encountered a failure\n%.0s' 1 2 3 4 ;;
+  logs) [ -e "$WORLD/stuck" ] && printf '%s\n' "$(cat "$WORLD/stuck")" "$(cat "$WORLD/stuck")" "$(cat "$WORLD/stuck")" ;;
   restart)
     echo restart >>"$WORLD/restarts"
     echo "$WERA_TEST_NEW" >"$WORLD/host"
@@ -100,7 +103,7 @@ expect "...and nothing is committed" 1 "$(commits main)"
 
 fresh
 rm "$WORLD/site-up" "$WORLD/online" "$WORLD/tunnel-up"
-: >"$WORLD/stuck"
+echo "$STUCK" >"$WORLD/stuck"
 run; run; run; run
 expect "offline: the tunnel is left alone, even looking stuck" 0 "$(restarts)"
 expect "offline: said once" 1 "$(grep -c offline "$ROOT/state/watch.log")"
@@ -129,16 +132,28 @@ expect "...and dev still catches up" 2 "$(commits dev)"
 
 fresh
 rm "$WORLD/site-up" "$WORLD/tunnel-up"
-: >"$WORLD/stuck"
+echo "$OLD_STUCK" >"$WORLD/stuck"
+run
+expect "older cloudflared's wording counts too" 1 "$(restarts)"
+
+fresh
+rm "$WORLD/site-up" "$WORLD/tunnel-up"
+echo 'ERR Failed to dial a quic connection error="timeout: no recent network activity"' >"$WORLD/stuck"
+run
+expect "any other error gets time to recover" 0 "$(restarts)"
+
+fresh
+rm "$WORLD/site-up" "$WORLD/tunnel-up"
+echo "$STUCK" >"$WORLD/stuck"
 run
 expect "a stuck tunnel is replaced on sight" 1 "$(restarts)"
-: >"$WORLD/stuck"
+echo "$STUCK" >"$WORLD/stuck"
 run
 expect "...but not again within the gap" 1 "$(restarts)"
 
 fresh
 rm "$WORLD/site-up" "$WORLD/tunnel-up"
-: >"$WORLD/stuck"
+echo "$STUCK" >"$WORLD/stuck"
 : >"$WORLD/restart-heals"
 WERA_WATCH_SETTLE=5 run
 expect "a new tunnel that answers at once is published in the same run" 2 "$(commits main)"
@@ -152,7 +167,7 @@ expect "...then is replaced" 1 "$(restarts)"
 
 fresh
 rm "$WORLD/site-up" "$WORLD/tunnel-up"
-: >"$WORLD/stuck"
+echo "$STUCK" >"$WORLD/stuck"
 echo unhealthy >"$WORLD/api-health"
 run; run; run; run
 expect "the API down is not the tunnel's fault" 0 "$(restarts)"
@@ -165,7 +180,7 @@ expect "a tunnel stopped on purpose stays stopped" 0 "$(restarts)"
 
 fresh
 rm "$WORLD/site-up" "$WORLD/tunnel-up"
-: >"$WORLD/stuck"
+echo "$STUCK" >"$WORLD/stuck"
 : >"$ROOT/state/paused"
 run
 expect "paused means paused" 0 "$(restarts)"
