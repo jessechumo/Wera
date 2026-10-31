@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"wera/internal/normalize"
 	"wera/internal/resume"
 	"wera/internal/store"
 )
@@ -625,14 +626,14 @@ func (s *Server) suggestBullet(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "that bullet is too long")
 		return
 	}
+	if !s.aiReady(w, r, "suggesting bullets") {
+		return
+	}
 	user := currentUser(r)
 	job := ""
 	if in.JobID > 0 {
 		if company, title, desc, err := s.jobContext(r, in.JobID, "", "", ""); err == nil {
-			if len(desc) > 3000 {
-				desc = desc[:3000]
-			}
-			job = title + " at " + company + "\n" + desc
+			job = title + " at " + company + "\n" + normalize.Clip(desc, 3000)
 		}
 	}
 	reply, err := s.chatForUser(r.Context(), user.ID, "bullet", 600, resume.BulletMessages(in.Text, in.Role, job))
