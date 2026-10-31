@@ -348,17 +348,19 @@ func (f *Fetcher) saveCompanyJobs(ctx context.Context, src sources.Source, compa
 		if collectIDs {
 			openIDs = append(openIDs, rj.ExtID)
 		}
+		// One posting Postgres refuses would fail the company's whole batch.
+		title, location, desc := normalize.Text(rj.Title), normalize.Text(rj.LocationRaw), normalize.Text(rj.DescriptionText)
 		inputs = append(inputs, store.JobInput{
 			CompanyID:   companyID,
 			Source:      src.Name(),
 			ExtID:       rj.ExtID,
-			Title:       rj.Title,
-			LocationRaw: rj.LocationRaw,
+			Title:       title,
+			LocationRaw: location,
 			IsRemote:    rj.IsRemote,
-			URL:         rj.URL,
-			Department:  rj.Department,
-			Description: rj.DescriptionText,
-			ContentHash: normalize.ContentHash(rj.Title, rj.LocationRaw, rj.DescriptionText),
+			URL:         normalize.Text(rj.URL),
+			Department:  normalize.Text(rj.Department),
+			Description: desc,
+			ContentHash: normalize.ContentHash(title, location, desc),
 			PostedAt:    rj.PostedAt,
 		})
 	}

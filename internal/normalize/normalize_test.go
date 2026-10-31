@@ -1,6 +1,9 @@
 package normalize
 
-import "testing"
+import (
+	"testing"
+	"unicode/utf8"
+)
 
 func TestHTMLToText(t *testing.T) {
 	tests := []struct {
@@ -62,5 +65,34 @@ func TestHTMLToTextDropsWhatAPersonCannotSee(t *testing.T) {
 	got := HTMLToText(in)
 	if got != "Run robots.\n\nShown." {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestClip(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		n    int
+		want string
+	}{
+		{"short", 10, "short"},
+		{"exactly", 7, "exactly"},
+		{"abcdef", 3, "abc"},
+		{"caf\u00e9", 4, "caf"},       // \u00e9 is two bytes: not half of it
+		{"\u2018quoted\u2019", 2, ""}, // nothing whole fits
+		{"\U0001F600 ok", 3, ""},
+	} {
+		got := Clip(c.in, c.n)
+		if got != c.want || !utf8.ValidString(got) {
+			t.Errorf("Clip(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
+		}
+	}
+}
+
+func TestText(t *testing.T) {
+	if got := Text("a\x00b\xffc"); got != "abc" {
+		t.Errorf("%q", got)
+	}
+	if got := Text("caf\u00e9"); got != "caf\u00e9" {
+		t.Errorf("%q", got)
 	}
 }

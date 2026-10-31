@@ -8,6 +8,7 @@ import (
 	"html"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
@@ -65,6 +66,23 @@ func HTMLToText(s string) string {
 		blank = false
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// Clip shortens s to at most n bytes without cutting a character in half.
+// Postgres refuses text that ends partway through one.
+func Clip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
+}
+
+// Text removes what Postgres refuses to store: NUL bytes and invalid UTF-8.
+func Text(s string) string {
+	return strings.ToValidUTF8(strings.ReplaceAll(s, "\x00", ""), "")
 }
 
 // ContentHash returns the sha256 of lowercased title + location +
