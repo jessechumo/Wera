@@ -96,6 +96,40 @@ func JobEmbeddings(ctx context.Context, pool *pgxpool.Pool, jobIDs []int64, mode
 	return out, rows.Err()
 }
 
+// ScoredVector is a job the AI scored for a user, with the job's embedding.
+type ScoredVector struct {
+	Score  float64
+	Vector []float32
+}
+
+// ScoredVectors returns the user's newest AI score of each job among those
+// stored under keys (one profile text may have scores from several scoring
+// methods), with the job's embedding from this model: the limit most recent,
+// newest first. Jobs without such an embedding are left out.
+func ScoredVectors(ctx context.Context, pool *pgxpool.Pool, userID int64, keys []string, model string, limit int) ([]ScoredVector, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT fit_score, embedding FROM (
+			SELECT DISTINCT ON (a.job_id) a.fit_score, e.embedding, a.created_at
+			FROM analyses a JOIN job_embeddings e ON e.job_id = a.job_id AND e.model = $3
+			WHERE a.user_id = $1 AND a.kind = 'score' AND a.fit_score IS NOT NULL AND a.profile_hash = ANY($2::text[])
+			ORDER BY a.job_id, a.created_at DESC
+		) newest ORDER BY created_at DESC LIMIT $4`, userID, keys, model, limit)
+	if err != nil {
+		return nil, fmt.Errorf("load scored vectors: %w", err)
+	}
+	defer rows.Close()
+	var out []ScoredVector
+	for rows.Next() {
+		var score int
+		var v []float32
+		if err := rows.Scan(&score, &v); err != nil {
+			return nil, err
+		}
+		out = append(out, ScoredVector{Score: float64(score), Vector: v})
+	}
+	return out, rows.Err()
+}
+
 // ProfileEmbedding returns the stored embedding of this exact profile text
 // from this model, or nil.
 func ProfileEmbedding(ctx context.Context, pool *pgxpool.Pool, userID int64, profileHash, model string) ([]float32, error) {

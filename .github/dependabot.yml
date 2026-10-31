@@ -19,7 +19,7 @@ updates:
     commit-message: { prefix: "build(docker)" }
   # The images docker-compose.yml names (cloudflared sat a year out of date).
   - package-ecosystem: docker-compose
-    directory: /
+    directories: ["/", "/deploy/hetzner"]
     schedule: { interval: weekly }
     commit-message: { prefix: "build(docker)" }
     ignore:

@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"math"
 	"testing"
 
 	"wera/internal/config"
@@ -31,6 +32,144 @@ func TestBlendRanksFitAndPenalizesYears(t *testing.T) {
 	}
 	if Blend(md, prefs, titles, nil, nil) != nil {
 		t.Error("no facts, nothing to blend")
+	}
+}
+
+// pair blends two jobs among a few others (signals are standardized, so two
+// jobs alone would make any difference look large) and returns the first
+// job's lead over the second.
+func pair(md string, prefs config.Preferences, a, b scoring.Facts) float64 {
+	titles := map[int64]string{1: "Engineer", 2: "Engineer"}
+	facts := map[int64]*scoring.Facts{1: &a, 2: &b}
+	for i, d := range []string{"Run Go services.", "Tune Postgres replication.", "Ship Docker images.", "Sell enterprise software.", "Care for patients on a ward.", "Teach high school math."} {
+		id := int64(i + 3)
+		titles[id] = "Engineer"
+		facts[id] = &scoring.Facts{Seniority: "mid", SkillsRequired: []string{"Go", "Excel", "Teaching"}, Digest: d, WorkMode: "hybrid"}
+	}
+	got := Blend(md, prefs, titles, facts, nil)
+	return got[1] - got[2]
+}
+
+func TestBlendFollowsWhatTheFitScoreWeighs(t *testing.T) {
+	md := "# Profile\n## Target roles\n- Engineer\n## Skills\n- Go, Postgres, Docker\n## Experience\n- Built Kubernetes platforms"
+	years := func(n int) *int { return &n }
+	job := scoring.Facts{Seniority: "mid", SkillsRequired: []string{"Go", "Postgres", "Docker"}, Digest: "Build services."}
+	with := func(f func(*scoring.Facts)) scoring.Facts {
+		j := job
+		f(&j)
+		return j
+	}
+	prefs := config.Preferences{Levels: []string{"entry", "mid"}, MaxYearsRequired: 5}
+
+	// Kubernetes is only in the experience section: the fit score sees it,
+	// and so must the ranking.
+	covered := with(func(j *scoring.Facts) { j.SkillsRequired = []string{"Kubernetes", "Go", "Postgres"} })
+	missing := with(func(j *scoring.Facts) { j.SkillsRequired = []string{"Terraform", "Go", "Postgres"} })
+	if d := pair(md, prefs, covered, missing); d <= 0 {
+		t.Errorf("a skill anywhere in the profile should count: %v", d)
+	}
+	if d := pair(md, prefs, with(func(j *scoring.Facts) { j.YearsRequired = years(1) }), with(func(j *scoring.Facts) { j.YearsRequired = years(5) })); d <= 0 {
+		t.Errorf("asking near the limit should rank lower: %v", d)
+	}
+	if d := pair(md, prefs, job, with(func(j *scoring.Facts) { j.Seniority = "senior" })); d <= 0 {
+		t.Errorf("a level the user does not accept should rank lower: %v", d)
+	}
+	if d := pair(md, prefs, with(func(j *scoring.Facts) { j.WorkMode = "remote" }), with(func(j *scoring.Facts) { j.WorkMode = "onsite" })); d <= 0 {
+		t.Errorf("remote should rank higher: %v", d)
+	}
+}
+
+func TestBlocked(t *testing.T) {
+	for digest, want := range map[string]bool{
+		"Requires an active secret clearance.": true,
+		"Must hold TS/SCI.":                    true,
+		"DoD clearance needed.":                true,
+		"US citizenship required.":             true,
+		"U.S. citizen only.":                   true,
+		"Must be clearable.":                   true,
+		"ITAR controlled work.":                true,
+		"Medical clearance on hire.":           false,
+		"Work at a clearance outlet.":          false,
+		"Build for us, citizens of the web.":   false,
+		"Reduce the clearing time of trades.":  false,
+	} {
+		if got := blocked(&scoring.Facts{Digest: digest}); got != want {
+			t.Errorf("blocked(%q) = %v, want %v", digest, got, want)
+		}
+	}
+	if !blocked(&scoring.Facts{Digest: "Build.", SkillsRequired: []string{"Go", "Top Secret clearance"}}) {
+		t.Error("a demand may be listed among the skills")
+	}
+}
+
+func TestBlendPenalizesBlockersOnlyForThoseTheyBlock(t *testing.T) {
+	md := "# Profile\n## Target roles\n- Engineer\n## Skills\n- Go\n## Experience\n- Built services"
+	cleared := md + "\n- Holds an active secret clearance"
+	plain := scoring.Facts{Seniority: "mid", SkillsRequired: []string{"Go"}, Digest: "Build services."}
+	demand := plain
+	demand.Digest = "Build services. Requires an active secret clearance."
+	prefs := config.Preferences{Levels: []string{"mid"}}
+	sponsored := prefs
+	sponsored.NeedsSponsorship = true
+
+	// The same two jobs and the same profile text: only the penalty differs.
+	if got := pair(cleared, sponsored, plain, demand) - pair(cleared, prefs, plain, demand); math.Abs(got-penaltyBlocker) > 1e-6 {
+		t.Errorf("a user needing sponsorship cannot clear: extra lead %.3f, want %.1f", got, penaltyBlocker)
+	}
+	if got := pair(md, prefs, plain, demand) - pair(cleared, prefs, plain, demand); got < penaltyBlocker/2 {
+		t.Errorf("a user who shows no clearance should be penalized, one who does not: %.3f", got)
+	}
+}
+
+func TestLevelGap(t *testing.T) {
+	p := config.Preferences{Levels: []string{"entry", "mid"}}
+	for level, want := range map[string]float64{"entry": 0, "mid": 0, "junior": 1, "senior": 1, "unknown": 1, "": 1} {
+		if got := levelGap(p, level); got != want {
+			t.Errorf("levelGap(%q) = %v, want %v", level, got, want)
+		}
+	}
+	if got := levelGap(config.Preferences{Levels: []string{"management"}}, "entry"); got != 4 {
+		t.Errorf("far apart: %v", got)
+	}
+	if got := levelGap(config.Preferences{}, "senior"); got != 1 {
+		t.Errorf("no levels set: %v", got)
+	}
+}
+
+func TestLearnedWeightGrowsWithEvidence(t *testing.T) {
+	last := 0.0
+	for _, n := range []int{10, 100, 1000, 3000} {
+		w := learnedWeight(n)
+		if w <= last || w >= 2 {
+			t.Errorf("learnedWeight(%d) = %v after %v", n, w, last)
+		}
+		last = w
+	}
+	if w := learnedWeight(10); w > 0.15 {
+		t.Errorf("ten scores should barely count: %v", w)
+	}
+}
+
+func TestWithLearned(t *testing.T) {
+	blend := map[int64]float64{1: 3, 2: 2, 3: 1}
+	if got := withLearned(blend, nil, 0); got[1] != 3 {
+		t.Errorf("no estimates keep the blend: %v", got)
+	}
+	// The AI's scores say job 3 is the best and job 1 the worst.
+	learned := map[int64]float64{1: 10, 2: 50, 3: 90}
+	if got := withLearned(blend, learned, 20); !(got[1] > got[3]) {
+		t.Errorf("twenty scores should not overturn the blend: %v", got)
+	}
+	if got := withLearned(blend, learned, 3000); !(got[3] > got[1]) {
+		t.Errorf("thousands of scores should: %v", got)
+	}
+	// A job with no vector has no estimate, and counts as average.
+	got := withLearned(blend, map[int64]float64{1: 10, 3: 90}, 3000)
+	if got[2] != 0 {
+		t.Errorf("a job without an estimate moved: %v", got)
+	}
+	if out := withLearned(nil, learned, 3000); len(out) != 0 {
+		t.Errorf("no blend: %v", out)
 	}
 }
 
