@@ -30,8 +30,9 @@ type Extractor struct {
 	// OnResult, when set, receives each result as soon as it is ready.
 	OnResult func(FactsResult)
 
-	mu    sync.Mutex
-	spent float64
+	mu         sync.Mutex
+	spent      float64
+	failStreak int // calls in a row that failed (see maxCallFailures)
 }
 
 // Extract runs every job in order until the budget runs out; jobs not
@@ -70,6 +71,7 @@ func (e *Extractor) one(ctx context.Context, j Job) FactsResult {
 	start := time.Now()
 	comp, err := e.Client.Chat(ctx, FactsCacheKey, BuildFactsMessages(j))
 	if err != nil {
+		e.noteFailure(err)
 		r.Err = err
 		return r
 	}
@@ -82,15 +84,25 @@ func (e *Extractor) one(ctx context.Context, j Job) FactsResult {
 	}
 	e.mu.Lock()
 	e.spent += r.CostUSD
+	e.failStreak = 0
 	e.mu.Unlock()
 	r.Facts, r.Err = ParseFacts(comp.Content, j.Description)
 	return r
 }
 
+func (e *Extractor) noteFailure(err error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.failStreak++
+	if e.failStreak == maxCallFailures && e.Log != nil {
+		e.Log.Warn("AI calls keep failing; the rest stay pending for the next run", "err", err)
+	}
+}
+
 func (e *Extractor) over() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.MaxCostUSD > 0 && e.spent >= e.MaxCostUSD
+	return (e.MaxCostUSD > 0 && e.spent >= e.MaxCostUSD) || e.failStreak >= maxCallFailures
 }
 
 // Spent is the cost of the calls made so far.

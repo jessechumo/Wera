@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // replyScript serves queued reply bodies, one per request, recording every
@@ -183,5 +185,87 @@ func TestScorerCompactMatchesSkillsInCode(t *testing.T) {
 	if len(out.Analysis.SkillsMatched) != 1 || out.Analysis.SkillsMatched[0] != "Linux" ||
 		len(out.Analysis.SkillsMissing) != 1 || out.Analysis.SkillsMissing[0] != "Haskell" {
 		t.Fatalf("skills: matched %v missing %v", out.Analysis.SkillsMatched, out.Analysis.SkillsMissing)
+	}
+}
+
+// downProvider answers every call with an error and counts them.
+func downProvider(t *testing.T) (*Client, *atomic.Int64) {
+	t.Helper()
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "down", http.StatusBadGateway)
+	}))
+	t.Cleanup(srv.Close)
+	return NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "k", Model: "m", Backoff: time.Millisecond}), &calls
+}
+
+func manyJobs(n int) []Job {
+	jobs := make([]Job, n)
+	for i := range jobs {
+		jobs[i] = Job{ID: int64(i + 1), Company: "Acme", Title: "Engineer", Description: "Build things."}
+	}
+	return jobs
+}
+
+func TestScorerStopsWhenTheProviderIsDown(t *testing.T) {
+	client, calls := downProvider(t)
+	s := &Scorer{Client: client, Profile: []byte("p"), ProfileHash: "h", Model: "m", Concurrency: 4}
+	out := s.Score(context.Background(), manyJobs(500))
+	if n := calls.Load(); n > maxCallFailures+8 {
+		t.Errorf("kept calling a provider that is down: %d calls for 500 jobs", n)
+	}
+	for _, o := range out {
+		if o.Stage != StageSkipped {
+			t.Fatalf("job %d left the queue (%q): a failed call must leave it pending", o.JobID, o.Stage)
+		}
+	}
+}
+
+func TestExtractorStopsWhenTheProviderIsDown(t *testing.T) {
+	client, calls := downProvider(t)
+	e := &Extractor{Client: client, Model: "m", Concurrency: 4}
+	const chunk = 48
+	jobs := manyJobs(500)
+	for start := 0; start < len(jobs); start += chunk {
+		e.Extract(context.Background(), jobs[start:min(start+chunk, len(jobs))])
+	}
+	if n := calls.Load(); n > maxCallFailures+8 {
+		t.Errorf("kept calling a provider that is down: %d calls for 500 jobs", n)
+	}
+}
+
+func TestOneFailedCallDoesNotStopABatch(t *testing.T) {
+	// Every third call fails: a flaky provider, not a dead one.
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1)%3 == 0 {
+			http.Error(w, "busy", http.StatusBadGateway)
+			return
+		}
+		w.Write([]byte(`{"choices":[{"message":{"content":"{}"}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}`))
+	}))
+	defer srv.Close()
+	client := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "k", Model: "m"})
+	s := &Scorer{Client: client, Profile: []byte("p"), ProfileHash: "h", Model: "m", Concurrency: 1}
+	s.Score(context.Background(), manyJobs(100))
+	if n := calls.Load(); n < 100 {
+		t.Errorf("stopped after %d calls", n)
+	}
+}
+
+func TestRetryCountsTowardTheBudget(t *testing.T) {
+	// A reply that is not valid JSON costs money; so does asking again.
+	script := &replyScript{replies: []string{"nonsense", "still nonsense"}}
+	srv := httptest.NewServer(script)
+	defer srv.Close()
+	client := NewClient(ClientOptions{BaseURL: srv.URL, APIKey: "k", Model: "m"})
+	s := &Scorer{Client: client, Profile: []byte("p"), ProfileHash: "h", Model: "deepseek-v4.1-flash-fast", Concurrency: 1}
+	out := s.Score(context.Background(), manyJobs(1))
+	if out[0].Usage.PromptTokens != 2000 || out[0].Usage.CompletionTokens != 100 {
+		t.Errorf("the retry's tokens are missing: %+v", out[0].Usage)
+	}
+	if s.Spent() != out[0].CostUSD || s.Spent() <= 0 {
+		t.Errorf("spent %v, outcome says %v", s.Spent(), out[0].CostUSD)
 	}
 }
