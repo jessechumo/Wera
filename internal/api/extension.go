@@ -15,6 +15,7 @@ import (
 	"wera/internal/auth"
 	"wera/internal/pipeline"
 	"wera/internal/profile"
+	"wera/internal/scoring"
 	"wera/internal/sources"
 	"wera/internal/store"
 )
@@ -430,6 +431,11 @@ func (s *Server) answerQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	if q := strings.TrimSpace(in.Question); len(q) < 5 || len(q) > 1000 {
 		s.writeError(w, http.StatusBadRequest, "the question needs 5 to 1000 characters")
+		return
+	}
+	// A box whose label is nothing but an order to AI tools asks nothing.
+	if scoring.ScrubPosting(in.Question) == "" {
+		s.writeError(w, http.StatusBadRequest, "this box asks no question Wera should answer")
 		return
 	}
 	if len(in.Instructions) > 600 || len(in.Draft) > 8000 {

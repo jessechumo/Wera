@@ -82,9 +82,31 @@ func cutRunes(s string, n int) string {
 	return s
 }
 
+// CleanFields is the form's fields as a person reads them, without what
+// their labels and options say to AI tools; a field left with no question
+// is dropped. The extension does the same: this covers older versions.
+func CleanFields(fields []FormField) []FormField {
+	out := make([]FormField, 0, len(fields))
+	for _, f := range fields {
+		f.Label = scoring.ScrubPosting(f.Label)
+		if f.Label == "" {
+			continue
+		}
+		var opts []string
+		for _, o := range f.Options {
+			if c := scoring.ScrubPosting(o); c == strings.TrimSpace(o) {
+				opts = append(opts, o)
+			}
+		}
+		f.Options = opts
+		out = append(out, f)
+	}
+	return out
+}
+
 // AutofillMessages builds the request for one form page.
 func AutofillMessages(in AutofillInput) []scoring.Message {
-	fields, _ := json.Marshal(in.Fields)
+	fields, _ := json.Marshal(CleanFields(in.Fields))
 	details, _ := json.Marshal(in.Details)
 	var prior strings.Builder
 	for _, p := range in.Prior {
@@ -105,7 +127,7 @@ func AutofillMessages(in AutofillInput) []scoring.Message {
 		fmt.Fprintf(&b, "<answers>\n%s</answers>\n\n", scoring.Fence(prior.String()))
 	}
 	fmt.Fprintf(&b, "<posting>\n%s\n</posting>\n\n<content>\n%s\n</content>",
-		scoring.Fence(cutRunes(fmt.Sprintf("Company: %s\nTitle: %s\n\n%s", in.Company, in.Title, in.Description), 5000)),
+		scoring.Fence(cutRunes(fmt.Sprintf("Company: %s\nTitle: %s\n\n%s", in.Company, in.Title, scoring.ScrubPosting(in.Description)), 5000)),
 		scoring.Fence(string(fields)))
 	return []scoring.Message{
 		{Role: "system", Content: autofillInstructions},

@@ -65,8 +65,8 @@ func AnswerMessages(in AnswerInput) []scoring.Message {
 		fmt.Fprintf(&b, "<answers>\n%s</answers>\n\n", scoring.Fence(prior.String()))
 	}
 	fmt.Fprintf(&b, "<posting>\n%s\n</posting>\n\n<content>\nQuestion: %s\n</content>",
-		scoring.Fence(cut(fmt.Sprintf("Company: %s\nTitle: %s\n\n%s", in.Company, in.Title, in.Description), 8000)),
-		scoring.Fence(cut(in.Question, 1000)))
+		scoring.Fence(cut(fmt.Sprintf("Company: %s\nTitle: %s\n\n%s", in.Company, in.Title, scoring.ScrubPosting(in.Description)), 8000)),
+		scoring.Fence(cut(scoring.ScrubPosting(in.Question), 1000)))
 	if in.Draft != "" {
 		fmt.Fprintf(&b, "\n\n<draft>\n%s\n</draft>", scoring.Fence(cut(in.Draft, 8000)))
 	}
