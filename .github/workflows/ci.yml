@@ -97,9 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Shellcheck
-        run: shellcheck deploy/home/*.sh
-      - name: Tunnel watch
-        run: bash deploy/home/tunnel-watch.test.sh
+        run: shellcheck deploy/hetzner/*.sh scripts/*.sh
 
   docker:
     name: Docker build
