@@ -281,6 +281,12 @@ func AddManualJob(ctx context.Context, pool *pgxpool.Pool, userID int64, in Manu
 		if err != nil {
 			return 0, false, err
 		}
+		// Added again: the user has just seen it up, so its lifetime restarts.
+		if _, err := tx.Exec(ctx, `
+			UPDATE jobs SET closed_at = NULL, last_seen_at = now()
+			WHERE id = $1 AND source = 'manual'`, id); err != nil {
+			return 0, false, fmt.Errorf("reopen job: %w", err)
+		}
 		return id, changed, tx.Commit(ctx)
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return 0, false, err
@@ -360,15 +366,16 @@ func linkAddedJob(ctx context.Context, tx pgx.Tx, userID, jobID int64) (bool, er
 	return tag.RowsAffected() > 0, nil
 }
 
-// manualJobLifetime is how long an added posting stays open: nothing
-// re-checks a page someone pasted, so it is assumed filled after this.
+// manualJobLifetime is how long an added posting stays open after it was
+// last added: nothing re-checks a page someone pasted, so it is assumed
+// filled after this.
 const manualJobLifetime = 45 * 24 * time.Hour
 
-// CloseStaleManualJobs closes added postings older than their lifetime.
+// CloseStaleManualJobs closes added postings past their lifetime.
 func CloseStaleManualJobs(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 	tag, err := pool.Exec(ctx, `
 		UPDATE jobs SET closed_at = now()
-		WHERE source = 'manual' AND closed_at IS NULL AND first_seen_at < $1`, time.Now().Add(-manualJobLifetime))
+		WHERE source = 'manual' AND closed_at IS NULL AND last_seen_at < $1`, time.Now().Add(-manualJobLifetime))
 	return tag.RowsAffected(), err
 }
 

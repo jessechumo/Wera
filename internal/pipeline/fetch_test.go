@@ -12,6 +12,7 @@ import (
 
 	"wera/internal/config"
 	"wera/internal/sources"
+	"wera/internal/store"
 	"wera/internal/testutil"
 )
 
@@ -201,5 +202,103 @@ func TestFetchDetailsOnlyForNewPostings(t *testing.T) {
 	f.DetailBudget = 0
 	if st, _ := f.Run(ctx, cos, name); st.JobsNew != 1 {
 		t.Errorf("the next run did not catch up: %+v", st)
+	}
+}
+
+func TestFetchLeavesAddedJobsOpen(t *testing.T) {
+	ctx := context.Background()
+	board := &etagBoard{}
+	board.set("v1", raw("1", "Engineer"), raw("2", "Analyst"))
+	f := newFetcher(t, map[string]sources.Source{"fakeboard": board})
+	companyID, name := testutil.Company(t, f.Pool, "ai_ml")
+	companies := []config.Company{{Name: name, ATS: "fakeboard", Token: name, Industry: "ai_ml"}}
+	if _, err := f.Run(ctx, companies, name); err != nil {
+		t.Fatal(err)
+	}
+	// Saved from the company's own careers site, so the board does not list it.
+	user := testutil.User(t, f.Pool, false)
+	added, _, err := store.AddManualJob(ctx, f.Pool, user.ID, store.ManualJob{URL: "https://careers.added.example/" + name, Company: name, Title: "Recruiter"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	board.set("v2", raw("1", "Engineer"))
+	if _, err := f.Run(ctx, companies, name); err != nil {
+		t.Fatal(err)
+	}
+	if isClosed(t, f, added) {
+		t.Error("a fetch closed a job the user added: the board never listed it")
+	}
+	var gone int64
+	if err := f.Pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE company_id = $1 AND ext_id = '2' AND closed_at IS NOT NULL`, companyID).Scan(&gone); err != nil || gone != 1 {
+		t.Errorf("the board's removed posting: closed %d, %v", gone, err)
+	}
+}
+
+func TestAddingAClosedJobAgainReopensIt(t *testing.T) {
+	ctx := context.Background()
+	pool := testutil.Pool(t)
+	user := testutil.User(t, pool, false)
+	_, name := testutil.Company(t, pool, "ai_ml")
+	job := store.ManualJob{URL: "https://careers.again.example/" + name, Company: name, Title: "Recruiter"}
+	id, _, err := store.AddManualJob(ctx, pool, user.ID, job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Added long ago and past its lifetime.
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET first_seen_at = now() - interval '90 days', last_seen_at = now() - interval '90 days' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := store.CloseStaleManualJobs(ctx, pool); err != nil || n < 1 {
+		t.Fatalf("closed %d, %v", n, err)
+	}
+	again, _, err := store.AddManualJob(ctx, pool, user.ID, job)
+	if err != nil || again != id {
+		t.Fatalf("job %d, want %d: %v", again, id, err)
+	}
+	f := &Fetcher{Pool: pool}
+	if isClosed(t, f, id) {
+		t.Fatal("the user added it again and it stayed closed")
+	}
+	// Its lifetime starts over, or the next run would close it again.
+	if _, err := store.CloseStaleManualJobs(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if isClosed(t, f, id) {
+		t.Error("closed again: its lifetime did not restart")
+	}
+}
+
+func isClosed(t *testing.T, f *Fetcher, id int64) bool {
+	t.Helper()
+	var closed bool
+	if err := f.Pool.QueryRow(context.Background(), `SELECT closed_at IS NOT NULL FROM jobs WHERE id = $1`, id).Scan(&closed); err != nil {
+		t.Fatal(err)
+	}
+	return closed
+}
+
+func TestFetchSavesPostingsWithBytesPostgresRefuses(t *testing.T) {
+	ctx := context.Background()
+	board := &etagBoard{}
+	bad := raw("9", "Engineer\x00 II")
+	bad.DescriptionText = "Line one\x00\nLine \xff two"
+	bad.LocationRaw = "Remote\x00"
+	bad.Department = "Eng\x00"
+	board.set("v1", raw("8", "Fine"), bad)
+	f := newFetcher(t, map[string]sources.Source{"fakeboard": board})
+	companyID, name := testutil.Company(t, f.Pool, "ai_ml")
+	st, err := f.Run(ctx, []config.Company{{Name: name, ATS: "fakeboard", Token: name, Industry: "ai_ml"}}, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.CompaniesFailed != 0 || st.JobsNew != 2 {
+		t.Fatalf("one odd posting cost the company its jobs: %+v", st)
+	}
+	var title, desc string
+	if err := f.Pool.QueryRow(ctx, `SELECT title, description FROM jobs WHERE company_id = $1 AND ext_id = '9'`, companyID).Scan(&title, &desc); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Engineer II" || desc != "Line one\nLine  two" {
+		t.Errorf("%q %q", title, desc)
 	}
 }
