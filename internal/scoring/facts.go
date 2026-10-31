@@ -45,7 +45,7 @@ Rules:
 
 // BuildFactsMessages builds the facts-extraction messages for one job.
 func BuildFactsMessages(j Job) []Message {
-	desc := j.Description
+	desc := ScrubPosting(j.Description)
 	if len(desc) > maxDescriptionChars {
 		desc = desc[:maxDescriptionChars]
 	}
