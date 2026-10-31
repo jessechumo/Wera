@@ -200,6 +200,16 @@ func Standardize(v map[int64]float64) map[int64]float64 {
 // the weakest 35, linearly in between.
 func Scale(sims map[int64]float64) map[int64]int {
 	out := make(map[int64]int, len(sims))
+	for id, s := range ScaleExact(sims) {
+		out[id] = int(math.Round(s))
+	}
+	return out
+}
+
+// ScaleExact is Scale without the rounding. Thousands of jobs share the 51
+// whole estimates, so anything choosing among the best should use this.
+func ScaleExact(sims map[int64]float64) map[int64]float64 {
+	out := make(map[int64]float64, len(sims))
 	first := true
 	var lo, hi float64
 	for _, s := range sims {
@@ -213,7 +223,7 @@ func Scale(sims map[int64]float64) map[int64]int {
 		if hi > lo {
 			pct = (s - lo) / (hi - lo)
 		}
-		out[id] = 35 + int(math.Round(50*pct))
+		out[id] = 35 + 50*pct
 	}
 	return out
 }

@@ -85,3 +85,17 @@ func TestStandardize(t *testing.T) {
 		}
 	}
 }
+
+func TestScaleExactKeepsOrderWithinAWholeEstimate(t *testing.T) {
+	sims := map[int64]float64{1: 0, 2: 1, 3: 0.5001, 4: 0.5002}
+	exact, whole := ScaleExact(sims), Scale(sims)
+	if exact[1] != 35 || exact[2] != 85 || whole[1] != 35 || whole[2] != 85 {
+		t.Errorf("ends: %v %v", exact, whole)
+	}
+	if whole[3] != whole[4] || !(exact[4] > exact[3]) {
+		t.Errorf("close jobs tie when whole and keep their order when exact: %v %v", whole, exact)
+	}
+	if got := ScaleExact(map[int64]float64{7: 3}); got[7] != 85 {
+		t.Errorf("a single job: %v", got)
+	}
+}
