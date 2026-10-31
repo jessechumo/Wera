@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -103,18 +104,68 @@ func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *sto
 }
 
 // Blend weights. Each signal is standardized over the user's candidates
-// first, so the weights compare like with like. They were fit to 903 AI
-// fit scores of six users by leave-one-user-out validation, and every
-// held-out fit chose the same ones. With Arctic Embed M the blend agrees
-// with the AI's order at Spearman 0.66 (bge-small embeddings alone: 0.45).
+// first, so the weights compare like with like. They follow what the fit score
+// weighs, and were fit to 27,000 AI fit scores of seven users, holding each
+// user out in turn, then rounded. Against those scores this order agrees at
+// Spearman 0.77 (the embedding alone: 0.66).
 const (
 	weightEmbedding = 2.0
 	weightWords     = 1.0
-	weightSkills    = 1.0
+	weightSkills    = 1.0 // every word of a required skill is in the profile
+	weightCoverage  = 1.0 // any specific word is, which is what the fit score measures
+	weightNearLimit = 1.0 // asks close to the most years the user accepts
+	weightLevelGap  = 0.5 // levels away from those the user accepts
+	weightRemote    = 0.5
+	// penaltyBlocker is subtracted when a posting needs a clearance or
+	// citizenship the user does not show: the fit score cuts those by 60%.
+	penaltyBlocker = 1.5
 	// penaltyTooManyYears is subtracted when a posting asks for more
 	// years than the user accepts: the AI scores those far lower.
 	penaltyTooManyYears = 4.0
 )
+
+// needsClearance finds a posting's demand for a clearance or citizenship in
+// its digest and skills. "Clearance" alone also means medical clearance.
+var needsClearance = regexp.MustCompile(`(?i)\b(security|secret|government|dod|sci|public trust)[- ]+clearance\b|` +
+	`\bclearable\b|\bts/sci\b|\bu\.?s\.? citizen(ship)?\b|must be a citizen|\bitar\b`)
+
+// blocked reports whether a posting demands a clearance or citizenship.
+func blocked(f *scoring.Facts) bool {
+	return needsClearance.MatchString(f.Digest + " " + strings.Join(f.SkillsRequired, " "))
+}
+
+// showsClearance finds a profile that could meet such a demand. A user who
+// needs sponsorship cannot, whatever their profile says about it.
+var showsClearance = regexp.MustCompile(`(?i)clearance|citizen`)
+
+// levelOrder places the levels of postings and preferences on one line.
+var levelOrder = map[string]int{"internship": 0, "entry": 1, "junior": 2, "mid": 3, "senior": 4, "management": 5}
+
+// levelGap is how many levels a posting is from the nearest one the user
+// accepts. An unknown level counts as one step: neither a match nor far off.
+func levelGap(prefs config.Preferences, seniority string) float64 {
+	at, ok := levelOrder[seniority]
+	if !ok {
+		return 1
+	}
+	gap := -1
+	for _, l := range prefs.Levels {
+		if o, ok := levelOrder[l]; ok && (gap < 0 || abs(o-at) < gap) {
+			gap = abs(o - at)
+		}
+	}
+	if gap < 0 {
+		return 1
+	}
+	return float64(gap)
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
 
 // FactsText is what a posting's facts read as for word matching and
 // embedding: seniority, required skills and the digest.
@@ -122,25 +173,43 @@ func FactsText(f *scoring.Facts) string {
 	return fmt.Sprintf("Seniority: %s. Skills: %s. %s", f.Seniority, strings.Join(f.SkillsRequired, ", "), f.Digest)
 }
 
-// Blend scores the jobs that have facts: embedding similarity (sims; a
-// job missing from it counts as average), TF-IDF similarity of the facts
-// to the profile's roles and skills, the share of required skills the
-// profile names, minus a penalty for asking more years than the user
-// accepts. Higher is better; the values only order jobs.
+// Blend scores the jobs that have facts on what the fit score weighs:
+// embedding similarity (sims; a job missing from it counts as average),
+// TF-IDF similarity of the facts to the profile's roles and skills, how much
+// of the required skills the profile shows, closeness to the years limit, the
+// level, remote work, and penalties for a blocker or too many years. Higher
+// is better; the values only order jobs.
 func Blend(markdown string, prefs config.Preferences, titles map[int64]string, facts map[int64]*scoring.Facts, sims map[int64]float64) map[int64]float64 {
 	if len(facts) == 0 {
 		return nil
 	}
 	profile := embed.ProfileText(markdown)
-	have := relevance.TokenSet(profile)
-	docs := make([]relevance.Doc, 0, len(facts))
-	skills := make(map[int64]float64, len(facts))
+	have, skillSet := relevance.TokenSet(profile), scoring.NewSkillSet(markdown)
+	canClear := !prefs.NeedsSponsorship && showsClearance.MatchString(markdown)
+	n := len(facts)
+	docs := make([]relevance.Doc, 0, n)
+	skills, coverage := make(map[int64]float64, n), make(map[int64]float64, n)
+	near, gaps, remote := make(map[int64]float64, n), make(map[int64]float64, n), make(map[int64]float64, n)
 	for id, f := range facts {
 		docs = append(docs, relevance.Doc{ID: id, Title: titles[id], Body: FactsText(f)})
 		skills[id] = relevance.SkillOverlap(have, f.SkillsRequired)
+		if c := scoring.Coverage(scoring.MatchSkills(skillSet, f.SkillsRequired)); c >= 0 {
+			coverage[id] = c
+		}
+		near[id] = 0
+		if prefs.MaxYearsRequired > 0 && f.YearsRequired != nil {
+			near[id] = float64(max(0, *f.YearsRequired-prefs.MaxYearsRequired+3))
+		}
+		gaps[id] = levelGap(prefs, f.Seniority)
+		remote[id] = 0
+		if f.WorkMode == "remote" {
+			remote[id] = 1
+		}
 	}
 	words := relevance.Standardize(relevance.Similarities(profile, docs))
 	skills = relevance.Standardize(skills)
+	coverage = relevance.Standardize(coverage)
+	near, gaps, remote = relevance.Standardize(near), relevance.Standardize(gaps), relevance.Standardize(remote)
 	emb := map[int64]float64{}
 	if len(sims) > 0 {
 		known := make(map[int64]float64, len(sims))
@@ -151,9 +220,13 @@ func Blend(markdown string, prefs config.Preferences, titles map[int64]string, f
 		}
 		emb = relevance.Standardize(known)
 	}
-	out := make(map[int64]float64, len(facts))
+	out := make(map[int64]float64, n)
 	for id, f := range facts {
-		v := weightEmbedding*emb[id] + weightWords*words[id] + weightSkills*skills[id]
+		v := weightEmbedding*emb[id] + weightWords*words[id] + weightSkills*skills[id] + weightCoverage*coverage[id] -
+			weightNearLimit*near[id] - weightLevelGap*gaps[id] + weightRemote*remote[id]
+		if !canClear && blocked(f) {
+			v -= penaltyBlocker
+		}
 		if prefs.MaxYearsRequired > 0 && f.YearsRequired != nil && *f.YearsRequired > prefs.MaxYearsRequired {
 			v -= penaltyTooManyYears
 		}
