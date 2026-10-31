@@ -65,20 +65,24 @@ func keyed(model, kind, prefix string) string {
 }
 
 // RankPending re-ranks the user's unscored matches against their profile
-// without an AI call, stores the estimates (35..85) and returns them. The
-// estimates order the AI scoring queue, decide which jobs get an AI score
-// under the daily limit, and preview jobs on the dashboard.
+// without an AI call and stores the estimates (35..85). The estimates order
+// the AI scoring queue, decide which jobs get an AI score under the daily
+// limit, and preview jobs on the dashboard. It returns them unrounded, so
+// the best jobs keep their order: many share each whole number.
 //
-// Jobs with shared facts are ranked by Blend (embedding similarity, word
-// and skill matches on the facts, a penalty for asking too many years);
-// the rest (new postings whose facts are not extracted yet) fall back to
-// TF-IDF on the posting until they have facts.
-func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *store.Profile) (map[int64]int, error) {
+// Jobs with shared facts are ranked by Blend (see there); the rest (new
+// postings whose facts are not extracted yet) fall back to TF-IDF on the
+// posting until they have facts.
+func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *store.Profile) (map[int64]float64, error) {
 	docs, err := store.RankDocs(ctx, pool, prof.UserID)
 	if err != nil {
 		return nil, err
 	}
 	est := relevance.Rank(prof.Markdown, docs)
+	exact := make(map[int64]float64, len(est))
+	for id, v := range est {
+		exact[id] = float64(v)
+	}
 	if len(docs) > 0 {
 		ids := make([]int64, len(docs))
 		titles := make(map[int64]string, len(docs))
@@ -96,11 +100,15 @@ func RankPending(ctx context.Context, pool *pgxpool.Pool, e *Embedder, prof *sto
 				e.Log.Warn("embedding ranking unavailable; ranking by words and skills", "user_id", prof.UserID, "err", err)
 			}
 		}
-		for id, v := range relevance.Scale(Blend(prof.Markdown, prof.Preferences, titles, facts, sims)) {
+		blend := Blend(prof.Markdown, prof.Preferences, titles, facts, sims)
+		for id, v := range relevance.ScaleExact(blend) {
+			exact[id] = v
+		}
+		for id, v := range relevance.Scale(blend) {
 			est[id] = v
 		}
 	}
-	return est, store.SetEstimates(ctx, pool, prof.UserID, est)
+	return exact, store.SetEstimates(ctx, pool, prof.UserID, est)
 }
 
 // Blend weights. Each signal is standardized over the user's candidates
