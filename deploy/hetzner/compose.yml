@@ -50,7 +50,7 @@ services:
   # every pending job for each user without an AI call, so only the best
   # ranked get a paid AI score. Downloads the model (~440 MB) on first start.
   wera-embed:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     command: ["--model-id", "Snowflake/snowflake-arctic-embed-m-v1.5", "--auto-truncate", "--max-batch-tokens", "8192", "--tokenization-workers", "2"]
     volumes:
       - wera-embed-models:/data
