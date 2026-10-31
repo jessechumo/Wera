@@ -125,6 +125,52 @@ func TestMaintenanceRedirect(t *testing.T) {
 	}
 }
 
+func TestWordInAddressIsNotMaintenance(t *testing.T) {
+	// Aviation Institute of Maintenance's board: nobody is down.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"total": 3}`))
+	}))
+	defer srv.Close()
+	var out struct{ Total int }
+	url := srv.URL + "/v1/boards/aviationinstituteofmaintenance/jobs"
+	if err := fastHTTP().GetJSON(context.Background(), url, &out); err != nil || out.Total != 3 {
+		t.Errorf("%+v %v", out, err)
+	}
+}
+
+func TestMaintenanceJobIsNotAMaintenancePage(t *testing.T) {
+	// Workday puts the title in the job's address.
+	for _, path := range []string{"/job/Bushton-KS/Supervisor---Maintenance_R8049-2", "/job/Austin/Maintenance-Technician_R12", "/job/Austin/Maintenance-Lead_R3"} {
+		mux := http.NewServeMux()
+		mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte(`{"total": 1}`)) })
+		mux.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, path, http.StatusFound) })
+		srv := httptest.NewServer(mux)
+		var out struct{ Total int }
+		for _, at := range []string{path, "/old"} {
+			if err := fastHTTP().GetJSON(context.Background(), srv.URL+at, &out); err != nil || out.Total != 1 {
+				t.Errorf("%s via %s: %+v %v", path, at, out, err)
+			}
+		}
+		srv.Close()
+	}
+}
+
+func TestRedirectBetweenBoardPagesIsNotMaintenance(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/boards/aviationinstituteofmaintenance/jobs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"total": 3}`))
+	})
+	mux.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/boards/aviationinstituteofmaintenance/jobs", http.StatusMovedPermanently)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	var out struct{ Total int }
+	if err := fastHTTP().GetJSON(context.Background(), srv.URL+"/old", &out); err != nil || out.Total != 3 {
+		t.Errorf("%+v %v", out, err)
+	}
+}
+
 func TestPostJSONSendsBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)

@@ -293,6 +293,7 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 	var mu sync.Mutex
 	var detailed []sources.RawJob
 	failed := 0
+	var firstErr error
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(detailConcurrency)
 	for i := range fresh {
@@ -301,8 +302,11 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 			if derr := src.Detail(gctx, c.Token, &j); derr != nil {
 				mu.Lock()
 				failed++
+				if firstErr == nil {
+					firstErr = fmt.Errorf("%s: %w", j.ExtID, derr)
+				}
 				mu.Unlock()
-				return nil //nolint:nilerr // a failed detail is skipped and retried next run, not fatal
+				return nil // skipped and retried next run, not fatal
 			}
 			mu.Lock()
 			detailed = append(detailed, j)
@@ -315,10 +319,10 @@ func (f *Fetcher) fetchIncremental(ctx context.Context, c config.Company, src so
 		return len(jobs), 0, 0, ctx.Err()
 	}
 	if failed > 0 {
-		f.Log.Warn("some job details failed; retrying next run", "company", c.Name, "failed", failed)
+		f.Log.Warn("some job details failed; retrying next run", "company", c.Name, "failed", failed, "first_err", firstErr)
 	}
 	if len(fresh) > 0 && len(detailed) == 0 {
-		return len(jobs), 0, 0, fmt.Errorf("all %d job detail requests failed", len(fresh))
+		return len(jobs), 0, 0, fmt.Errorf("all %d job detail requests failed: %w", len(fresh), firstErr)
 	}
 
 	if err := store.TouchJobs(ctx, f.Pool, companyID, stillListed); err != nil {
@@ -348,17 +352,19 @@ func (f *Fetcher) saveCompanyJobs(ctx context.Context, src sources.Source, compa
 		if collectIDs {
 			openIDs = append(openIDs, rj.ExtID)
 		}
+		// One posting Postgres refuses would fail the company's whole batch.
+		title, location, desc := normalize.Text(rj.Title), normalize.Text(rj.LocationRaw), normalize.Text(rj.DescriptionText)
 		inputs = append(inputs, store.JobInput{
 			CompanyID:   companyID,
 			Source:      src.Name(),
 			ExtID:       rj.ExtID,
-			Title:       rj.Title,
-			LocationRaw: rj.LocationRaw,
+			Title:       title,
+			LocationRaw: location,
 			IsRemote:    rj.IsRemote,
-			URL:         rj.URL,
-			Department:  rj.Department,
-			Description: rj.DescriptionText,
-			ContentHash: normalize.ContentHash(rj.Title, rj.LocationRaw, rj.DescriptionText),
+			URL:         normalize.Text(rj.URL),
+			Department:  normalize.Text(rj.Department),
+			Description: desc,
+			ContentHash: normalize.ContentHash(title, location, desc),
 			PostedAt:    rj.PostedAt,
 		})
 	}

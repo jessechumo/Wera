@@ -91,6 +91,16 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  scripts:
+    name: Deploy scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shellcheck
+        run: shellcheck deploy/home/*.sh
+      - name: Tunnel watch
+        run: bash deploy/home/tunnel-watch.test.sh
+
   docker:
     name: Docker build
     runs-on: ubuntu-latest

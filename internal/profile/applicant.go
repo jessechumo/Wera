@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"wera/internal/normalize"
 	"wera/internal/scoring"
 )
 
@@ -53,11 +54,7 @@ func ParseApplicantSuggestions(reply, resume string) (map[string]string, error) 
 		default:
 			continue
 		}
-		s = strings.TrimSpace(s)
-		if len(s) > 200 {
-			s = s[:200]
-		}
-		out[k] = s
+		out[k] = normalize.Clip(strings.TrimSpace(s), 200)
 	}
 	// Contact details must appear in the resume verbatim.
 	out["linkedin"], out["github"], out["phone"] = "", "", ""

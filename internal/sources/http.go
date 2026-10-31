@@ -9,8 +9,8 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -172,10 +172,15 @@ func truncate(b []byte, n int) string {
 	return string(b)
 }
 
-// redirectedToMaintenance reports whether the request ended on a
-// maintenance page after redirects (Workday sends every tenant to
+// maintenancePage matches a path ending in a maintenance page, and not a
+// board or a job with the word in its name: Aviation Institute of
+// Maintenance's board, or Workday's /job/Austin/Maintenance-Technician_R12.
+var maintenancePage = regexp.MustCompile(`(?i)/maintenance(?:[-_]page)?(?:\.html?)?/?$`)
+
+// redirectedToMaintenance reports whether the request was redirected to a
+// maintenance page (Workday sends every tenant to
 // community.workday.com/maintenance-page during its weekly window).
 func redirectedToMaintenance(resp *http.Response) bool {
-	final := resp.Request.URL
-	return final != nil && strings.Contains(strings.ToLower(final.Path), "maintenance")
+	final := resp.Request
+	return final != nil && final.Response != nil && final.URL != nil && maintenancePage.MatchString(final.URL.Path)
 }

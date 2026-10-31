@@ -32,6 +32,11 @@ type Outcome struct {
 	Err             error
 }
 
+// maxCallFailures ends a batch after this many calls in a row fail: the
+// provider or the network is down, the jobs stay pending for the next run,
+// and thousands more calls would only sit waiting for timeouts.
+const maxCallFailures = 12
+
 // retryNote is the extra message appended when the model returns invalid
 // JSON, per PLAN.md section 7.4.
 const retryNote = "Your previous reply was not valid JSON for the schema. Return only the JSON object."
@@ -63,6 +68,7 @@ type Scorer struct {
 	skills     SkillSet     // profile terms, for matching job skills
 	limit      atomic.Int32 // current effective concurrency
 	inUse      atomic.Int32
+	failStreak atomic.Int32 // calls in a row that failed
 	costMu     sync.Mutex
 	spent      float64
 	budgetHit  bool
@@ -99,6 +105,7 @@ func (s *Scorer) Score(ctx context.Context, jobs []Job) []Outcome {
 			// the cache instead of each paying to write it again.
 			outcomes[0] = s.scoreOne(ctx, jobs[0])
 			s.release()
+			s.noteCall(outcomes[0])
 			s.emit(outcomes[0])
 			continue
 		}
@@ -107,11 +114,23 @@ func (s *Scorer) Score(ctx context.Context, jobs []Job) []Outcome {
 			defer wg.Done()
 			defer s.release()
 			outcomes[i] = s.scoreOne(ctx, jobs[i])
+			s.noteCall(outcomes[i])
 			s.emit(outcomes[i])
 		}(i)
 	}
 	wg.Wait()
 	return outcomes
+}
+
+// noteCall keeps count of calls that failed in a row.
+func (s *Scorer) noteCall(o Outcome) {
+	if o.Err == nil {
+		s.failStreak.Store(0)
+		return
+	}
+	if s.failStreak.Add(1) == maxCallFailures && s.Log != nil {
+		s.Log.Warn("AI calls keep failing; the rest stay pending for the next run", "err", o.Err)
+	}
 }
 
 func (s *Scorer) emit(o Outcome) {
@@ -139,17 +158,10 @@ func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 		}
 		return out
 	}
-	out.Usage = comp.Usage
 	out.LatencyMS = time.Since(start).Milliseconds()
-	if comp.CostUSD != nil && *comp.CostUSD > 0 {
-		out.CostUSD = *comp.CostUSD // authoritative, from the provider
-	} else {
-		prices, _ := PriceFor(s.Model)
-		out.CostUSD = prices.CostUSD(comp.Usage.PromptTokens, comp.Usage.CachedTokens, comp.Usage.CompletionTokens)
-	}
-	s.addCost(out.CostUSD)
+	s.charge(&out, comp)
 
-	analysis, raw := s.parseWithRetry(ctx, messages, comp.Content)
+	analysis, raw := s.parseWithRetry(ctx, &out, messages, comp.Content)
 	out.Raw = raw
 	if analysis == nil {
 		out.Stage = StageFailed // raw text is saved with the analysis row
@@ -169,9 +181,9 @@ func (s *Scorer) scoreOne(ctx context.Context, j Job) Outcome {
 }
 
 // parseWithRetry parses the reply; on a schema failure it retries once
-// with the retry note appended. It returns the analysis (nil on final
-// failure) and the raw text to persist.
-func (s *Scorer) parseWithRetry(ctx context.Context, messages []Message, content string) (*Analysis, string) {
+// with the retry note appended, charging the retry to out. It returns the
+// analysis (nil on final failure) and the raw text to persist.
+func (s *Scorer) parseWithRetry(ctx context.Context, out *Outcome, messages []Message, content string) (*Analysis, string) {
 	a, err := ParseAnalysis(content)
 	if err == nil {
 		return a, StripFences(content)
@@ -184,6 +196,7 @@ func (s *Scorer) parseWithRetry(ctx context.Context, messages []Message, content
 	if cerr != nil {
 		return nil, content
 	}
+	s.charge(out, comp)
 	a, err = ParseAnalysis(comp.Content)
 	if err != nil {
 		return nil, comp.Content
@@ -222,7 +235,7 @@ func PostLLMExclusion(a *Analysis, r Exclusions) (reason, evidence string) {
 // dynamic limit and the budget. It returns false when the run must stop.
 func (s *Scorer) reserve(ctx context.Context) bool {
 	for {
-		if s.budgetReached() {
+		if s.budgetReached() || s.failStreak.Load() >= maxCallFailures {
 			return false
 		}
 		lim := s.limit.Load()
@@ -297,10 +310,8 @@ func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
 		out.Stage, out.Err = StageSkipped, err
 		return out
 	}
-	out.Usage = comp.Usage
 	out.LatencyMS = time.Since(start).Milliseconds()
-	out.CostUSD = s.callCost(comp)
-	s.addCost(out.CostUSD)
+	s.charge(&out, comp)
 
 	fit, err := ParseFit(comp.Content)
 	raw := StripFences(comp.Content)
@@ -308,8 +319,7 @@ func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
 		retry, cerr := s.Client.Chat(ctx, CacheKey(s.ProfileHash),
 			append(append([]Message{}, messages...), Message{Role: "user", Content: retryNote}))
 		if cerr == nil {
-			out.CostUSD += s.callCost(retry)
-			s.addCost(s.callCost(retry))
+			s.charge(&out, retry)
 			raw = StripFences(retry.Content)
 			fit, err = ParseFit(retry.Content)
 		}
@@ -331,6 +341,16 @@ func (s *Scorer) scoreCompact(ctx context.Context, j Job, f *Facts) Outcome {
 		out.Stage = StageScored
 	}
 	return out
+}
+
+// charge adds one call's tokens and cost to the outcome and the run's budget.
+func (s *Scorer) charge(out *Outcome, c *Completion) {
+	cost := s.callCost(c)
+	out.Usage.PromptTokens += c.Usage.PromptTokens
+	out.Usage.CachedTokens += c.Usage.CachedTokens
+	out.Usage.CompletionTokens += c.Usage.CompletionTokens
+	out.CostUSD += cost
+	s.addCost(cost)
 }
 
 // callCost is the provider-reported cost, or the price table estimate.

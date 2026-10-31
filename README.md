@@ -18,7 +18,9 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
   <img alt="Wera system architecture on one Hetzner VM: Caddy routes /api to wera-api and pages to wera-web; wera-api and wera-worker (one Go binary) use wera-embed and PostgreSQL and call the LLM API; the worker polls job boards, the API sends email; wera-admin is reached only through an SSH tunnel" src="docs/architecture.svg">
 </picture>
 
-Everything runs with Docker Compose on one host (see [deploy/hetzner](deploy/hetzner)). Caddy is the only public service: it terminates TLS and sends `/api/*` to `wera-api` and everything else to `wera-web` (nginx serving the dashboard). `wera-api` and `wera-worker` are the same Go binary: the API serves requests and sends queued email, the worker runs the matching pipeline on a schedule. Both rank jobs with `wera-embed`, a small local embedding model, and keep everything in PostgreSQL. `wera-admin` listens on 127.0.0.1 only and is reached through an SSH tunnel.
+Everything runs with Docker Compose on one host. The diagram shows a server with a domain (see [deploy/hetzner](deploy/hetzner)): Caddy is the only public service, it terminates TLS and sends `/api/*` to `wera-api` and everything else to `wera-web` (nginx serving the dashboard). `wera-api` and `wera-worker` are the same Go binary: the API serves requests and sends queued email, the worker runs the matching pipeline on a schedule. Both rank jobs with `wera-embed`, a small local embedding model, and keep everything in PostgreSQL. `wera-admin` listens on 127.0.0.1 only and is reached through an SSH tunnel.
+
+Without a domain the same services run on a home server: the public dashboard is on Vercel and reaches the API through a Cloudflare quick tunnel, and the LAN uses `wera-web` directly (see [deploy/home](deploy/home)).
 
 ## How matching works
 
@@ -28,7 +30,7 @@ Everything runs with Docker Compose on one host (see [deploy/hetzner](deploy/het
 </picture>
 
 1. **Fetch** each company's board once, for everyone. Boards that support ETags answer `304 Not Modified` when nothing changed; Workday boards list only new postings, with a full sweep once a day. A shared throttle keeps requests few and spaced out.
-2. **Store** only new or changed postings (by content hash), with a bulk `COPY`.
+2. **Store** only new or changed postings (by content hash). A board that fails, for any reason, changes nothing: postings close only after a listing that succeeded.
 3. **Filter** per user with `config/roles.yaml` and their preferences: role families, seniority, US-only, and explicit sponsorship refusals. No LLM cost; a new user's 40,000 jobs take about 4 seconds.
 4. **Rank locally** with TF-IDF against the user's profile. These estimates show a new user ranked matches within seconds of signing up.
 5. **Extract shared facts** once per posting with the LLM: seniority, years required, sponsorship (the quote must appear verbatim in the posting), work mode, skills and a short digest. Every user reuses them.
@@ -46,10 +48,10 @@ Measured on the development data: a new account is ready in about 5 seconds. On 
 - **Community:** a blog for offers, interview experiences and tips, with comments and reactions; every post and comment is reviewed by an AI moderator first (violence, harassment, cheating or faked credentials, spam, off-topic) and refused with a reason
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
 - **Sponsorship:** what each company's postings say about visa sponsorship (from data already extracted while scoring), beside its certified H-1B applications from the US Department of Labor's LCA disclosure files: counts, new hires, offered wages by job title, place and wage level, a lookup for any employer, and in each job view what the company offered for similar titles at that job's level
-- **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), jobs saved from any page or the dashboard (deduplicated across users, scored, added to the tracker, then rule-filtered and scored for every other user they suit; added postings close after 45 days), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
+- **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), jobs saved from any page or the dashboard (deduplicated across users, scored, added to the tracker, then rule-filtered and scored for every other user they suit; added postings close 45 days after they were last added), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
 - **Admin API** (`/api/admin/*`, for the [wera-admin](https://github.com/jessechumo/wera-admin) app): service overview, accounts (budget, admin role, sign out everywhere, delete with the email as confirmation), pipeline runs and AI usage, company fetch health, moderation of community posts and comments (publish, hide, delete), email outbox and tests. Every change lands in an audit log; extension tokens never reach these routes.
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
-- **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`
+- **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`. A batch stops after 12 AI calls fail in a row, so an outage at the provider leaves jobs pending instead of holding the pipeline for hours
 
 ## H-1B data
 
@@ -158,7 +160,38 @@ docker compose --profile public up -d wera-api-public wera-tunnel
 docker logs wera-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com'
 ```
 
-Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, so switch to a named tunnel once a domain exists.
+Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, and a quick tunnel does not survive an outage of more than about 12 minutes, so on a home server install the [tunnel watch](deploy/home), which replaces a dead tunnel and updates `vercel.json` by itself. Switch to a named tunnel once a domain exists.
+
+### Backups
+
+On a server with [deploy/hetzner](deploy/hetzner), `./deploy.sh backup` does this on a schedule. With plain Compose:
+
+```bash
+mkdir -p ~/wera-backups
+file=~/wera-backups/wera-$(date +%Y%m%d-%H%M).sql.gz
+docker exec wera-postgres pg_dump -U wera -d wera | gzip > "$file" && gzip -t "$file"
+```
+
+Take one before every deploy. To restore, load the dump into a new database, check it, then swap it in while nothing is connected:
+
+```bash
+docker exec wera-postgres createdb -U wera wera_restored
+gunzip -c "$file" | docker exec -i wera-postgres psql -q -U wera -d wera_restored
+docker compose --profile public stop wera-api wera-api-public wera-worker
+docker exec wera-postgres psql -U wera -d postgres -c 'ALTER DATABASE wera RENAME TO wera_old' -c 'ALTER DATABASE wera_restored RENAME TO wera'
+docker compose --profile public start wera-api wera-api-public wera-worker
+```
+
+### When something goes wrong
+
+| What you see | What it means | What to do |
+|---|---|---|
+| The public site says the server isn't answering, the LAN one works | The tunnel is down, usually after an outage | The [tunnel watch](deploy/home) fixes this by itself; see its log. Without it, `docker restart wera-tunnel` and put the new address in `vercel.json` |
+| The LAN dashboard loads but every request fails | The API is down | `docker ps`, then `docker logs wera-api` |
+| A run says `partial` | Some boards failed; the rest are in | The admin console's Companies page lists each failure. They are tried again on the next run, and nothing closes because of them |
+| Jobs stay "estimated" | The user reached their daily score limit, or their budget | Opening a job scores it. See `SCORES_PER_DAY` and `wera users budget` |
+| `/healthz` shows an old version | The images were built without the stamp | Use the `WERA_VERSION=...` build above |
+| Tests are skipped, or refuse to run | `WERA_TEST_DATABASE_URL` is not set, or names the live database | Use a copy such as `wera_test` (see [Development](#development)) |
 
 ### Accounts
 
@@ -192,13 +225,16 @@ Integration tests need a PostgreSQL database other than the live one (`WERA_TEST
 
 ## Releases and versioning
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `perf:`, `docs:`, ...), checked on every pull request. [release-please](https://github.com/googleapis/release-please) turns them into a release PR with the next [semantic version](https://semver.org) and a `CHANGELOG.md`; merging it tags `vX.Y.Z`, attaches Linux binaries, and pushes the Docker image. Until 1.0, a `feat` bumps the minor version and a `fix` the patch. `wera version` and `/healthz` report the running version.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `perf:`, `docs:`, ...), checked on every pull request. [release-please](https://github.com/googleapis/release-please) turns them into a release PR with the next [semantic version](https://semver.org) and a `CHANGELOG.md`; merging it tags `wera-vX.Y.Z`, attaches Linux binaries, and pushes the Docker image. Until 1.0, a `feat` bumps the minor version and a `fix` the patch. `wera version` and `/healthz` report the running version.
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
+| `wera migrate` | Apply database migrations |
 | `wera pipeline` | Fetch, filter, and score once |
+| `wera fetch [--company NAME]` | Fetch job boards only |
+| `wera score` | Score pending jobs only |
 | `wera worker` | Run the pipeline at the `RUN_SCHEDULE` times in `RUN_TIMEZONE` (or every `RUN_INTERVAL` when no schedule is set) |
 | `wera serve` | REST API, `/healthz`, and Prometheus `/metrics` |
 | `wera discover "Name"` | Find a company's job board on Greenhouse, Lever, or Ashby |
@@ -207,7 +243,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`fea
 | `wera rescore --all [--user E]` | Rescore after changing profiles |
 | `wera deep --top N [--user E]` | Longer review of a user's top matches using background mode (Coral or OpenAI Responses API) |
 | `wera bench [--user E]` | Measure scoring throughput, cache hit rate, and cost per job |
-| `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile` | Manage accounts and profiles from the server shell |
+| `wera users list\|create\|passwd\|admin\|update\|budget\|import-profile\|export-profile` | Manage accounts and profiles from the server shell |
 | `wera mail preview \| test \| digest \| send` | Preview email templates, send a test, render a digest, deliver queued mail |
 | `wera h1b import FILE.xlsx... \| match \| status` | Load the Department of Labor's H-1B disclosure files (see below), match employers to companies |
 | `wera version` | Print the version and commit |

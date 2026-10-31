@@ -37,8 +37,8 @@ Integration tests share one database, so packages run one at a time
 
 ## Branches and pull requests
 
-- Work on a branch from `dev` (or on `dev` itself for small changes) and open
-  a pull request into `main`. CI must pass before merging.
+- Work on a branch from `dev` and open a pull request into `dev`. `dev` then
+  reaches `main` through its own pull request. CI must pass at each step.
 - Keep commits small and focused: one logical change each.
 - Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org):
   `type(scope): subject`, lowercase and imperative, no trailing period, e.g.

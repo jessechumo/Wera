@@ -30,6 +30,7 @@ Rules:
 - Text fields get a short, plain answer (a name, a number, a few words). Longer free-text questions get at most 80 words in the first person, specific to this job, and confidence "low".
 - Salary questions: use the candidate's stated expectation only; never guess one.
 - confidence "high" when the data states the answer directly; "low" when you inferred it.
+- A "no" to what the candidate has, can do or would accept can end their application, so it is "high" only when the data says so outright. Something missing from the resume is not a no: a skill, license or certification it does not mention, or a place or schedule it does not address, is confidence "low".
 - Never use em dashes or en dashes.`
 
 // FormField is one field of an application form page, as the extension reads it.

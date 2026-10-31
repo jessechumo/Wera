@@ -284,6 +284,28 @@ func TestResumeTemplatesLaTeXAndReview(t *testing.T) {
 	}
 }
 
+func TestSuggestBulletIsWithinTheBudget(t *testing.T) {
+	ts, llm := llmServer(t)
+	pool := testPool(t)
+	if err := store.SetBudget(context.Background(), pool, testUserID, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.SetBudget(context.Background(), pool, testUserID, 5) })
+	b, _ := json.Marshal(map[string]string{"text": "Responsible for deploys, which got 50% faster across 12 services"})
+	code, body := do(t, client, http.MethodPost, ts.URL+"/api/resumes/suggest-bullet", string(b))
+	if code != http.StatusPaymentRequired || llm.calls.Load() != 0 {
+		t.Errorf("no budget left: want 402 and no AI call, got %d after %d calls: %s", code, llm.calls.Load(), body)
+	}
+}
+
+func TestSuggestBulletWithoutAI(t *testing.T) {
+	ts, _ := testServer(t, nil)
+	code, _ := do(t, client, http.MethodPost, ts.URL+"/api/resumes/suggest-bullet", `{"text":"Ran the deploys"}`)
+	if code != http.StatusServiceUnavailable {
+		t.Errorf("want 503, got %d", code)
+	}
+}
+
 func TestSuggestBullet(t *testing.T) {
 	ts, _ := llmServer(t)
 	b, _ := json.Marshal(map[string]string{"text": "Responsible for deploys, which got 50% faster across 12 services", "role": "SRE at Engines Inc"})
