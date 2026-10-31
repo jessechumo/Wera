@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.10.0](https://github.com/jessechumo/Wera/compare/wera-v0.9.1...wera-v0.10.0) (2026-10-31)
+
+
+### Features
+
+* **rank:** learn each user's fit from the AI's own scores ([27c1aaf](https://github.com/jessechumo/Wera/commit/27c1aafee6de830acd1135c155cbb62ff99c3738))
+* **rank:** rank on what the fit score weighs ([0dc26c9](https://github.com/jessechumo/Wera/commit/0dc26c929c739fb5818e30cda3dc85bf92aa9842))
+
+
+### Bug Fixes
+
+* **companies:** follow five boards that moved and stop fetching five that are gone ([ab1e106](https://github.com/jessechumo/Wera/commit/ab1e1067c803c4608435303c891b22ccb04553a2))
+* **rank:** keep the best jobs in order when many share an estimate ([2139dda](https://github.com/jessechumo/Wera/commit/2139ddac0c62e8de9d6a04344809741e2ca247ee))
+
+
+### Documentation
+
+* **home:** keep the Wi-Fi finding to what the logs show ([8fdf138](https://github.com/jessechumo/Wera/commit/8fdf1384ceb52eab54b0d549917ebcde0b630cd2))
+* **home:** say that the server's Wi-Fi caused the long outages ([0584680](https://github.com/jessechumo/Wera/commit/0584680e62ff6f7acf3513cec74c9e50ee0acc9f))
+* **readme:** describe how ranking learns from the AI's scores ([14655e7](https://github.com/jessechumo/Wera/commit/14655e7656fa50d555454fa7c23d4ba9e9df19b8))
+
 ## [0.9.1](https://github.com/jessechumo/Wera/compare/wera-v0.9.0...wera-v0.9.1) (2026-10-31)
 
 
