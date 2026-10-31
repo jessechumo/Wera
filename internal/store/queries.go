@@ -63,6 +63,8 @@ type JobView struct {
 	// AutofilledAt is when the extension last filled an application for
 	// the job (nil: never).
 	AutofilledAt *time.Time `json:"autofilled_at"`
+	// ClosedAt is when the posting came down (nil: still open).
+	ClosedAt *time.Time `json:"closed_at"`
 }
 
 // jobViewSelect selects one user's view of jobs: their rule outcome,
@@ -77,7 +79,8 @@ const jobViewSelect = `
 	       a.sponsorship, a.work_mode, a.location_summary,
 	       a.skills_matched, a.skills_missing, a.reason,
 	       ap.status, ap.notes, uj.estimated_score,
-	       (SELECT max(r.updated_at) FROM autofill_runs r WHERE r.user_id = uj.user_id AND r.job_id = j.id)
+	       (SELECT max(r.updated_at) FROM autofill_runs r WHERE r.user_id = uj.user_id AND r.job_id = j.id),
+	       j.closed_at
 	FROM user_jobs uj
 	JOIN jobs j ON j.id = uj.job_id
 	JOIN companies c ON c.id = j.company_id
@@ -96,7 +99,7 @@ func jobViewScan(v *JobView) []any {
 		&v.FitScore, &v.Verdict, &v.Seniority, &v.YearsRequired,
 		&v.Sponsorship, &v.WorkMode, &v.LocationSummary,
 		&v.SkillsMatched, &v.SkillsMissing, &v.Reason,
-		&v.AppStatus, &v.AppNotes, &v.EstimatedScore, &v.AutofilledAt}
+		&v.AppStatus, &v.AppNotes, &v.EstimatedScore, &v.AutofilledAt, &v.ClosedAt}
 }
 
 // normalizeLimit clamps a page size for API queries.
@@ -112,13 +115,18 @@ func normalizeLimit(limit, def, ceiling int) int {
 
 // ListJobs runs the /api/jobs query for one user. By default it hides
 // excluded, score_failed and closed jobs; IncludeExcluded reveals them
-// (closed jobs stay hidden).
+// (closed jobs stay hidden). Filtering by application status lists what the
+// user is tracking, which stays theirs however the posting ends up: most
+// come down within weeks of the application.
 func ListJobs(ctx context.Context, pool *pgxpool.Pool, userID int64, q JobQuery) ([]JobView, error) {
-	where := []string{"j.closed_at IS NULL"}
+	var where []string
 	args := []any{userID}
 
-	if !q.IncludeExcluded {
-		where = append(where, "uj.stage NOT IN ('excluded','score_failed')")
+	if q.Status == "" {
+		where = append(where, "j.closed_at IS NULL")
+		if !q.IncludeExcluded {
+			where = append(where, "uj.stage NOT IN ('excluded','score_failed')")
+		}
 	}
 	if q.Industry != "" {
 		args = append(args, q.Industry)
