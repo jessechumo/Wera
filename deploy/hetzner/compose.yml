@@ -20,7 +20,7 @@ x-logging: &logging
     max-file: "5"
 
 x-wera: &wera
-  image: ghcr.io/jessechumo/wera:${WERA_TAG:-latest}
+  image: ghcr.io/wera-jobs/wera:${WERA_TAG:-latest}
   env_file: .env
   environment: &wera-env
     DATABASE_URL: postgres://wera:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/wera?sslmode=disable
@@ -114,7 +114,7 @@ services:
       start_period: 10s
 
   wera-web:
-    image: ghcr.io/jessechumo/wera-frontend:${WERA_WEB_TAG:-latest}
+    image: ghcr.io/wera-jobs/wera-frontend:${WERA_WEB_TAG:-latest}
     depends_on:
       wera-api:
         condition: service_healthy
@@ -129,7 +129,7 @@ services:
   # Never exposed to the internet: bound to the server's loopback, so it is
   # reachable only through `ssh -L 3001:127.0.0.1:3001 wera@<server>`.
   wera-admin:
-    image: ghcr.io/jessechumo/wera-admin:${WERA_ADMIN_TAG:-latest}
+    image: ghcr.io/wera-jobs/wera-admin:${WERA_ADMIN_TAG:-latest}
     ports:
       - "127.0.0.1:${ADMIN_PORT:-3001}:80"
     depends_on:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time setup of a fresh Ubuntu 24.04 server for Wera. Run as root:
 #
-#   curl -fsSL https://raw.githubusercontent.com/jessechumo/Wera/main/deploy/hetzner/setup-server.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/wera-jobs/Wera/main/deploy/hetzner/setup-server.sh | bash
 #
 # It installs Docker, opens only SSH/HTTP/HTTPS in the firewall, turns on
 # automatic security updates, adds swap, creates a "wera" user (with
@@ -11,7 +11,7 @@ set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
 
-RAW=https://raw.githubusercontent.com/jessechumo/Wera/main/deploy/hetzner
+RAW=https://raw.githubusercontent.com/wera-jobs/Wera/main/deploy/hetzner
 APP_USER=wera
 APP_DIR=/home/$APP_USER/wera
 
