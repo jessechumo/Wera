@@ -20,7 +20,7 @@ The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Fronte
 
 Everything runs with Docker Compose on one host. The diagram shows a server with a domain (see [deploy/hetzner](deploy/hetzner)): Caddy is the only public service, it terminates TLS and sends `/api/*` to `wera-api` and everything else to `wera-web` (nginx serving the dashboard). `wera-api` and `wera-worker` are the same Go binary: the API serves requests and sends queued email, the worker runs the matching pipeline on a schedule. Both rank jobs with `wera-embed`, a small local embedding model, and keep everything in PostgreSQL. `wera-admin` listens on 127.0.0.1 only and is reached through an SSH tunnel.
 
-Without a domain the same services run on a home server: the public dashboard is on Vercel and reaches the API through a Cloudflare quick tunnel, and the LAN uses `wera-web` directly (see [deploy/home](deploy/home)).
+The same services also run on a home server, which is how Wera runs today: the public dashboard is on Vercel and reaches the API through a Cloudflare Tunnel, and the LAN uses `wera-web` directly (see [deploy/home](deploy/home)).
 
 ## How matching works
 
@@ -152,15 +152,11 @@ Released images are published to `ghcr.io/jessechumo/wera:<version>`.
 
 To let people outside your network use Wera, give it a public HTTPS address without opening router ports, for example with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to `http://localhost:3000` (or host the dashboard on Vercel and tunnel the API). Then set `COOKIE_SECURE=true`, `TRUST_PROXY=true`, and `PUBLIC_ORIGINS=https://<your-domain>` in `.env` and restart. Served over HTTPS, the dashboard's HSTS header stops downgrade attacks.
 
-Until there is a domain, the `public` compose profile does this with no account: a second API instance (`wera-api-public`, secure cookies, proxy headers trusted) behind a Cloudflare quick tunnel, while `wera-api` keeps serving the LAN over plain HTTP.
+On a home server the `public` compose profile does this: a second API instance (`wera-api-public`, secure cookies, proxy headers trusted) behind a named Cloudflare Tunnel, while `wera-api` keeps serving the LAN over plain HTTP. The tunnel keeps its address and reconnects by itself after an outage. [deploy/home](deploy/home) has the setup.
 
 ```sh
-PUBLIC_ORIGINS=https://<your-app>.vercel.app   # in .env
 docker compose --profile public up -d wera-api-public wera-tunnel
-docker logs wera-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com'
 ```
-
-Put that address in the frontend's `vercel.json`. It changes whenever `wera-tunnel` restarts, and a quick tunnel does not survive an outage of more than about 12 minutes, so on a home server install the [tunnel watch](deploy/home), which replaces a dead tunnel and updates `vercel.json` by itself. Switch to a named tunnel once a domain exists.
 
 ### Backups
 
@@ -186,7 +182,7 @@ docker compose --profile public start wera-api wera-api-public wera-worker
 
 | What you see | What it means | What to do |
 |---|---|---|
-| The public site says the server isn't answering, the LAN one works | The tunnel is down, usually after an outage | The [tunnel watch](deploy/home) fixes this by itself; see its log. Without it, `docker restart wera-tunnel` and put the new address in `vercel.json` |
+| The public site says the server isn't answering, the LAN one works | The tunnel is down, usually after an outage | It reconnects by itself when the network returns. If it stays down, check `docker logs wera-tunnel`, then `docker restart wera-tunnel` |
 | The LAN dashboard loads but every request fails | The API is down | `docker ps`, then `docker logs wera-api` |
 | A run says `partial` | Some boards failed; the rest are in | The admin console's Companies page lists each failure. They are tried again on the next run, and nothing closes because of them |
 | Jobs stay "estimated" | The user reached their daily score limit, or their budget | Opening a job scores it. See `SCORES_PER_DAY` and `wera users budget` |
