@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/wera-jobs/Wera/compare/wera-v0.10.0...wera-v0.11.0) (2026-11-01)
+
+
+### Features
+
+* **deploy:** run the public site on a named tunnel ([e7a7d5d](https://github.com/wera-jobs/Wera/commit/e7a7d5d3f0947c7d545688ae50f4dd229a2c724c))
+
+
+### Documentation
+
+* **readme:** point links at the wera-jobs org ([8253bc6](https://github.com/wera-jobs/Wera/commit/8253bc65042a8c61baaa07e9964ae2d0acf7fe87))
+
 ## [0.10.0](https://github.com/jessechumo/Wera/compare/wera-v0.9.1...wera-v0.10.0) (2026-10-31)
 
 
