@@ -1,15 +1,15 @@
 # Wera
 
-[![CI](https://github.com/jessechumo/Wera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jessechumo/Wera/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jessechumo/Wera/badges/coverage.json)](https://github.com/jessechumo/Wera/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jessechumo/Wera?sort=semver&display_name=tag)](https://github.com/jessechumo/Wera/releases)
-[![Go](https://img.shields.io/github/go-mod/go-version/jessechumo/Wera?logo=go)](go.mod)
+[![CI](https://github.com/wera-jobs/Wera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/wera-jobs/Wera/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/wera-jobs/Wera/badges/coverage.json)](https://github.com/wera-jobs/Wera/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/wera-jobs/Wera?sort=semver&display_name=tag)](https://github.com/wera-jobs/Wera/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/wera-jobs/Wera?logo=go)](go.mod)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
-[![License](https://img.shields.io/github/license/jessechumo/Wera)](LICENSE)
+[![License](https://img.shields.io/github/license/wera-jobs/Wera)](LICENSE)
 
 **Wera** (Swahili slang for a job or gig) is a self-hosted job radar. It collects postings from public job-board feeds (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Oracle Recruiting Cloud, Workable, Rippling, Eightfold, and amazon.jobs) for 5,100+ companies across 30 industries (tech firms, but also hospitals, schools, retailers, restaurants and nonprofits), filters them with configurable rules, scores each one against your resume with an LLM from any OpenAI-compatible provider (presets for [Coral Bricks](https://www.coralbricks.ai) and [DeepInfra](https://deepinfra.com)), and serves the results through a REST API. Wera does not apply on your behalf. You review the matches and apply yourself.
 
-The dashboard lives in [wera-frontend](https://github.com/jessechumo/Wera-Frontend), and the Chrome extension (save jobs from any page, cover letters, tailored resumes, filling applications) in [wera-extension](https://github.com/jessechumo/wera-extension).
+The dashboard lives in [wera-frontend](https://github.com/wera-jobs/Wera-Frontend), and the Chrome extension (save jobs from any page, cover letters, tailored resumes, filling applications) in [wera-extension](https://github.com/wera-jobs/wera-extension).
 
 ## Architecture
 
@@ -49,7 +49,7 @@ Measured on the development data: a new account is ready in about 5 seconds. Of 
 - **Interview prep:** multiple-choice questions by domain (algorithms, system design, databases, OS and networking, ML, behavioral) and difficulty, with explanations and progress
 - **Sponsorship:** what each company's postings say about visa sponsorship (from data already extracted while scoring), beside its certified H-1B applications from the US Department of Labor's LCA disclosure files: counts, new hires, offered wages by job title, place and wage level, a lookup for any employer, and in each job view what the company offered for similar titles at that job's level
 - **Chrome extension API:** revocable per-browser tokens, application details (filled into forms), jobs saved from any page or the dashboard (deduplicated across users, scored, added to the tracker, then rule-filtered and scored for every other user they suit; added postings close 45 days after they were last added), AI reading of job pages (the description is cut from the page text, never retyped), drafted answers to application questions, and the tailored resumes above (the extension attaches the tailored PDF)
-- **Admin API** (`/api/admin/*`, for the [wera-admin](https://github.com/jessechumo/wera-admin) app): service overview, accounts (budget, admin role, sign out everywhere, delete with the email as confirmation), pipeline runs and AI usage, company fetch health, moderation of community posts and comments (publish, hide, delete), email outbox and tests. Every change lands in an audit log; extension tokens never reach these routes.
+- **Admin API** (`/api/admin/*`, for the [wera-admin](https://github.com/wera-jobs/wera-admin) app): service overview, accounts (budget, admin role, sign out everywhere, delete with the email as confirmation), pipeline runs and AI usage, company fetch health, moderation of community posts and comments (publish, hide, delete), email outbox and tests. Every change lands in an audit log; extension tokens never reach these routes.
 - **Accounts:** sessions, profile pictures, resume viewing, settings (theme, default sort, notification preferences, hidden companies), CSV export, account deletion
 - **Operations:** Prometheus metrics, per-user and global monthly LLM budgets, maintenance-aware scheduling, version in `/healthz`. A batch stops after 12 AI calls fail in a row, so an outage at the provider leaves jobs pending instead of holding the pipeline for hours
 
@@ -144,9 +144,9 @@ The dashboard is served at `http://<server-ip>:3000` (`WEB_PORT`). Migrations ru
 iptables -I DOCKER-USER -p tcp -m conntrack --ctdir ORIGINAL --ctorigdstport 3000 ! -s 192.168.1.0/24 -j DROP
 ```
 
-The admin console ([wera-admin](https://github.com/jessechumo/wera-admin), checked out beside this repository) is served at `http://<server-ip>:3001` (`ADMIN_PORT`); sign in with an admin account (`wera users admin --email you@example.com`). Its nginx answers private networks only; do not route it through a public tunnel.
+The admin console ([wera-admin](https://github.com/wera-jobs/wera-admin), checked out beside this repository) is served at `http://<server-ip>:3001` (`ADMIN_PORT`); sign in with an admin account (`wera users admin --email you@example.com`). Its nginx answers private networks only; do not route it through a public tunnel.
 
-Released images are published to `ghcr.io/jessechumo/wera:<version>`.
+Released images are published to `ghcr.io/wera-jobs/wera:<version>`.
 
 ### Public access
 

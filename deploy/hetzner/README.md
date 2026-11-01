@@ -1,7 +1,7 @@
 # Deploying Wera to a server (Hetzner)
 
 Everything runs in Docker from the images each release publishes to GitHub
-Container Registry (`ghcr.io/jessechumo/wera`, `wera-frontend`,
+Container Registry (`ghcr.io/wera-jobs/wera`, `wera-frontend`,
 `wera-admin`). The server needs only this folder.
 
 ```
@@ -34,7 +34,7 @@ You do not need to buy an SSL certificate: Caddy gets one for free.
 Create the server in Hetzner Cloud with your SSH key, then as root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jessechumo/Wera/main/deploy/hetzner/setup-server.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wera-jobs/Wera/main/deploy/hetzner/setup-server.sh | bash
 ```
 
 That installs Docker, enables the firewall (SSH, 80, 443 only), automatic
